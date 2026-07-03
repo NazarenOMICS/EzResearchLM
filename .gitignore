@@ -1,0 +1,50 @@
+# Local configuration and secrets
+.env
+*.env
+client_secret*.json
+token.json
+storage_state.json
+*.cookie
+*.cookies
+
+# Python
+.venv/
+.pdfenv/
+.uv-cache/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+build/
+dist/
+
+# Runtime research artifacts
+runs/*
+!runs/.gitkeep
+Search/*
+!Search/.gitkeep
+Notes/*
+!Notes/.gitkeep
+Research/Papers/*
+!Research/Papers/.gitkeep
+
+# Source exports and large files
+**/QA/answers/
+**/Sources/
+**/Reports/
+**/passage-map-*.json
+**/tmp-sources-*.json
+**/qa-*.json
+*.pdf
+*.tgz
+*.zip
+*.tar
+*.tar.gz
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

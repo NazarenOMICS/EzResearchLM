@@ -1,0 +1,11 @@
+{
+  "must_have": [
+    {
+      "target_id": "DOI:10.0000/example",
+      "title": "Example required source",
+      "doi": "10.0000/example"
+    }
+  ],
+  "nice_to_have": [],
+  "allow_anna_fallback": false
+}

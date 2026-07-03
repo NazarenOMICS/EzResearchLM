@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ezresearchlm"
+version = "0.1.0"
+description = "NotebookLM-centered evidence pipeline for traceable academic research."
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+  "requests>=2.31",
+  "beautifulsoup4>=4.12",
+  "lxml>=4.9",
+  "PyPDF2>=3.0",
+  "playwright>=1.40",
+  "google-genai",
+  "anthropic",
+  "google-auth-oauthlib"
+]
+
+[tool.setuptools]
+package-dir = {"" = "packages/paper_search"}
+py-modules = ["search_topic", "run_search_topic_wrapper"]
+
+[tool.setuptools.packages.find]
+where = ["packages/paper_search"]
+include = ["paper_search_mcp*"]

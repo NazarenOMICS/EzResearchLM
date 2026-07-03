@@ -1,0 +1,16 @@
+{
+  "slug": "example-topic",
+  "project": "general",
+  "vault_slug": "general/example-topic",
+  "goal": "Answer a focused academic question using imported sources.",
+  "dashboard": "Example dashboard",
+  "notebook_id": "",
+  "questions": [
+    {
+      "id": 1,
+      "theme": "core-evidence",
+      "question": "What evidence do the imported sources provide for the central claim?",
+      "status": "pending"
+    }
+  ]
+}
