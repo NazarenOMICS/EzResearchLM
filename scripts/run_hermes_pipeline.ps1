@@ -80,7 +80,8 @@ $pythonCandidates = @(
 $VENV_PY = @($pythonCandidates | Where-Object { $_ -eq "python" -or (Test-Path -LiteralPath $_) } | Select-Object -First 1)[0]
 $UVPY = $VENV_PY
 $SCRIPTS = Join-Path $EZRESEARCH_ROOT "notebooklm\scripts"
-$SEARCH_ROOT = Join-Path $EZRESEARCH_ROOT "Search"
+$RUNS_ROOT = if ($env:EZRESEARCH_RUNS_ROOT) { $env:EZRESEARCH_RUNS_ROOT } else { Join-Path $EZRESEARCH_ROOT "runs" }
+$SEARCH_ROOT = if ($env:EZRESEARCH_SEARCH_ROOT) { $env:EZRESEARCH_SEARCH_ROOT } else { Join-Path $EZRESEARCH_ROOT "Search" }
 $UPLOADER = Join-Path $EZRESEARCH_ROOT "scripts\upload_sources_parallel.ps1"
 $SEARCH_WRAPPER = Join-Path $EZRESEARCH_ROOT "scripts\run_search_topic.ps1"
 $paperSearchPath = Join-Path $EZRESEARCH_ROOT "packages\paper_search"
@@ -118,9 +119,9 @@ if ($VaultSlug) {
 } else {
     $VAULT_SLUG = "$PROJECT/$Slug"
 }
-$RUN_ROOT = Join-Path (Join-Path $AUTORESEARCH "runs") $PROJECT
+$RUN_ROOT = Join-Path $RUNS_ROOT $PROJECT
 $RUN_DIR = Join-Path $RUN_ROOT $Slug
-$LEGACY_RUN_DIR = Join-Path (Join-Path $AUTORESEARCH "runs") $Slug
+$LEGACY_RUN_DIR = Join-Path $RUNS_ROOT $Slug
 if (-not $Project -and $FromExistingQuestions -and (Test-Path -LiteralPath (Join-Path $LEGACY_RUN_DIR "questions-$Slug.json")) -and -not (Test-Path -LiteralPath (Join-Path $RUN_DIR "questions-$Slug.json"))) {
     $PROJECT = "legacy"
     $VAULT_SLUG = $Slug

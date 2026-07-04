@@ -33,6 +33,12 @@ to debug or resume interrupted work.
 All wrappers resolve paths from their own repository root. Override paths with
 environment variables or `.env`.
 
+Important output overrides:
+
+- `EZRESEARCH_RUNS_ROOT`: run state, logs, questions, rescue queues.
+- `EZRESEARCH_SEARCH_ROOT`: search metadata and acquired PDFs.
+- `EZRESEARCH_VAULT`: imported notes and mirrored paper files.
+
 ## Main Commands
 
 Create or extend a source set:

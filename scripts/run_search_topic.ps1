@@ -5,7 +5,6 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$QueriesFile,
 
-    [Parameter(Mandatory = $true)]
     [string]$SaveDir,
 
     [string]$Sources = 'pubmed,europepmc,openalex,semantic,crossref',
@@ -33,6 +32,7 @@ if (Test-Path -LiteralPath $ENV_FILE) {
     }
 }
 $paperSearchPath = Join-Path $EZRESEARCH_ROOT "packages\paper_search"
+$SEARCH_ROOT = if ($env:EZRESEARCH_SEARCH_ROOT) { $env:EZRESEARCH_SEARCH_ROOT } else { Join-Path $EZRESEARCH_ROOT "Search" }
 $env:PYTHONPATH = if ($env:PYTHONPATH) { "$paperSearchPath;$env:PYTHONPATH" } else { $paperSearchPath }
 $pythonCandidates = @(
     $env:EZRESEARCH_PYTHON,
@@ -41,6 +41,9 @@ $pythonCandidates = @(
     "python"
 ) | Where-Object { $_ }
 $PYTHON = @($pythonCandidates | Where-Object { $_ -eq "python" -or (Test-Path -LiteralPath $_) } | Select-Object -First 1)[0]
+if (-not $SaveDir) {
+    $SaveDir = Join-Path $SEARCH_ROOT "$Slug-papers"
+}
 
 $args = @(
     (Join-Path $paperSearchPath "run_search_topic_wrapper.py"),
