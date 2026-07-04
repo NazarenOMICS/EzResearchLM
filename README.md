@@ -1,17 +1,17 @@
 # EZresearchLM
 
-NotebookLM-centered research automation for Claude Code, Codex, or any agent
-that can run local commands.
+NotebookLM-centered research automation for Claude Code, Codex, or any local
+agent that can run shell commands.
 
 EZresearchLM turns literature search into a traceable evidence pipeline:
 discover papers, resolve identifiers, acquire PDFs, rescue missing required
 sources, upload documents to NotebookLM, ask focused questions, export cited
 answers, and keep enough state to debug or resume the run.
 
-The important rule is simple: the agent can orchestrate, but NotebookLM is the
-evidence engine. Claude, Codex, or GPT can plan queries, run wrappers, inspect
-logs, and synthesize cited outputs. Strong academic claims should come from
-NotebookLM answers over imported sources, not from model memory.
+The core rule is simple: the agent orchestrates, but NotebookLM is the evidence
+engine. Claude, Codex, or GPT can plan queries, run wrappers, inspect logs, and
+synthesize cited outputs. Strong academic claims should come from NotebookLM
+answers over imported sources, not from model memory.
 
 ## What This Is
 
@@ -77,18 +77,27 @@ git clone https://github.com/NazarenOMICS/EzResearchLM.git
 cd EzResearchLM
 ```
 
-### 2. Install Python dependencies
+### 2. Install And Create `.env`
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File ".\scripts\setup_ezresearch.ps1" -InitEnv -Install
+```
+
+This creates `.venv`, installs EZresearchLM in editable mode, creates `.env` if
+needed, and sets `EZRESEARCH_PYTHON=.venv\Scripts\python.exe`.
+
+Manual equivalent:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -U pip
 .\.venv\Scripts\python.exe -m pip install -e .
+Copy-Item .env.example .env
 ```
 
-### 3. Configure output paths and optional keys
+### 3. Configure Output Paths And Optional Keys
 
 ```powershell
-Copy-Item .env.example .env
 notepad .env
 ```
 
@@ -121,15 +130,24 @@ You can also choose a search output directory per run with `-SaveDir`.
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File ".\scripts\auto_login.ps1"
-```
-
-Then verify:
-
-```powershell
 notebooklm list
 ```
 
-### 5. Run a source pipeline
+### 5. Verify Setup
+
+Search/acquisition readiness:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File ".\scripts\setup_ezresearch.ps1" -InitEnv
+```
+
+Full NotebookLM QA readiness:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File ".\scripts\setup_ezresearch.ps1" -RequireFullPipeline
+```
+
+### 6. Run A Source Pipeline
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File ".\scripts\run_hermes_pipeline.ps1" `
@@ -185,10 +203,14 @@ Claude should act as the operator:
 
 1. Clarify the research question.
 2. Write `examples`-style query and must-have JSON files.
-3. Run `run_hermes_pipeline.ps1`.
-4. Stop at `NEEDS_SOURCE_RESCUE` if required sources are missing.
-5. Generate focused NotebookLM questions only after sources are ready.
-6. Read summaries and citation audits, not raw giant exports.
+3. Run `setup_ezresearch.ps1 -RequireFullPipeline` before full QA.
+4. Run `run_hermes_pipeline.ps1`.
+5. Stop at `NEEDS_SOURCE_RESCUE` if required sources are missing.
+6. Generate focused NotebookLM questions only after sources are ready.
+7. Read summaries and citation audits, not raw giant exports.
+
+For the detailed Claude operator contract, see
+`docs/claude-operator-guide.md`.
 
 ## Core Commands
 
@@ -245,39 +267,41 @@ powershell.exe -ExecutionPolicy Bypass -File ".\scripts\run_hermes_doctor.ps1" `
 
 ```text
 EZresearchLM/
-├── README.md
-├── SETUP.md
-├── CLAUDE.md
-├── AGENTS.md
-├── .env.example
-├── examples/
-│   ├── queries.example.json
-│   ├── must-have.example.json
-│   └── questions.example.json
-├── scripts/
-│   ├── run_hermes_pipeline.ps1
-│   ├── run_hermes_answer.ps1
-│   ├── run_hermes_doctor.ps1
-│   ├── run_search_topic.ps1
-│   ├── upload_sources_parallel.ps1
-│   └── auto_login.ps1
-├── packages/
-│   └── paper_search/
-│       ├── search_topic.py
-│       ├── run_search_topic_wrapper.py
-│       ├── paper_search_mcp/
-│       └── tests/
-├── notebooklm/
-│   └── scripts/
-├── docs/
-│   ├── configuration.md
-│   ├── debugging.md
-│   ├── pipeline-reference.md
-│   └── source-rescue.md
-├── runs/
-├── Search/
-├── Notes/
-└── Research/Papers/
+|-- README.md
+|-- SETUP.md
+|-- CLAUDE.md
+|-- AGENTS.md
+|-- .env.example
+|-- examples/
+|   |-- queries.example.json
+|   |-- must-have.example.json
+|   `-- questions.example.json
+|-- scripts/
+|   |-- setup_ezresearch.ps1
+|   |-- run_hermes_pipeline.ps1
+|   |-- run_hermes_answer.ps1
+|   |-- run_hermes_doctor.ps1
+|   |-- run_search_topic.ps1
+|   |-- upload_sources_parallel.ps1
+|   `-- auto_login.ps1
+|-- packages/
+|   `-- paper_search/
+|       |-- search_topic.py
+|       |-- run_search_topic_wrapper.py
+|       |-- paper_search_mcp/
+|       `-- tests/
+|-- notebooklm/
+|   `-- scripts/
+|-- docs/
+|   |-- claude-operator-guide.md
+|   |-- configuration.md
+|   |-- debugging.md
+|   |-- pipeline-reference.md
+|   `-- source-rescue.md
+|-- runs/
+|-- Search/
+|-- Notes/
+`-- Research/Papers/
 ```
 
 ## How The Pipeline Works
@@ -305,6 +329,16 @@ Use `.env`:
 EZRESEARCH_RUNS_ROOT=D:\research-runs
 EZRESEARCH_SEARCH_ROOT=E:\paper-cache
 EZRESEARCH_VAULT=D:\research-vault
+```
+
+Or set them from setup:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File ".\scripts\setup_ezresearch.ps1" `
+  -InitEnv `
+  -RunsRoot "D:\research-runs" `
+  -SearchRoot "E:\paper-cache" `
+  -Vault "D:\research-vault"
 ```
 
 Or override one search:
@@ -361,6 +395,7 @@ If a must-have source is missing, the pipeline stops before QA.
 ## Validation
 
 ```powershell
+powershell.exe -ExecutionPolicy Bypass -File ".\scripts\setup_ezresearch.ps1" -InitEnv -SkipNotebookLM -SkipQmd
 $env:PYTHONPATH = "$PWD\packages\paper_search"
 python -m py_compile .\packages\paper_search\search_topic.py .\packages\paper_search\run_search_topic_wrapper.py
 python -m unittest discover -s .\packages\paper_search\tests

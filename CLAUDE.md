@@ -21,12 +21,28 @@ the evidence engine.
 
 1. Read `README.md`.
 2. Read `SETUP.md`.
-3. Confirm `.env` exists or help the user create it.
+3. Run setup:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File ".\scripts\setup_ezresearch.ps1" -InitEnv
+```
+
+For a new clone, use:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File ".\scripts\setup_ezresearch.ps1" -InitEnv -Install
+```
+
 4. Confirm output paths:
    - `EZRESEARCH_RUNS_ROOT`
    - `EZRESEARCH_SEARCH_ROOT`
    - `EZRESEARCH_VAULT`
 5. Check NotebookLM auth with `notebooklm list`.
+6. Before a full QA run, require full readiness:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File ".\scripts\setup_ezresearch.ps1" -RequireFullPipeline
+```
 
 ## Main Commands
 

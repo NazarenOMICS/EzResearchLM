@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell.exe -ExecutionPolicy Bypass -File .\\\\scripts\\\\setup_ezresearch.ps1*)",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -File .\\\\scripts\\\\run_search_topic.ps1*)",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -File .\\\\scripts\\\\run_hermes_pipeline.ps1*)",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -File .\\\\scripts\\\\run_hermes_doctor.ps1*)",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -File .\\\\scripts\\\\auto_login.ps1*)",
+      "Bash(notebooklm list*)",
+      "Bash(qmd collection list*)",
+      "Bash(python -m unittest discover -s .\\\\packages\\\\paper_search\\\\tests*)",
+      "Bash(git status*)",
+      "Bash(git diff*)"
+    ],
+    "deny": [
+      "Bash(git reset --hard*)",
+      "Bash(git checkout --*)",
+      "Bash(Remove-Item -Recurse*)"
+    ]
+  }
+}

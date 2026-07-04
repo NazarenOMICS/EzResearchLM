@@ -20,6 +20,17 @@ Optional:
 
 ## 2. Create Environment
 
+Recommended:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File ".\scripts\setup_ezresearch.ps1" -InitEnv -Install
+```
+
+This creates `.venv`, installs EZresearchLM, creates `.env` if needed, and sets
+`EZRESEARCH_PYTHON`.
+
+Manual equivalent:
+
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -U pip
@@ -31,6 +42,28 @@ python -m venv .venv
 ```powershell
 Copy-Item .env.example .env
 notepad .env
+```
+
+Or let the setup checker create/update it:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File ".\scripts\setup_ezresearch.ps1" -InitEnv
+```
+
+Before a full NotebookLM QA run, require full readiness:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File ".\scripts\setup_ezresearch.ps1" -RequireFullPipeline
+```
+
+To set custom output locations from the command line:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File ".\scripts\setup_ezresearch.ps1" `
+  -InitEnv `
+  -RunsRoot "D:\ezresearch-runs" `
+  -SearchRoot "E:\ezresearch-paper-cache" `
+  -Vault "D:\ezresearch-vault"
 ```
 
 Recommended minimum:
@@ -119,8 +152,14 @@ Open Claude Code in the repo and run:
 /setup
 ```
 
+`/setup` should run `scripts/setup_ezresearch.ps1 -InitEnv -Install` for a new
+clone, ask where outputs should be saved, verify NotebookLM/QMD, and stop
+before any real research run.
+
 Then ask Claude to create query/must-have files and run the wrappers.
 
 Claude should not answer literature questions from memory. It should operate the
 pipeline, inspect `source-rescue.json`, and use NotebookLM outputs for cited
 answers.
+
+See `docs/claude-operator-guide.md` for the full operator contract.
