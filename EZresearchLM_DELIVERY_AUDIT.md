@@ -95,3 +95,38 @@ Get-ChildItem -Recurse -Force | Where-Object {
 
 The repository is ready for a private GitHub remote after final `git status`,
 `git diff --check`, and tracked-file secret scan.
+
+## 2026-07-04 Follow-up Audit
+
+A second delivery pass found that `notebooklm/scripts/` existed but was empty in
+the initial clean repository. This was a release-blocking issue because the
+pipeline calls `list_sources_to_json.py`, `import_sources.py`, and
+`batch_ask.py` after NotebookLM upload.
+
+Fixes applied:
+
+- Copied NotebookLM helper scripts into `notebooklm/scripts/`.
+- Removed copied `__pycache__` runtime cache.
+- Sanitized old machine-specific NotebookLM executable fallback in
+  `batch_ask.py`; it now uses `NOTEBOOKLM_EXE` or `notebooklm` from PATH.
+- Sanitized Gemini OAuth lookup in `generate_questions.py`; it now uses
+  `EZRESEARCH_ROOT`, `.env`, or explicit OAuth environment variables instead of
+  source-workspace paths.
+- Changed EuropePMC PDF text extraction to import `PyPDF2` lazily, so basic
+  paper-search unit tests can import the package without requiring PDF parsing
+  dependencies until that feature is used.
+
+Validation rerun:
+
+- PowerShell parse: passed for all scripts in `scripts/`.
+- Python compile: passed for edited paper-search and NotebookLM helper modules.
+- Unit tests: 11 passed with a dependency-ready Python environment.
+- `git diff --check`: passed.
+- Tracked-file secret/data scan: no matches.
+- Full-tree secret/data scan: no secret files, PDFs, archives, cookies, or auth
+  state files found.
+
+Remaining GitHub step:
+
+- Local repository is ready. A private GitHub remote still requires the target
+  repository URL or authenticated GitHub creation step.

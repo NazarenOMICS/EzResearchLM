@@ -1,4 +1,4 @@
-# paper_search_mcp/academic_platforms/europepmc.py
+﻿# paper_search_mcp/academic_platforms/europepmc.py
 from typing import List, Optional, Dict, Any
 import requests
 import logging
@@ -7,7 +7,6 @@ from pathlib import Path
 from ..paper import Paper
 from ..utils import extract_doi
 from .base import PaperSource
-from PyPDF2 import PdfReader
 
 logger = logging.getLogger(__name__)
 
@@ -368,6 +367,8 @@ class EuropePMCSearcher(PaperSource):
             pdf_path = self.download_pdf(paper_id, save_path)
 
             # Extract text from PDF
+            from PyPDF2 import PdfReader
+
             with open(pdf_path, 'rb') as f:
                 pdf_reader = PdfReader(f)
                 text_parts = []
