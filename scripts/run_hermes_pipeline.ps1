@@ -222,10 +222,15 @@ function Write-RunState {
 }
 
 function Fail {
-    param([string]$Text, [int]$Code = 1)
+    param(
+        [string]$Text,
+        [int]$Code = 1,
+        [string]$Stage = "failed",
+        [string]$StateStatus = "failed"
+    )
     Write-Host "[FAIL] $Text" -ForegroundColor Red
     Add-Content -Path $STATUS -Value "- FAIL: $Text"
-    Write-RunState -Stage "failed" -StateStatus "failed" -Details @{ reason = $Text; exit_code = $Code }
+    Write-RunState -Stage $Stage -StateStatus $StateStatus -Details @{ reason = $Text; exit_code = $Code }
     exit $Code
 }
 
@@ -610,6 +615,7 @@ Write-RunState -Stage "preflight" -StateStatus "ok"
 Step "1 Search and download"
 New-Item -ItemType Directory -Force -Path $SaveDir | Out-Null
 if (-not $SkipSearch) {
+    Write-RunState -Stage "search" -StateStatus "running" -Details @{ search_wrapper = $SEARCH_WRAPPER; save_dir = $SaveDir }
     $searchArgs = @(
         "-ExecutionPolicy", "Bypass",
         "-File", $SEARCH_WRAPPER,
@@ -623,7 +629,10 @@ if (-not $SkipSearch) {
     if ($MustHaveFile) { $searchArgs += @("-MustHaveFile", $MustHaveFile) }
     if ($AllowAnnaFallback) { $searchArgs += "-AllowAnnaFallback" }
     & powershell.exe @searchArgs
-    if ($LASTEXITCODE -ne 0) { Fail "search wrapper failed" }
+    if ($LASTEXITCODE -ne 0) {
+        Sync-SearchArtifacts
+        Fail "search wrapper failed" -Stage "search" -StateStatus "failed_or_timed_out"
+    }
 } else {
     Note "SkipSearch set; using existing PDFs in $SaveDir"
 }

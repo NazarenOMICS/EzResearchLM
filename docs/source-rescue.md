@@ -60,3 +60,8 @@ When Anna's Archive is used, the source must remain visibly marked:
 
 If Anna fails, keep the source as `manual_needed`; do not convert it into an
 uncited answer.
+
+Anna attempts are bounded by `PAPER_SEARCH_MCP_ANNA_TIMEOUT_SECONDS` (default
+`120`). Search writes `candidate-sources.json`, `source-rescue.json`, and
+`missing-sources.md` before acquisition starts and after each candidate, so a
+timeout or crash still leaves a recoverable rescue queue.

@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import multiprocessing as mp
+import os
 import re
 import sys
 import tarfile
@@ -43,6 +45,7 @@ IDCONV_URL = "https://www.ncbi.nlm.nih.gov/pmc/utils/idconv/v1.0/"
 OA_URL = "https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi"
 DEFAULT_SOURCES = "pubmed,europepmc,openalex,semantic,crossref"
 REQUEST_TIMEOUT = 30
+ANNA_TIMEOUT_SECONDS = int(os.environ.get("PAPER_SEARCH_MCP_ANNA_TIMEOUT_SECONDS", "120"))
 _UNPAYWALL_RESOLVER: UnpaywallResolver | None = None
 ANNA_SOURCE = "anna_archive"
 OA_FALLBACK_CHAIN = ["direct", "pmc_oa", "europepmc_openalex", "unpaywall", "core_openaire_semantic"]
@@ -133,6 +136,41 @@ def normalize_targets(config: dict[str, Any]) -> list[dict[str, Any]]:
     entries = [target_to_entry(item, True) for item in config.get("must_have") or []]
     entries.extend(target_to_entry(item, False) for item in config.get("nice_to_have") or [])
     return entries
+
+
+def target_discovery_queries(targets: list[dict[str, Any]]) -> list[str]:
+    queries: list[str] = []
+    for target in targets:
+        for key in ("doi", "pmid", "pmcid"):
+            value = str(target.get(key) or "").strip()
+            if value:
+                queries.append(value)
+        title = str(target.get("title") or "").strip()
+        if title:
+            queries.append(title)
+    unique: list[str] = []
+    seen: set[str] = set()
+    for query in queries:
+        key = query.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(query)
+    return unique
+
+
+def discovery_queries(user_queries: list[str], targets: list[dict[str, Any]]) -> list[str]:
+    exact = target_discovery_queries(targets)
+    combined = exact + user_queries
+    unique: list[str] = []
+    seen: set[str] = set()
+    for query in combined:
+        key = query.strip().lower()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        unique.append(query.strip())
+    return unique
 
 
 def target_matches_record(target: dict[str, Any], record: dict[str, Any]) -> bool:
@@ -261,6 +299,16 @@ def score_record_confidence(record: dict[str, Any], targets: list[dict[str, Any]
                 record["title_match_confidence"] = max(record["title_match_confidence"], 75)
                 record["source_match_reason"] = "partial_title_match"
     return record
+
+
+def target_priority(record: dict[str, Any], targets: list[dict[str, Any]]) -> int:
+    for target in targets:
+        if target.get("required") and target_matches_record(target, record):
+            return 0
+    for target in targets:
+        if target_matches_record(target, record):
+            return 1
+    return 2
 
 
 def metadata_score(record: dict[str, Any]) -> int:
@@ -394,6 +442,42 @@ def valid_pdf_file(path: Path, min_bytes: int = MIN_PDF_BYTES) -> bool:
         return looks_like_pdf(handle.read(4096))
 
 
+def _anna_download_worker(identifier: str, save_dir: str, queue: Any) -> None:
+    try:
+        from paper_search_mcp.academic_platforms.anna_archive import AnnaArchiveFetcher
+
+        fetcher = AnnaArchiveFetcher(output_dir=save_dir)
+        queue.put({"path": fetcher.download_pdf(identifier)})
+    except BaseException as exc:
+        queue.put({"error": f"{type(exc).__name__}: {exc}"})
+
+
+def download_anna_identifier_with_timeout(identifier: str, save_dir: Path, timeout_seconds: int = ANNA_TIMEOUT_SECONDS) -> tuple[str | None, str]:
+    if timeout_seconds <= 0:
+        timeout_seconds = ANNA_TIMEOUT_SECONDS
+    try:
+        ctx = mp.get_context("spawn")
+        queue = ctx.Queue()
+        process = ctx.Process(target=_anna_download_worker, args=(identifier, str(save_dir), queue))
+        process.daemon = True
+        process.start()
+        process.join(timeout_seconds)
+        if process.is_alive():
+            process.terminate()
+            process.join(5)
+            return None, "timeout"
+        if queue.empty():
+            return None, "failed"
+        payload = queue.get_nowait()
+    except Exception:
+        return None, "failed"
+
+    path = payload.get("path") if isinstance(payload, dict) else None
+    if path:
+        return str(path), "downloaded"
+    return None, "failed"
+
+
 def pdf_source_for_record(record: dict[str, Any]) -> str:
     sources = set(record.get("oa_sources") or [])
     if "unpaywall" in sources:
@@ -434,18 +518,12 @@ def try_anna_archive(record: dict[str, Any], save_dir: Path) -> tuple[str | None
     identifiers = [item for item in identifiers if item]
     if not identifiers:
         return None, "no_identifier"
-    try:
-        from paper_search_mcp.academic_platforms.anna_archive import AnnaArchiveFetcher
-    except Exception:
-        return None, "unavailable"
-    fetcher = AnnaArchiveFetcher(output_dir=str(save_dir))
     for identifier in identifiers:
-        try:
-            path = fetcher.download_pdf(identifier)
-        except Exception:
-            path = None
+        path, status = download_anna_identifier_with_timeout(identifier, save_dir)
         if path and valid_pdf_file(Path(path)):
             return path, "downloaded"
+        if status == "timeout":
+            return None, "timeout"
     return None, "failed"
 
 
@@ -684,6 +762,98 @@ def write_missing_sources(entries: list[dict[str, Any]], output_dir: Path) -> Pa
     return output_path
 
 
+def write_search_artifacts(slug: str, queries: list[str], records: list[dict[str, Any]], targets: list[dict[str, Any]], output_dir: Path) -> dict[str, Path]:
+    payload = build_output(slug, queries, records)
+    rescue_entries = build_source_rescue(records, targets)
+    return {
+        "output": write_output(slug, payload, output_dir),
+        "candidate": write_candidate_sources(slug, records, output_dir),
+        "rescue": write_source_rescue(rescue_entries, output_dir),
+        "missing": write_missing_sources(rescue_entries, output_dir),
+    }
+
+
+def mark_records_pending_acquisition(records: list[dict[str, Any]]) -> None:
+    for record in records:
+        if record.get("pdf_status") is None:
+            record["pdf_status"] = "manual_needed"
+            record["pdf_path"] = None
+            record["pdf_source"] = None
+            record["manual_reason"] = "Acquisition pending; run did not complete this record yet."
+
+
+def acquire_records_incrementally(
+    slug: str,
+    queries: list[str],
+    records: list[dict[str, Any]],
+    targets: list[dict[str, Any]],
+    save_dir: Path,
+    min_oa: bool,
+    allow_anna_fallback: bool,
+) -> dict[str, Path]:
+    mark_records_pending_acquisition(records)
+    paths = write_search_artifacts(slug, queries, records, targets, save_dir)
+    for record in records:
+        try:
+            download_for_record(record, save_dir, min_oa, allow_anna_fallback=allow_anna_fallback)
+        except Exception as exc:
+            record["pdf_status"] = "failed"
+            record["pdf_path"] = None
+            record["pdf_source"] = None
+            record["manual_reason"] = f"Acquisition failed: {type(exc).__name__}: {exc}"
+        paths = write_search_artifacts(slug, queries, records, targets, save_dir)
+    return paths
+
+
+def discover_prepare_records(queries: list[str], sources: list[str], max_results: int, targets: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    raw_results = run_searches(discovery_queries(queries, targets), sources, max_results)
+    records = dedupe_records(raw_results)
+    enrich_records(records)
+    for record in records:
+        score_record_confidence(record, targets)
+    records.sort(
+        key=lambda item: (
+            target_priority(item, targets),
+            -(item.get("identifier_confidence") or 0),
+            -(item.get("title_match_confidence") or 0),
+            -int(item.get("year") or 0),
+            item.get("title") or "",
+        )
+    )
+    return records
+
+
+def run_topic_pipeline(
+    slug: str,
+    queries: list[str],
+    sources: list[str],
+    max_results: int,
+    save_dir: Path,
+    target_config: dict[str, Any],
+    min_oa: bool = False,
+    allow_anna_fallback: bool = False,
+    scout_only: bool = False,
+    resolve_only: bool = False,
+) -> tuple[dict[str, Any], dict[str, Path]]:
+    save_dir.mkdir(parents=True, exist_ok=True)
+    allow_anna = bool(allow_anna_fallback or target_config.get("allow_anna_fallback"))
+    targets = normalize_targets(target_config)
+    records = discover_prepare_records(queries, sources, max_results, targets)
+
+    if scout_only or resolve_only:
+        for record in records:
+            record["pdf_status"] = "candidate"
+            record["pdf_path"] = None
+            record["pdf_source"] = None
+            record["manual_reason"] = "Scout/resolve mode did not acquire PDFs."
+        paths = write_search_artifacts(slug, queries, records, targets, save_dir)
+    else:
+        paths = acquire_records_incrementally(slug, queries, records, targets, save_dir, min_oa, allow_anna)
+
+    payload = build_output(slug, queries, records)
+    return payload, paths
+
+
 def build_output(slug: str, queries: list[str], records: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "slug": slug,
@@ -768,42 +938,29 @@ def main() -> None:
     save_dir = Path(args.save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
     target_config = load_target_file(args.must_have_file)
-    allow_anna = bool(args.allow_anna_fallback or target_config.get("allow_anna_fallback"))
-    targets = normalize_targets(target_config)
-
-    raw_results = run_searches(queries, sources, max_results)
-    records = dedupe_records(raw_results)
-    enrich_records(records)
-    for record in records:
-        score_record_confidence(record, targets)
-    records.sort(key=lambda item: ((item.get("year") or 0), item.get("title") or ""), reverse=True)
-
-    if not (args.scout_only or args.resolve_only):
-        for record in records:
-            download_for_record(record, save_dir, args.min_oa, allow_anna_fallback=allow_anna)
-    else:
-        for record in records:
-            record["pdf_status"] = "candidate"
-            record["pdf_path"] = None
-            record["pdf_source"] = None
-            record["manual_reason"] = "Scout/resolve mode did not acquire PDFs."
-
-    payload = build_output(slug, queries, records)
-    output_path = write_output(slug, payload, save_dir)
-    candidate_path = write_candidate_sources(slug, records, save_dir)
-    rescue_entries = build_source_rescue(records, targets)
-    rescue_path = write_source_rescue(rescue_entries, save_dir)
-    missing_path = write_missing_sources(rescue_entries, save_dir)
+    payload, paths = run_topic_pipeline(
+        slug=slug,
+        queries=queries,
+        sources=sources,
+        max_results=max_results,
+        save_dir=save_dir,
+        target_config=target_config,
+        min_oa=args.min_oa,
+        allow_anna_fallback=args.allow_anna_fallback,
+        scout_only=args.scout_only,
+        resolve_only=args.resolve_only,
+    )
+    records = payload["papers"]
     oa_available = sum(1 for item in records if item.get("is_oa"))
 
     print(f"Papers encontrados: {len(records)} (deduplicados)")
     print(f"PDFs descargados: {payload['stats']['downloaded']} / {oa_available} OA disponibles")
     print(f"Anna fallback downloads: {payload['stats'].get('anna_downloaded', 0)}")
     print(f"Guardados en: {save_dir}")
-    print(f"Metadata: {output_path}")
-    print(f"Candidate sources: {candidate_path}")
-    print(f"Source rescue: {rescue_path}")
-    print(f"Missing sources: {missing_path}")
+    print(f"Metadata: {paths['output']}")
+    print(f"Candidate sources: {paths['candidate']}")
+    print(f"Source rescue: {paths['rescue']}")
+    print(f"Missing sources: {paths['missing']}")
     print(f"Manual needed: {payload['stats']['manual_needed']} papers identificados sin PDF OA descargable")
     print(f"Sin PDF/DOI util: {payload['stats']['no_pdf']} papers")
     if args.stdout_json:

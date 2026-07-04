@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -7,6 +8,63 @@ import search_topic
 
 
 class TestSearchTopic(unittest.TestCase):
+    def base_record(self, **overrides):
+        record = {
+            "title": "Comparative proteome analysis of Mycobacterium smegmatis in response to ethambutol",
+            "authors": "Wang X",
+            "year": 2011,
+            "doi": "",
+            "pmid": "20686769",
+            "pmcid": None,
+            "abstract": "",
+            "url": "https://example.org",
+            "pdf_url": None,
+            "tgz_url": None,
+            "is_oa": False,
+            "pdf_path": None,
+            "pdf_status": None,
+            "pdf_source": None,
+            "oa_sources": [],
+            "manual_reason": None,
+            "source": "pubmed",
+            "sources": ["pubmed"],
+            "queries": ["query"],
+            "paper_id": "20686769",
+            "identifier_confidence": 100,
+            "title_match_confidence": 100,
+            "source_match_reason": "matched_target:PMID:20686769",
+            "acquisition_policy": "oa_first",
+            "fallback_after": [],
+        }
+        record.update(overrides)
+        return record
+
+    def test_discovery_queries_prioritize_target_identifiers(self):
+        targets = [
+            {
+                "target_id": "PMID:20686769",
+                "title": "Comparative proteome analysis of Mycobacterium smegmatis in response to ethambutol",
+                "doi": "",
+                "pmid": "20686769",
+                "pmcid": "",
+                "required": True,
+            }
+        ]
+
+        queries = search_topic.discovery_queries(["ethambutol proteomics Mycobacterium smegmatis"], targets)
+
+        self.assertEqual(queries[0], "20686769")
+        self.assertIn("ethambutol proteomics Mycobacterium smegmatis", queries)
+
+    def test_target_priority_acquires_required_matches_first(self):
+        targets = [{"target_id": "PMID:20686769", "title": "", "doi": "", "pmid": "20686769", "pmcid": "", "required": True}]
+        matched = self.base_record()
+        unrelated = self.base_record(title="Unrelated paper", pmid="999", source_match_reason="discovery_result")
+
+        ordered = sorted([unrelated, matched], key=lambda item: search_topic.target_priority(item, targets))
+
+        self.assertEqual(ordered[0]["pmid"], "20686769")
+
     def test_dedupe_prefers_richer_metadata_and_merges_sources(self):
         first = {
             "title": "A useful paper",
@@ -159,6 +217,39 @@ class TestSearchTopic(unittest.TestCase):
         anna.assert_not_called()
         self.assertEqual(updated["pdf_status"], "manual_needed")
         self.assertIsNone(updated["pdf_source"])
+
+    def test_anna_timeout_marks_manual_needed(self):
+        record = self.base_record(doi="10.1000/test")
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with patch("search_topic.try_direct_pdf", return_value=(None, "failed")), \
+                 patch("search_topic.download_anna_identifier_with_timeout", return_value=(None, "timeout")):
+                updated = search_topic.download_for_record(record, Path(tmp_dir), min_oa=True, allow_anna_fallback=True)
+
+        self.assertEqual(updated["pdf_status"], "manual_needed")
+        self.assertIn("timeout", updated["manual_reason"])
+        self.assertEqual(updated["fallback_after"], search_topic.OA_FALLBACK_CHAIN)
+
+    def test_incremental_artifacts_survive_acquisition_exception(self):
+        targets = [{"target_id": "PMID:20686769", "title": "", "doi": "", "pmid": "20686769", "pmcid": "", "required": True}]
+        records = [self.base_record()]
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            save_dir = Path(tmp_dir)
+            with patch("search_topic.download_for_record", side_effect=RuntimeError("boom")):
+                paths = search_topic.acquire_records_incrementally(
+                    "slug",
+                    ["query"],
+                    records,
+                    targets,
+                    save_dir,
+                    min_oa=True,
+                    allow_anna_fallback=True,
+                )
+            rescue = json.loads(paths["rescue"].read_text(encoding="utf-8"))
+            candidates = json.loads(paths["candidate"].read_text(encoding="utf-8"))
+
+        self.assertEqual(rescue["sources"][0]["status"], "failed")
+        self.assertEqual(rescue["sources"][0]["failure_reason"], "network")
+        self.assertEqual(candidates["candidates"][0]["pdf_status"], "failed")
 
     def test_anna_pdf_validation_rejects_html_and_tiny_pdf(self):
         with tempfile.TemporaryDirectory() as tmp_dir:

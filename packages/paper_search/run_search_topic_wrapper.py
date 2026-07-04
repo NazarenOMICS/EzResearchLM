@@ -29,43 +29,30 @@ def main() -> None:
     save_dir = Path(args.save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
 
-    raw_results = search_topic.run_searches([q.strip() for q in queries], sources, args.n)
-    records = search_topic.dedupe_records(raw_results)
-    search_topic.enrich_records(records)
-    records.sort(key=lambda item: ((item.get("year") or 0), item.get("title") or ""), reverse=True)
-
     target_config = search_topic.load_target_file(args.must_have_file)
-    allow_anna = bool(args.allow_anna_fallback or target_config.get("allow_anna_fallback"))
-    targets = search_topic.normalize_targets(target_config)
-    for record in records:
-        search_topic.score_record_confidence(record, targets)
-
-    if args.scout_only or args.resolve_only:
-        for record in records:
-            record["pdf_status"] = "candidate"
-            record["pdf_path"] = None
-            record["pdf_source"] = None
-            record["manual_reason"] = "Scout/resolve mode did not acquire PDFs."
-    else:
-        for record in records:
-            search_topic.download_for_record(record, save_dir, args.min_oa, allow_anna_fallback=allow_anna)
-
-    payload = search_topic.build_output(args.slug, queries, records)
-    output_path = search_topic.write_output(args.slug, payload, save_dir)
-    candidate_path = search_topic.write_candidate_sources(args.slug, records, save_dir)
-    rescue_entries = search_topic.build_source_rescue(records, targets)
-    rescue_path = search_topic.write_source_rescue(rescue_entries, save_dir)
-    missing_path = search_topic.write_missing_sources(rescue_entries, save_dir)
+    payload, paths = search_topic.run_topic_pipeline(
+        slug=args.slug,
+        queries=[q.strip() for q in queries],
+        sources=sources,
+        max_results=args.n,
+        save_dir=save_dir,
+        target_config=target_config,
+        min_oa=args.min_oa,
+        allow_anna_fallback=args.allow_anna_fallback,
+        scout_only=args.scout_only,
+        resolve_only=args.resolve_only,
+    )
+    records = payload["papers"]
     oa_available = sum(1 for item in records if item.get("is_oa"))
 
     print(f"Papers encontrados: {len(records)} (deduplicados)")
     print(f"PDFs descargados: {payload['stats']['downloaded']} / {oa_available} OA disponibles")
     print(f"Anna fallback downloads: {payload['stats'].get('anna_downloaded', 0)}")
     print(f"Guardados en: {save_dir}")
-    print(f"Metadata: {output_path}")
-    print(f"Candidate sources: {candidate_path}")
-    print(f"Source rescue: {rescue_path}")
-    print(f"Missing sources: {missing_path}")
+    print(f"Metadata: {paths['output']}")
+    print(f"Candidate sources: {paths['candidate']}")
+    print(f"Source rescue: {paths['rescue']}")
+    print(f"Missing sources: {paths['missing']}")
     print(f"Manual needed: {payload['stats']['manual_needed']} papers identificados sin PDF OA descargable")
     print(f"Sin PDF/DOI util: {payload['stats']['no_pdf']} papers")
     if args.stdout_json:

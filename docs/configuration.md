@@ -16,6 +16,8 @@ environment variables win over `.env` values.
 - `NCBI_EMAIL`: polite PubMed/NCBI email.
 - `NCBI_API_KEY`: optional NCBI API key.
 - `PAPER_SEARCH_MCP_PLAYWRIGHT_CHROMIUM`: optional Chromium executable for Anna fallback.
+- `PAPER_SEARCH_MCP_ANNA_TIMEOUT_SECONDS`: per-identifier Anna fallback timeout;
+  defaults to `120`.
 
 ## Optional Model Keys
 

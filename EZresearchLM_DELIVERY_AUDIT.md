@@ -130,3 +130,27 @@ Remaining GitHub step:
 
 - Local repository is ready. A private GitHub remote still requires the target
   repository URL or authenticated GitHub creation step.
+
+## 2026-07-04 Acquisition Hardening
+
+Follow-up fixes from the strong smoke audit were applied to the deliverable
+repo:
+
+- Anna fallback now has a per-identifier timeout controlled by
+  `PAPER_SEARCH_MCP_ANNA_TIMEOUT_SECONDS` (default `120`).
+- Search artifacts are written before acquisition and after every candidate, so
+  `candidate-sources.json`, `source-rescue.json`, and `missing-sources.md`
+  survive partial acquisition failures.
+- Must-have identifiers and titles are searched before broad user queries.
+- Required target matches are acquired before opportunistic candidates.
+- Per-record acquisition exceptions become structured `failed / network`
+  entries instead of aborting without rescue artifacts.
+- `run_hermes_pipeline.ps1` records `search / running` before search and
+  `search / failed_or_timed_out` on wrapper failure.
+
+Validation rerun:
+
+- Python compile: passed.
+- Unit tests: 15 passed.
+- PowerShell parse: passed for pipeline/search/doctor/answer wrappers.
+- `git diff --check`: passed.
