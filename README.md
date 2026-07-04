@@ -416,6 +416,16 @@ If a must-have source is missing, the pipeline stops before QA.
 
 ## Validation
 
+Full smoke suite:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File ".\scripts\run_smoke_tests.ps1" `
+  -IncludeClaude `
+  -IncludeFullPipelinePreflight
+```
+
+Use `-SkipNetwork` for an offline-only smoke pass.
+
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File ".\scripts\setup_ezresearch.ps1" -InitEnv -SkipNotebookLM -SkipQmd
 $env:PYTHONPATH = "$PWD\packages\paper_search"
