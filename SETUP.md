@@ -56,6 +56,19 @@ Before a full NotebookLM QA run, require full readiness:
 powershell.exe -ExecutionPolicy Bypass -File ".\scripts\setup_ezresearch.ps1" -RequireFullPipeline
 ```
 
+To verify Claude Code itself:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File ".\scripts\setup_ezresearch.ps1" -CheckClaude
+```
+
+If Claude is installed but not trusted for this repo, either open Claude Code
+interactively and accept the trust dialog, or run:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File ".\scripts\setup_ezresearch.ps1" -TrustClaudeWorkspace
+```
+
 To set custom output locations from the command line:
 
 ```powershell
@@ -155,6 +168,12 @@ Open Claude Code in the repo and run:
 `/setup` should run `scripts/setup_ezresearch.ps1 -InitEnv -Install` for a new
 clone, ask where outputs should be saved, verify NotebookLM/QMD, and stop
 before any real research run.
+
+If `/setup` cannot run because Claude is not logged in, run:
+
+```powershell
+claude auth login
+```
 
 Then ask Claude to create query/must-have files and run the wrappers.
 

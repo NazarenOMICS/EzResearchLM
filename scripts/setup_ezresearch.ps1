@@ -7,6 +7,8 @@ param(
     [string]$Python,
     [switch]$SkipNotebookLM,
     [switch]$SkipQmd,
+    [switch]$CheckClaude,
+    [switch]$TrustClaudeWorkspace,
     [switch]$RequireFullPipeline,
     [switch]$Json
 )
@@ -55,6 +57,61 @@ function Test-Command {
     return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
 }
 
+function Resolve-Claude {
+    $cmd = Get-Command "claude" -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+
+    $desktopRoot = Join-Path $env:LOCALAPPDATA "Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude-code"
+    if (Test-Path -LiteralPath $desktopRoot) {
+        $candidate = Get-ChildItem -LiteralPath $desktopRoot -Filter "claude.exe" -Recurse -File -ErrorAction SilentlyContinue |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+        if ($candidate) { return $candidate.FullName }
+    }
+
+    return $null
+}
+
+function Get-ClaudeProjectTrust {
+    param([string]$ProjectRoot)
+    $configPath = Join-Path $env:USERPROFILE ".claude.json"
+    if (-not (Test-Path -LiteralPath $configPath)) { return $false }
+    try {
+        $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
+        $projectKey = ($ProjectRoot -replace "\\", "/")
+        if ($config.projects -and $config.projects.PSObject.Properties.Name -contains $projectKey) {
+            return [bool]$config.projects.$projectKey.hasTrustDialogAccepted
+        }
+    } catch {
+        return $false
+    }
+    return $false
+}
+
+function Set-ClaudeProjectTrust {
+    param([string]$ProjectRoot)
+    $configPath = Join-Path $env:USERPROFILE ".claude.json"
+    $projectKey = ($ProjectRoot -replace "\\", "/")
+    if (Test-Path -LiteralPath $configPath) {
+        $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
+    } else {
+        $config = [pscustomobject]@{}
+    }
+    if (-not $config.PSObject.Properties.Name.Contains("projects")) {
+        $config | Add-Member -NotePropertyName "projects" -NotePropertyValue ([pscustomobject]@{})
+    }
+    if (-not ($config.projects.PSObject.Properties.Name -contains $projectKey)) {
+        $config.projects | Add-Member -NotePropertyName $projectKey -NotePropertyValue ([pscustomobject]@{})
+    }
+    $project = $config.projects.$projectKey
+    if (-not $project.PSObject.Properties.Name.Contains("hasTrustDialogAccepted")) {
+        $project | Add-Member -NotePropertyName "hasTrustDialogAccepted" -NotePropertyValue $true
+    } else {
+        $project.hasTrustDialogAccepted = $true
+    }
+    $config | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $configPath -Encoding utf8
+}
+
 if ($InitEnv -and -not (Test-Path -LiteralPath $EnvFile)) {
     if (Test-Path -LiteralPath $EnvExample) {
         Copy-Item -LiteralPath $EnvExample -Destination $EnvFile
@@ -82,6 +139,11 @@ if ($Vault) { $envValues["EZRESEARCH_VAULT"] = $Vault }
 if ($Python) { $envValues["EZRESEARCH_PYTHON"] = $Python }
 if ($Install -or $RunsRoot -or $SearchRoot -or $Vault -or $Python) {
     Write-DotEnv $envValues
+}
+
+if ($TrustClaudeWorkspace) {
+    Set-ClaudeProjectTrust $Root
+    $CheckClaude = $true
 }
 
 $runsRoot = Get-ConfigValue $envValues "EZRESEARCH_RUNS_ROOT" (Join-Path $Root "runs")
@@ -112,6 +174,10 @@ $checks = [ordered]@{
     notebooklm_auth_ok = $false
     qmd_cli_ok = $false
     qmd_collection_ok = $false
+    claude_cli_ok = $false
+    claude_path = ""
+    claude_auth_ok = $false
+    claude_workspace_trusted = $false
 }
 
 if ($pythonExe) {
@@ -153,6 +219,24 @@ if ($checks.qmd_cli_ok -and -not $SkipQmd) {
     }
 }
 
+if ($CheckClaude) {
+    $claudePath = Resolve-Claude
+    $checks.claude_path = $claudePath
+    $checks.claude_cli_ok = [bool]$claudePath
+    $checks.claude_workspace_trusted = Get-ClaudeProjectTrust $Root
+    if ($claudePath) {
+        try {
+            $authJson = & $claudePath auth status 2>$null
+            if ($LASTEXITCODE -eq 0 -and $authJson) {
+                $auth = $authJson | ConvertFrom-Json
+                $checks.claude_auth_ok = [bool]$auth.loggedIn
+            }
+        } catch {
+            $checks.claude_auth_ok = $false
+        }
+    }
+}
+
 $requiredOk = $checks.python_ok -and $checks.paper_search_import_ok
 $optionalOk = ($SkipNotebookLM -or ($checks.notebooklm_cli_ok -and $checks.notebooklm_auth_ok)) -and ($SkipQmd -or ($checks.qmd_cli_ok -and $checks.qmd_collection_ok))
 $checks.ready_for_search = $requiredOk
@@ -187,6 +271,14 @@ if (-not $checks.notebooklm_auth_ok -and -not $SkipNotebookLM) {
 if (-not $checks.ready_for_full_pipeline) {
     Write-Host "Search-only readiness may still be OK; full pipeline needs NotebookLM and QMD."
     Write-Host "Use -RequireFullPipeline when a run must reach NotebookLM QA."
+}
+if ($CheckClaude -and -not $checks.claude_auth_ok) {
+    Write-Host "Claude auth fix:"
+    Write-Host "claude auth login"
+}
+if ($CheckClaude -and -not $checks.claude_workspace_trusted) {
+    Write-Host "Claude workspace trust fix:"
+    Write-Host "Open Claude Code in this repo once and accept trust, or rerun setup with -TrustClaudeWorkspace."
 }
 
 $exitOk = if ($RequireFullPipeline) { $checks.ready_for_full_pipeline } else { $checks.ready_for_search }

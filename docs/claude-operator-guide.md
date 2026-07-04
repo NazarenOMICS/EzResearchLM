@@ -41,6 +41,25 @@ If dependencies are already installed, Claude can run:
 powershell.exe -ExecutionPolicy Bypass -File ".\scripts\setup_ezresearch.ps1" -InitEnv
 ```
 
+Claude can also verify its own CLI/auth/trust state:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File ".\scripts\setup_ezresearch.ps1" -CheckClaude
+```
+
+If `claude_auth_ok` is false, run:
+
+```powershell
+claude auth login
+```
+
+If `claude_workspace_trusted` is false, open Claude Code interactively in the
+repo and accept the trust dialog, or run:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File ".\scripts\setup_ezresearch.ps1" -TrustClaudeWorkspace
+```
+
 Before any run that must reach NotebookLM QA, Claude should require full
 readiness:
 

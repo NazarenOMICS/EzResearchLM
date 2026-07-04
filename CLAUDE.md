@@ -33,6 +33,12 @@ For a new clone, use:
 powershell.exe -ExecutionPolicy Bypass -File ".\scripts\setup_ezresearch.ps1" -InitEnv -Install
 ```
 
+To verify Claude Code itself, use:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File ".\scripts\setup_ezresearch.ps1" -CheckClaude
+```
+
 4. Confirm output paths:
    - `EZRESEARCH_RUNS_ROOT`
    - `EZRESEARCH_SEARCH_ROOT`

@@ -141,6 +141,19 @@ Search/acquisition readiness:
 powershell.exe -ExecutionPolicy Bypass -File ".\scripts\setup_ezresearch.ps1" -InitEnv
 ```
 
+Claude Code readiness:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File ".\scripts\setup_ezresearch.ps1" -CheckClaude
+```
+
+If the workspace trust dialog blocks non-interactive Claude tests, either open
+Claude Code in this repo once and accept trust, or run:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File ".\scripts\setup_ezresearch.ps1" -TrustClaudeWorkspace
+```
+
 Full NotebookLM QA readiness:
 
 ```powershell
@@ -182,6 +195,15 @@ Open the repo in Claude Code:
 ```powershell
 claude
 ```
+
+If `claude` is not in PATH, run:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File ".\scripts\setup_ezresearch.ps1" -CheckClaude
+```
+
+The checker reports the detected `claude.exe` path and whether Claude is logged
+in and trusted for this workspace.
 
 Use the included command prompts:
 
