@@ -71,7 +71,89 @@ find already processed evidence; it does not create uncited claims.
 - Optional: Playwright/Chromium for Anna fallback.
 - Optional: Unpaywall and NCBI email/API settings for better acquisition.
 
-## Quick Start
+## Agent-First Quick Start
+
+Most users should operate EZresearchLM through an agent instead of typing every
+PowerShell command manually. The agent is the interface; EZresearchLM is the
+pipeline; NotebookLM is the evidence engine.
+
+### Claude Code
+
+Open the repo in Claude Code:
+
+```powershell
+claude
+```
+
+Then run:
+
+```text
+/setup
+```
+
+Recommended prompt:
+
+```text
+Use this repository as EZresearchLM. Read CLAUDE.md and README.md, configure the
+project, create query and must-have JSON files for my research question, and run
+only the official wrappers. Do not answer bibliographic claims from memory.
+```
+
+Claude-specific guide: `docs/claude-operator-guide.md`.
+
+### Codex
+
+Open the repo in Codex and use:
+
+```text
+Use this repository as EZresearchLM. Read AGENTS.md and README.md, run the smoke
+tests, then help me create query and must-have JSON files. Use only the official
+PowerShell wrappers for research runs. Do not answer from memory.
+```
+
+Codex-specific guide: `docs/codex-operator-guide.md`.
+
+### Hermes
+
+Hermes is the historical research operator/orchestrator for this workflow. Use
+the same wrappers and stop states documented here:
+
+```text
+NEEDS_SOURCE_RESCUE
+NEEDS_QUESTIONS
+NEEDS_MORE_QA
+NEEDS_CORPUS
+```
+
+Hermes should be treated as an operator over EZresearchLM, not as a separate
+evidence engine.
+
+### What Agents Should Do
+
+1. Run setup and smoke checks.
+2. Ask where outputs should be saved.
+3. Create `queries-*.json` as a simple JSON array of strings.
+4. Create `must-have-*.json` when specific papers are required.
+5. Run `run_hermes_pipeline.ps1`.
+6. Stop at `NEEDS_SOURCE_RESCUE` if required sources are missing.
+7. Create NotebookLM questions only after sources are ready.
+8. Read summaries, source curation, and citation audits for final claims.
+
+### First Validation Command
+
+Ask the agent to run:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File ".\scripts\run_smoke_tests.ps1" -SkipNetwork -IncludeClaude
+```
+
+For a full preflight after NotebookLM auth:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File ".\scripts\run_smoke_tests.ps1" -IncludeClaude -IncludeFullPipelinePreflight
+```
+
+## Manual Setup
 
 ### 1. Clone
 
@@ -191,7 +273,7 @@ powershell.exe -ExecutionPolicy Bypass -File ".\scripts\run_hermes_doctor.ps1" `
   -Slug "example-topic"
 ```
 
-## Claude Code Workflow
+## Detailed Claude Code Workflow
 
 Open the repo in Claude Code:
 
@@ -237,7 +319,7 @@ Claude should act as the operator:
 For the detailed Claude operator contract, see
 `docs/claude-operator-guide.md`.
 
-## Codex Workflow
+## Detailed Codex Workflow
 
 Open the repo in Codex and ask it to read `AGENTS.md`. Codex should use the same
 PowerShell wrappers as Claude and Hermes; it should not answer academic claims
