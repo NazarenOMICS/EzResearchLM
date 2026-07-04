@@ -5,6 +5,16 @@ It discovers papers, acquires PDFs, builds a traceable source set, asks
 NotebookLM focused questions, exports cited answers, and keeps enough run state
 to debug or resume interrupted work.
 
+## Operator Model
+
+EZresearchLM is the shared pipeline. Claude Code, Codex, Hermes, or another
+local agent can operate it by running the same wrappers.
+
+- Claude Code is a polished user-facing operator.
+- Codex is a strong repo/debug/smoke-test operator.
+- Hermes is the historical research operator/orchestrator interface.
+- None of these operators replaces NotebookLM as the evidence engine.
+
 ## Core Rules
 
 - NotebookLM is the evidence and QA engine.

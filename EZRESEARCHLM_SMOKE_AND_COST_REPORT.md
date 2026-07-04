@@ -8,18 +8,20 @@ EZresearchLM is in a deliverable state for GitHub as a local/agent-operated
 research pipeline. The reproducible smoke suite passed 9/9 checks on this
 machine.
 
-Claude is not a replacement for Hermes. The best architecture is:
+Claude is not a replacement for Hermes, and Hermes is not the pipeline itself.
+Both are operator interfaces over EZresearchLM. The best architecture is:
 
-- Claude Code as the operator and UX layer.
-- Hermes/EZresearchLM as the deterministic pipeline.
+- EZresearchLM as the deterministic pipeline.
+- Claude Code, Codex, or Hermes as operator interfaces.
 - NotebookLM as the evidence and citation engine.
 - QMD as local recall over already imported outputs.
 
-Claude is better than plain Hermes for user-facing operation because it can
-guide setup, create query/must-have files, interpret doctor output, and recover
-from run states conversationally. Hermes is better than Claude alone for
-research correctness because it preserves stages, artifacts, acquisition
-provenance, rescue queues, and NotebookLM gates.
+Claude is often better than a raw Hermes CLI flow for user-facing operation
+because it can guide setup, create query/must-have files, interpret doctor
+output, and recover from run states conversationally. Codex is stronger for repo
+maintenance, implementation, smoke testing, and debugging. Hermes remains useful
+as the historical domain-specific operator. The correctness comes from the
+shared EZresearchLM pipeline plus NotebookLM gates, not from any one operator.
 
 ## Smoke Results
 
@@ -147,15 +149,15 @@ OpenAI pricing lists, for standard short-context usage:
 
 Source: https://developers.openai.com/api/docs/pricing
 
-## Claude vs Hermes
+## Operator Comparison
 
-### Claude Alone
+### Claude Code Operator
 
 Strengths:
 
 - Best human-facing interface.
 - Good at guiding setup and explaining state.
-- Good at editing repo files, debugging scripts, and interpreting logs.
+- Good at interpreting logs and guiding non-technical setup.
 - Good for generating query files and question files when constrained by the repo contract.
 
 Weaknesses:
@@ -165,7 +167,36 @@ Weaknesses:
 - Lacks built-in structured acquisition provenance unless the repo enforces it.
 - Requires login, workspace trust, and plan/API budget.
 
-### Hermes/EZresearchLM Alone
+### Codex Operator
+
+Strengths:
+
+- Strong at repo audits, implementation fixes, and test writing.
+- Good at running repeated smoke suites and improving failure diagnostics.
+- Good for public GitHub delivery quality: docs, scripts, tests, ignores, and
+  reports.
+- Can operate the same PowerShell wrappers when NotebookLM/QMD auth is ready.
+
+Weaknesses:
+
+- Still must not become the evidence engine.
+- Needs the same external auth for NotebookLM/QMD/Claude-adjacent checks.
+- Can over-focus on code quality unless the evidence contract remains explicit.
+
+### Hermes Operator
+
+Strengths:
+
+- Domain-specific historical operator for the original research workflow.
+- Encodes the intended thesis/research process and stop states.
+- Familiar to existing AutoResearch/Hermes users.
+
+Weaknesses:
+
+- Less portable as a public UX than Claude Code or Codex.
+- The name can be confused with the pipeline unless docs separate the layers.
+
+### EZresearchLM Pipeline
 
 Strengths:
 
@@ -184,9 +215,9 @@ Weaknesses:
 
 ### Best Combined Design
 
-Use Claude as an operator, not an evidence engine.
+Use Claude, Codex, or Hermes as operators, not evidence engines.
 
-Claude should:
+Operators should:
 
 - run `/setup`;
 - create `queries-*.json` and `must-have-*.json`;
@@ -195,7 +226,7 @@ Claude should:
 - read `STATUS.md`, `run-state.json`, `source-rescue.json`, summaries, and citation audits;
 - stop at `NEEDS_SOURCE_RESCUE`, `NEEDS_CORPUS`, or expired auth.
 
-Claude should not:
+Operators should not:
 
 - invent bibliographic claims;
 - replace NotebookLM QA;
@@ -204,26 +235,26 @@ Claude should not:
 
 ## Cost Recommendation
 
-The cheapest trustworthy workflow is not "Claude instead of Hermes"; it is
-"Claude plus Hermes plus NotebookLM."
+The cheapest trustworthy workflow is not choosing one operator as the whole
+system; it is "one lightweight operator plus EZresearchLM plus NotebookLM."
 
 Recommended operating model:
 
 1. Use NotebookLM as the expensive reasoning substitute because its free/Google
    AI tiers are better aligned with source-grounded QA.
-2. Use Hermes/EZresearchLM to minimize repeated model context by storing
-   structured state and resumable artifacts.
-3. Use Claude Code only for orchestration, debugging, and user guidance.
+2. Use EZresearchLM to minimize repeated model context by storing structured
+   state and resumable artifacts.
+3. Use Claude Code, Codex, or Hermes only for orchestration, debugging, and user
+   guidance.
 4. Use smaller/cheaper models or no model at all for deterministic stages.
 5. Keep QMD as a recall index so future questions avoid rebuilding context.
 
 Practical cost hierarchy:
 
-1. Lowest cost: Hermes/EZresearchLM + NotebookLM Standard + occasional Claude
-   operator usage.
-2. Good paid setup: Hermes/EZresearchLM + Google AI Pro/NotebookLM higher
-   limits + Claude Pro/Max as operator.
-3. Higher cost: Claude Code doing broad repo/paper reading directly.
+1. Lowest cost: EZresearchLM + NotebookLM Standard + occasional operator usage.
+2. Good paid setup: EZresearchLM + Google AI Pro/NotebookLM higher limits +
+   Claude/Codex/Hermes as operator.
+3. Higher cost: Claude Code or Codex doing broad repo/paper reading directly.
 4. Highest avoidable cost: agentic Claude/OpenAI loops over raw PDFs and giant
    exports without rescue queues or NotebookLM gates.
 

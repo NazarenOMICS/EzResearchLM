@@ -1,22 +1,23 @@
 # EZresearchLM
 
-NotebookLM-centered research automation for Claude Code, Codex, or any local
-agent that can run shell commands.
+NotebookLM-centered research automation for Claude Code, Codex, Hermes, or any
+local agent that can run shell commands.
 
 EZresearchLM turns literature search into a traceable evidence pipeline:
 discover papers, resolve identifiers, acquire PDFs, rescue missing required
 sources, upload documents to NotebookLM, ask focused questions, export cited
 answers, and keep enough state to debug or resume the run.
 
-The core rule is simple: the agent orchestrates, but NotebookLM is the evidence
-engine. Claude, Codex, or GPT can plan queries, run wrappers, inspect logs, and
-synthesize cited outputs. Strong academic claims should come from NotebookLM
-answers over imported sources, not from model memory.
+The core rule is simple: the operator orchestrates, but NotebookLM is the
+evidence engine. Claude Code, Codex, Hermes, or another agent can plan queries,
+run wrappers, inspect logs, and synthesize cited outputs. Strong academic
+claims should come from NotebookLM answers over imported sources, not from
+model memory.
 
 ## What This Is
 
-EZresearchLM is a structured workflow that turns Claude Code into a research
-operator.
+EZresearchLM is the shared pipeline. Claude Code, Codex, and Hermes are
+compatible operator interfaces over that same pipeline.
 
 ```text
 /setup or manual config
@@ -34,10 +35,12 @@ NotebookLM upload -> focused QA -> citation audit
 local notes + QMD recall for future questions
 ```
 
-It is model-agnostic at the orchestration layer:
+It is operator-agnostic at the orchestration layer:
 
-- Claude Code is the recommended user-facing agent.
-- Codex works well for implementation, debugging, and repo maintenance.
+- Claude Code is a polished user-facing operator for setup and research runs.
+- Codex works well for implementation, smoke testing, debugging, and repo
+  maintenance.
+- Hermes is the historical research operator/orchestrator name for this workflow.
 - Other agents can use the same wrappers if they respect the evidence contract.
 
 It is not a local RAG replacement for NotebookLM. QMD/local search is used to
@@ -234,6 +237,38 @@ Claude should act as the operator:
 For the detailed Claude operator contract, see
 `docs/claude-operator-guide.md`.
 
+## Codex Workflow
+
+Open the repo in Codex and ask it to read `AGENTS.md`. Codex should use the same
+PowerShell wrappers as Claude and Hermes; it should not answer academic claims
+from memory.
+
+Recommended first prompt:
+
+```text
+Use this repository as EZresearchLM. Read AGENTS.md and README.md, verify setup
+with the smoke runner, then help me create queries and must-have files. Use only
+the official PowerShell wrappers for research runs.
+```
+
+Codex is especially useful for:
+
+1. Auditing and editing the repo.
+2. Running smoke tests and interpreting failures.
+3. Improving wrappers, docs, and tests.
+4. Creating or reviewing query and must-have JSON files.
+5. Operating the pipeline when NotebookLM/QMD auth is already configured.
+
+Codex should still preserve the evidence contract:
+
+- NotebookLM remains the evidence engine.
+- QMD is recall/index only.
+- `source-rescue.json` is the source of truth for missing papers.
+- `NEEDS_SOURCE_RESCUE`, `NEEDS_CORPUS`, and `NEEDS_MORE_QA` are valid stop
+  states.
+
+For the detailed Codex operator contract, see `docs/codex-operator-guide.md`.
+
 ## Core Commands
 
 Search/acquire only:
@@ -316,6 +351,7 @@ EZresearchLM/
 |   `-- scripts/
 |-- docs/
 |   |-- claude-operator-guide.md
+|   |-- codex-operator-guide.md
 |   |-- configuration.md
 |   |-- debugging.md
 |   |-- pipeline-reference.md
@@ -407,7 +443,7 @@ If a must-have source is missing, the pipeline stops before QA.
 ## Safety Model
 
 - NotebookLM is the evidence engine.
-- Claude/Codex/GPT are orchestration agents.
+- Claude Code, Codex, Hermes, and GPT-style agents are operators.
 - QMD is recall/index only.
 - Anna's Archive is acquisition fallback only.
 - Missing sources remain `manual_needed`; they are not silently converted into
