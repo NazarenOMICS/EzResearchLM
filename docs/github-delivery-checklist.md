@@ -5,6 +5,10 @@ Run this before pushing or making the repository public.
 ## Required
 
 - `git status --short` shows only intended files.
+- Long-lived Markdown/index files were re-read completely with the agent's
+  file-read tool when available, and their final lines were checked.
+- `git diff --stat` and the full `git diff` for edited files show no unexpected
+  large deletions, truncation, or mid-word endings.
 - No real PDFs, source exports, QA answers, run payloads, or notebooks are tracked.
 - No `.env`, token files, browser cookies, or NotebookLM auth state are tracked.
 - PowerShell scripts parse successfully.
@@ -18,6 +22,8 @@ Run this before pushing or making the repository public.
 
 ```powershell
 git status --short
+git diff --stat
+git diff -- AGENTS.md docs/github-delivery-checklist.md
 git diff --check
 git ls-files | Select-String -Pattern "secret|token|cookie|storage_state|\.env|\.pdf|client_secret"
 python -m py_compile .\packages\paper_search\search_topic.py .\packages\paper_search\run_search_topic_wrapper.py

@@ -27,6 +27,17 @@ local agent can operate it by running the same wrappers.
 - Do not commit real PDFs, notebooks, tokens, cookies, source exports, or run
   artifacts.
 
+## File Integrity Checks
+
+Before committing edits to long-lived Markdown or index files:
+
+- Re-read the complete edited file with the agent's file-read tool when one is
+  available. Do not rely only on shell views such as `cat`, `tail`, or `wc`,
+  because a sandboxed shell can show stale or truncated content.
+- Confirm the file ends at the expected final section or sentence.
+- Review `git diff --stat` and the full `git diff` for the edited file before
+  staging. Unexpected large deletions or mid-word endings are blockers.
+
 ## Repository Layout
 
 | Resource | Path |
