@@ -49,7 +49,9 @@ param(
     [string]$MustHaveFile,
     [switch]$AllowAnnaFallback,
     [switch]$StopIfMissingMustHave,
-    [string]$ResumeState
+    [string]$ResumeState,
+    [string]$RetryDelaysMinutes = "",
+    [int]$RetryAttempt = 0
 )
 
 $ErrorActionPreference = "Stop"
@@ -87,6 +89,15 @@ $SEARCH_WRAPPER = Join-Path $EZRESEARCH_ROOT "scripts\run_search_topic.ps1"
 $paperSearchPath = Join-Path $EZRESEARCH_ROOT "packages\paper_search"
 $env:PYTHONPATH = if ($env:PYTHONPATH) { "$paperSearchPath;$env:PYTHONPATH" } else { $paperSearchPath }
 $FAILED_UPLOAD_NAMES = @()
+$RETRY_DELAYS = @()
+if ($RetryDelaysMinutes) {
+    $RETRY_DELAYS = @(
+        $RetryDelaysMinutes -split "[\s,]+" |
+            Where-Object { $_ -and $_.Trim().Length -gt 0 } |
+            ForEach-Object { [int]$_.Trim() } |
+            Where-Object { $_ -gt 0 }
+    )
+}
 
 function Convert-ToHermesSlug {
     param([string]$Text, [string]$Fallback = "general")
@@ -188,6 +199,62 @@ function Get-HermesResumeCommand {
     return ($parts -join " ")
 }
 
+function Start-SmartRetry {
+    param(
+        [string]$Text,
+        [int]$Code = 1,
+        [string]$Stage = "failed",
+        [string]$StateStatus = "failed",
+        [switch]$SkipSearchOnRetry,
+        [switch]$ReuseNotebookOnRetry,
+        [switch]$ReuseQuestionsOnRetry
+    )
+    $currentNotebookId = if ($ReuseNotebookOnRetry) { Get-CurrentNotebookId } else { "" }
+    if ($RetryAttempt -ge $RETRY_DELAYS.Count) {
+        return $false
+    }
+    $delayMinutes = $RETRY_DELAYS[$RetryAttempt]
+    $nextAttempt = $RetryAttempt + 1
+    $retryArgs = @(
+        "-ExecutionPolicy", "Bypass",
+        "-File", $PSCommandPath,
+        "-Slug", $Slug,
+        "-Project", $PROJECT,
+        "-VaultSlug", $VAULT_SLUG,
+        "-Goal", $Goal,
+        "-QueriesFile", $QueriesFile,
+        "-NotebookTitle", $NotebookTitle,
+        "-Dashboard", $Dashboard,
+        "-SaveDir", $SaveDir,
+        "-RetryAttempt", $nextAttempt.ToString()
+    )
+    if ($MustHaveFile) { $retryArgs += @("-MustHaveFile", $MustHaveFile) }
+    if ($AllowAnnaFallback) { $retryArgs += "-AllowAnnaFallback" }
+    if ($StopIfMissingMustHave) { $retryArgs += "-StopIfMissingMustHave" }
+    if ($ResumeState) { $retryArgs += @("-ResumeState", $ResumeState) }
+    if ($RetryDelaysMinutes) { $retryArgs += @("-RetryDelaysMinutes", $RetryDelaysMinutes) }
+    if ($SkipSearch -or $SkipSearchOnRetry) { $retryArgs += "-SkipSearch" }
+    if ($SkipGuides) { $retryArgs += "-SkipGuides" }
+    if ($SkipBatch) { $retryArgs += "-SkipBatch" }
+    if ($FromExistingQuestions -or $ReuseQuestionsOnRetry) { $retryArgs += "-FromExistingQuestions" }
+    if ($currentNotebookId) { $retryArgs += @("-ExistingNotebookId", $currentNotebookId) }
+
+    Write-Host "[RETRY] $Text" -ForegroundColor Yellow
+    Write-Host "[RETRY] waiting $delayMinutes minute(s) before attempt $nextAttempt/$($RETRY_DELAYS.Count)" -ForegroundColor Yellow
+    Add-Content -Path $STATUS -Value "- RETRY: $Text"
+    Add-Content -Path $STATUS -Value "- RETRY: waiting $delayMinutes minute(s) before attempt $nextAttempt/$($RETRY_DELAYS.Count)"
+    Write-RunState -Stage $Stage -StateStatus "retry_scheduled" -Details @{
+        reason = $Text
+        exit_code = $Code
+        retry_attempt = $nextAttempt
+        retry_delay_minutes = $delayMinutes
+        retry_notebook_id = $currentNotebookId
+    }
+    Start-Sleep -Seconds ($delayMinutes * 60)
+    & powershell.exe @retryArgs
+    exit $LASTEXITCODE
+}
+
 function Write-RunState {
     param(
         [string]$Stage,
@@ -216,6 +283,8 @@ function Write-RunState {
         allow_anna_fallback = [bool]$AllowAnnaFallback
         stop_if_missing_must_have = [bool]$StopIfMissingMustHave
         resume_state = $ResumeState
+        retry_delays_minutes = $RETRY_DELAYS
+        retry_attempt = $RetryAttempt
         resume_command = (Get-HermesResumeCommand -NotebookId $stateNotebookId)
         details = $Details
     }
@@ -436,7 +505,10 @@ function Assert-NotebookSourcesReady {
         Fail "NotebookLM source readiness status missing for: $($unknown -join '; ')"
     }
     if ($notReady.Count -gt 0) {
-        Fail "NotebookLM sources not ready: $($notReady -join '; ')"
+        if ($RETRY_DELAYS.Count -gt 0) {
+            Start-SmartRetry -Text "NotebookLM sources not ready: $($notReady -join '; ')" -Code 1 -Stage "sources" -StateStatus "waiting_on_processing" -SkipSearchOnRetry -ReuseNotebookOnRetry
+        }
+        Fail "NotebookLM sources not ready: $($notReady -join '; ')" -Stage "sources" -StateStatus "waiting_on_processing"
     }
 
     Note "NotebookLM sources ready: $($sources.Count)"
@@ -632,6 +704,9 @@ if (-not $SkipSearch) {
     & powershell.exe @searchArgs
     if ($LASTEXITCODE -ne 0) {
         Sync-SearchArtifacts
+        if ($RETRY_DELAYS.Count -gt 0) {
+            Start-SmartRetry -Text "search wrapper failed" -Code 1 -Stage "search" -StateStatus "failed_or_timed_out"
+        }
         Fail "search wrapper failed" -Stage "search" -StateStatus "failed_or_timed_out"
     }
 } else {

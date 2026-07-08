@@ -6,6 +6,7 @@ change across notebooklm-py releases.
 """
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 
@@ -15,16 +16,11 @@ sys.stderr.reconfigure(encoding="utf-8")
 
 
 def main(notebook_id: str, title: str, out_path: str) -> int:
-    cmd = [
-        sys.executable,
-        "-m",
-        "notebooklm",
-        "source",
-        "list",
-        "--notebook",
-        notebook_id,
-        "--json",
-    ]
+    notebooklm_exe = shutil.which("notebooklm")
+    if notebooklm_exe:
+        cmd = [notebooklm_exe, "source", "list", "--notebook", notebook_id, "--json"]
+    else:
+        cmd = [sys.executable, "-m", "notebooklm", "source", "list", "--notebook", notebook_id, "--json"]
     proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
     if proc.returncode != 0:
         sys.stderr.write(proc.stderr)
