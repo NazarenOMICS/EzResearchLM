@@ -21,6 +21,7 @@ build/
 dist/
 
 # Runtime research artifacts
+ready
 runs/*
 !runs/.gitkeep
 Search/*
