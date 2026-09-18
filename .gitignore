@@ -38,6 +38,7 @@ Research/Papers/*
 **/passage-map-*.json
 **/tmp-sources-*.json
 **/qa-*.json
+!packages/ez/schemas/*.json
 *.pdf
 *.tgz
 *.zip

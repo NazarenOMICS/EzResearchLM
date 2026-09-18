@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["schema_version", "run_id", "phase", "contract_hash", "execution", "answer"],
+  "properties": {
+    "schema_version": {"const": "2.0"},
+    "run_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]+$"},
+    "phase": {"enum": ["plan", "discover", "acquire", "upload", "readiness", "qa", "audit", "done"]},
+    "contract_hash": {"$ref": "#/$defs/hash"},
+    "sources_hash": {"$ref": "#/$defs/hash"},
+    "corpus_hash": {"$ref": "#/$defs/hash"},
+    "qa_manifest_hash": {"$ref": "#/$defs/hash"},
+    "elapsed_seconds": {"type": "number", "minimum": 0},
+    "execution": {"type": "object", "required": ["status"], "properties": {"status": {"enum": ["running", "waiting_user", "waiting_service", "completed", "cancelled", "failed", "blocked_integrity"]}}},
+    "answer": {"type": "object", "required": ["status"], "properties": {"status": {"enum": ["complete", "partial", "unavailable"]}, "scope_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}}},
+    "integrity": {"type": "object", "required": ["status"], "properties": {"status": {"enum": ["pass", "warn", "pending", "unknown", "fail"]}}},
+    "legacy_signals": {"type": "array", "items": {"type": "string"}},
+    "next_action": {"type": "string"}
+  },
+  "$defs": {"hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}
+}

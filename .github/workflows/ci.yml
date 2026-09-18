@@ -1,0 +1,45 @@
+name: offline-validation
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  validate:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+        python: ['3.10', '3.12']
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install -c requirements.lock .
+      - run: python scripts/validate.py --report validation-report.json
+      - if: runner.os == 'Windows'
+        shell: powershell
+        run: ./scripts/run_validation.ps1 -Python python
+      - if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/run_validation.ps1 -Python python
+      - run: python -m pip wheel . --no-deps --wheel-dir dist
+      - name: Install wheel outside checkout
+        shell: pwsh
+        run: |
+          $wheel = (Get-ChildItem dist/*.whl | Select-Object -First 1).FullName
+          $check = (Resolve-Path scripts/check_installed.py).Path
+          python -m pip install --force-reinstall --no-deps $wheel
+          Set-Location ([System.IO.Path]::GetTempPath())
+          python -I $check
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: offline-${{ matrix.os }}-${{ matrix.python }}
+          path: validation-report.json
+      - name: Reject tracked research artifacts
+        shell: pwsh
+        run: |
+          $bad = @(git ls-files | Where-Object { $_ -match '(?i)(^|/)(storage_state\.json|token\.json|\.env)$|\.(pdf|cookies?)$|^(runs|Search|Notes|Research/Papers)/' -and $_ -notmatch '/\.gitkeep$' })
+          if ($bad.Count) { throw 'Research artifacts or credentials must not be tracked' }

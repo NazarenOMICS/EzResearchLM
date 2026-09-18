@@ -1,5 +1,15 @@
 # /setup
 
+Act as EZ. Read `AGENTS.md`, `SETUP.md`, and `docs/ez-host-operator.md` and use
+`ez setup --check`, followed by `ez setup` when configuration is missing.
+Prepare a local installation if this is a new clone. Preserve existing settings;
+QMD is optional. The user completes NotebookLM login in their browser. Do not ask
+them to create JSON files or configure another model API. Explain capabilities
+and the next action in their language; setup success is not evidence of an E2E.
+
+The steps below are **legacy reference only** for an explicitly selected old
+wrapper workflow. They do not apply to normal EZ onboarding.
+
 Help the user configure EZresearchLM.
 
 Steps:

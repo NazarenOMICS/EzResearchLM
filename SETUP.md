@@ -1,6 +1,40 @@
 # EZresearchLM Setup
 
-This guide gets a new user from clone to first recoverable research run.
+## Preparar una investigación con EZ
+
+EZ usa el agente anfitrión que ya tienes abierto para planificar. NotebookLM
+aporta la evidencia. No necesitas otra API de modelos ni escribir archivos JSON.
+Este candidato todavía requiere validación E2E autenticada y beta.
+
+Pide al agente: «EZ, prepara el entorno y ayúdame a investigar esta pregunta».
+El agente sigue [la guía operativa](docs/ez-host-operator.md): comprueba capacidades,
+conserva tu configuración, prepara el contrato y explica el siguiente paso.
+QMD es opcional. Anna está desactivado y requiere consentimiento específico;
+no se instala un navegador para eludir restricciones de acceso.
+
+Si partes de un clon sin instalar, el agente prepara un entorno separado:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -c requirements.lock .
+.\.venv\Scripts\ez.exe setup --check
+.\.venv\Scripts\ez.exe setup
+```
+
+Si falta NotebookLM, `ez setup --install-notebooklm` permite instalar la versión
+compatible en un entorno propio. `ez setup --check` muestra la ruta del comando de
+login cuando hace falta autenticar. El titular completa ese acceso en su navegador;
+el agente no lee ni copia cookies. Una comprobación de acceso no acredita el E2E.
+
+Se puede elegir otra carpeta con `--root "D:\Mis investigaciones\runs"` en cada
+comando o mediante `EZRESEARCH_RUNS_ROOT`. Sin esa opción ni un override de `.env`,
+la interfaz nueva usa `~/.ezresearch/runs`. Conserva el mismo root al continuar.
+Los wrappers legacy mantienen sus rutas anteriores.
+
+Continúa con [la guía de usuario](docs/ez-user-guide.md). Lo que sigue documenta
+**solo el flujo legacy**, para operar corridas antiguas; no es requisito para EZ.
+
+## Referencia de instalación legacy
 
 ## 1. Install Prerequisites
 
@@ -14,7 +48,6 @@ Install:
 
 Optional:
 
-- Playwright/Chromium for Anna fallback.
 - Unpaywall email.
 - NCBI email/API key.
 
@@ -40,7 +73,7 @@ python -m venv .venv
 ## 3. Configure `.env`
 
 ```powershell
-Copy-Item .env.example .env
+if (-not (Test-Path -LiteralPath .env)) { Copy-Item .env.example .env }
 notepad .env
 ```
 
@@ -146,8 +179,11 @@ powershell.exe -ExecutionPolicy Bypass -File ".\scripts\run_hermes_pipeline.ps1"
 
 ## 7. If It Stops
 
-`NEEDS_SOURCE_RESCUE` is a safe stop. It means a required source was missing and
-NotebookLM QA was not run.
+For the example above, `-StopIfMissingMustHave` stops dependent QA when a required
+source is missing. New legacy runs without that switch report missing sources
+without this global gate. Continuations inherit the recorded effective gate.
+EZ v2 additionally allows scoped partial answers; the signal alone does not mean
+that all QA stopped. Inspect the structured state and its next action.
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File ".\scripts\run_hermes_doctor.ps1" `
@@ -165,9 +201,9 @@ Open Claude Code in the repo and run:
 /setup
 ```
 
-`/setup` should run `scripts/setup_ezresearch.ps1 -InitEnv -Install` for a new
-clone, ask where outputs should be saved, verify NotebookLM/QMD, and stop
-before any real research run.
+The `/setup`, `/research` and `/doctor` commands now route to the same EZ host
+operator guide. They prepare natural-language requests and preserve existing
+configuration; they do not require the user to author query or must-have files.
 
 If `/setup` cannot run because Claude is not logged in, run:
 
@@ -175,10 +211,12 @@ If `/setup` cannot run because Claude is not logged in, run:
 claude auth login
 ```
 
-Then ask Claude to create query/must-have files and run the wrappers.
+Then address your research question to EZ. Use the wrappers above only when
+continuing a legacy run or when explicitly choosing that compatibility workflow.
 
 Claude should not answer literature questions from memory. It should operate the
 pipeline, inspect `source-rescue.json`, and use NotebookLM outputs for cited
 answers.
 
-See `docs/claude-operator-guide.md` for the full operator contract.
+The current operator contract is `docs/ez-host-operator.md`; older operator guides
+describe legacy runs and must not override the scoped policies of an EZ contract.

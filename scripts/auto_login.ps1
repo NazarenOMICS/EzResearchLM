@@ -2,10 +2,17 @@ param(
     [string]$StoragePath = $(if ($env:NOTEBOOKLM_STORAGE_STATE) { $env:NOTEBOOKLM_STORAGE_STATE } else { "$env:USERPROFILE\.notebooklm\profiles\default\storage_state.json" }),
     [int]$TimeoutSeconds = 600,
     [int]$PollSeconds = 3,
-    [switch]$SkipBrowserLogin
+    [switch]$SkipBrowserLogin,
+    [switch]$Manual,
+    [ValidateSet('chromium', 'chrome', 'msedge')]
+    [string]$Browser = 'chromium'
 )
 
 $ErrorActionPreference = 'Stop'
+$loginRoot = Split-Path -Parent $PSScriptRoot
+$loginExternal = Join-Path $PSScriptRoot 'run_external.py'
+$loginPython = Join-Path $loginRoot '.venv\Scripts\python.exe'
+if (-not (Test-Path -LiteralPath $loginPython)) { $loginPython = 'python' }
 
 function Test-NotebookLMList {
     param([string]$Storage)
@@ -13,7 +20,7 @@ function Test-NotebookLMList {
     $oldErrorActionPreference = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-        $result = & notebooklm --storage $Storage list 2>&1
+        $result = & $loginPython $loginExternal --timeout 30 -- notebooklm --storage $Storage list 2>&1
         $exitCode = $LASTEXITCODE
     } catch {
         $result = @($_.Exception.Message)
@@ -25,6 +32,12 @@ function Test-NotebookLMList {
         ExitCode = $exitCode
         Output = ($result | Out-String)
     }
+}
+
+function Test-NotebookLMAuthenticated {
+    param([string]$Storage)
+    $check = Test-NotebookLMList -Storage $Storage
+    return ($check.ExitCode -eq 0)
 }
 
 $attemptId = Get-Date -Format 'yyyyMMdd-HHmmss'
@@ -46,20 +59,21 @@ if ($precheck.ExitCode -eq 0) {
 $originalTime = if (Test-Path $StoragePath) { (Get-Item $StoragePath).LastWriteTime } else { [datetime]::MinValue }
 
 if (-not $SkipBrowserLogin) {
-    $proc = Start-Process -FilePath "powershell.exe" `
-        -ArgumentList "-NoProfile","-Command","notebooklm --storage '$StoragePath' login" `
+    $loginArgs = @('--storage', $StoragePath, 'login', '--browser', $Browser)
+    $proc = Start-Process -FilePath "notebooklm.exe" `
+        -ArgumentList $loginArgs `
         -PassThru -WindowStyle Normal
     Write-Host "Login window opened. Waiting for browser auth..."
+    Write-Host "Manual mode: $([bool]$Manual)"
 } else {
     $proc = $null
     Write-Host "SkipBrowserLogin enabled. Waiting only for storage update..."
 }
 
-$elapsed = 0
+$loginClock = [System.Diagnostics.Stopwatch]::StartNew()
 $authDetected = $false
-while ($elapsed -lt $TimeoutSeconds) {
+while ($loginClock.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
     Start-Sleep -Seconds $PollSeconds
-    $elapsed += $PollSeconds
 
     if (Test-Path $StoragePath) {
         $currentTime = (Get-Item $StoragePath).LastWriteTime
@@ -70,8 +84,7 @@ while ($elapsed -lt $TimeoutSeconds) {
         }
     }
 
-    $check = Test-NotebookLMList -Storage $StoragePath
-    if ($check.ExitCode -eq 0) {
+    if (Test-NotebookLMAuthenticated -Storage $StoragePath) {
         Write-Host "Auth verified via notebooklm list before file mtime changed"
         $authDetected = $true
         break
@@ -85,7 +98,7 @@ if (-not $authDetected) {
 
 Start-Sleep -Seconds 3
 
-if ($proc) {
+if ($proc -and -not $Manual) {
     try {
         Add-Type -AssemblyName System.Windows.Forms
         $wshell = New-Object -ComObject WScript.Shell

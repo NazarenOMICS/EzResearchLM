@@ -18,6 +18,7 @@ def main() -> None:
     parser.add_argument("--allow-anna-fallback", action="store_true")
     parser.add_argument("--scout-only", action="store_true")
     parser.add_argument("--resolve-only", action="store_true")
+    parser.add_argument("--review-before-acquisition", action="store_true")
     args = parser.parse_args()
 
     queries_path = Path(args.queries_file)
@@ -41,6 +42,7 @@ def main() -> None:
         allow_anna_fallback=args.allow_anna_fallback,
         scout_only=args.scout_only,
         resolve_only=args.resolve_only,
+        review_before_acquisition=args.review_before_acquisition,
     )
     records = payload["papers"]
     oa_available = sum(1 for item in records if item.get("is_oa"))
@@ -53,8 +55,12 @@ def main() -> None:
     print(f"Candidate sources: {paths['candidate']}")
     print(f"Source rescue: {paths['rescue']}")
     print(f"Missing sources: {paths['missing']}")
+    print(f"Download plan: {paths['download_plan']}")
     print(f"Manual needed: {payload['stats']['manual_needed']} papers identificados sin PDF OA descargable")
     print(f"Sin PDF/DOI util: {payload['stats']['no_pdf']} papers")
+    if args.review_before_acquisition:
+        print("NEEDS_SOURCE_REVIEW")
+        raise SystemExit(3)
     if args.stdout_json:
         print(json.dumps(payload, ensure_ascii=False))
 

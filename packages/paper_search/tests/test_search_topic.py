@@ -39,7 +39,27 @@ class TestSearchTopic(unittest.TestCase):
         record.update(overrides)
         return record
 
-    def test_discovery_queries_prioritize_target_identifiers(self):
+    def test_availability_is_separate_from_priority(self):
+        record = self.base_record(abstract="Abstract", pdf_status="manual_needed", pdf_path=None, is_oa=False)
+        self.assertEqual(search_topic.availability_status(record), "paywalled_or_unresolved")
+        self.assertEqual(search_topic.review_priority(record, []), "candidate")
+
+    def test_download_plan_lists_paywalled_candidate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            record = self.base_record(
+                abstract="Abstract",
+                pdf_status="candidate",
+                pdf_path=None,
+                is_oa=False,
+                doi="10.1000/paywalled",
+                sources=["openalex", "semantic"],
+            )
+            path = search_topic.write_download_plan("review-test", [record], [], Path(tmp))
+            content = path.read_text(encoding="utf-8")
+            self.assertIn("bibliographic_priority: `high_priority`", content)
+            self.assertIn("availability: `candidate`", content)
+            self.assertIn("10.1000/paywalled", content)
+
         targets = [
             {
                 "target_id": "PMID:20686769",
@@ -122,6 +142,15 @@ class TestSearchTopic(unittest.TestCase):
         filename = search_topic.filename_for_record(record)
         self.assertEqual(filename, "garcia_2025_south_america_end_tb_roadmap_and_equity.pdf")
 
+    def test_dedupe_keeps_alternative_urls_and_rejects_conflicting_identifiers(self):
+        first = self.base_record(doi='https://doi.org/10.1234/example', pdf_url='https://repo.example/accepted.pdf')
+        second = self.base_record(doi='10.1234/example', pdf_url='https://publisher.example/final.pdf')
+        merged = search_topic.dedupe_records([first, second])
+        self.assertEqual(len(merged), 1)
+        self.assertEqual(set(merged[0]['pdf_urls']), {'https://repo.example/accepted.pdf', 'https://publisher.example/final.pdf'})
+        conflicting = self.base_record(doi='10.1234/different')
+        self.assertEqual(len(search_topic.dedupe_records([merged[0], conflicting])), 2)
+
     def test_download_for_record_marks_manual_needed_for_identified_closed_paper(self):
         record = {
             "title": "Paper",
@@ -188,7 +217,8 @@ class TestSearchTopic(unittest.TestCase):
         self.assertEqual(updated["pdf_status"], "downloaded")
         self.assertEqual(updated["pdf_source"], "anna_archive")
         self.assertEqual(updated["acquisition_policy"], "non_oa_fallback")
-        self.assertIn("unpaywall", updated["fallback_after"])
+        self.assertEqual(updated["fallback_after"], ["legacy_direct_or_pmc"])
+        self.assertNotIn("unpaywall", updated["fallback_after"])
 
     def test_anna_fallback_not_called_when_disabled(self):
         record = {
@@ -227,7 +257,8 @@ class TestSearchTopic(unittest.TestCase):
 
         self.assertEqual(updated["pdf_status"], "manual_needed")
         self.assertIn("timeout", updated["manual_reason"])
-        self.assertEqual(updated["fallback_after"], search_topic.OA_FALLBACK_CHAIN)
+        self.assertEqual(updated["fallback_after"], [a["provider"] for a in updated["acquisition_attempts"]])
+        self.assertNotIn("core_openaire_semantic", updated["fallback_after"])
 
     def test_incremental_artifacts_survive_acquisition_exception(self):
         targets = [{"target_id": "PMID:20686769", "title": "", "doi": "", "pmid": "20686769", "pmcid": "", "required": True}]
@@ -258,10 +289,16 @@ class TestSearchTopic(unittest.TestCase):
             tiny = Path(tmp_dir) / "tiny.pdf"
             tiny.write_bytes(b"%PDF tiny")
             ok = Path(tmp_dir) / "ok.pdf"
-            ok.write_bytes(b"%PDF-1.4\n" + b"x" * 2048)
+            corrupt = Path(tmp_dir) / "corrupt.pdf"
+            corrupt.write_bytes(b"%PDF-1.4\n" + b"x" * 2048)
+            from PyPDF2 import PdfWriter
+            writer = PdfWriter(); writer.add_blank_page(width=72, height=72)
+            with ok.open('wb') as stream:
+                writer.write(stream)
 
             self.assertFalse(search_topic.valid_pdf_file(html))
             self.assertFalse(search_topic.valid_pdf_file(tiny))
+            self.assertFalse(search_topic.valid_pdf_file(corrupt))
             self.assertTrue(search_topic.valid_pdf_file(ok))
 
     def test_source_rescue_marks_missing_must_have(self):
@@ -275,6 +312,9 @@ class TestSearchTopic(unittest.TestCase):
         self.assertEqual(entries[0]["status"], "manual_needed")
         self.assertEqual(entries[0]["failure_reason"], "no_match")
         self.assertIn("PMID:20686769", text)
+        self.assertIn("Manual rescue checklist", text)
+        self.assertIn("download_url: `TBD: verify authoritative OA PDF URL`", text)
+        self.assertIn("suggested_destination:", text)
 
     def test_enrich_records_uses_unpaywall_when_pmc_has_no_pdf(self):
         record = {
@@ -305,7 +345,7 @@ class TestSearchTopic(unittest.TestCase):
         self.assertEqual(updated["pdf_url"], "https://repo.example/paper.pdf")
         self.assertEqual(updated["oa_sources"], ["unpaywall"])
 
-    def test_extract_pdf_from_tgz_uses_first_pdf(self):
+    def test_extract_pdf_from_tgz_validates_unambiguous_pdf(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             destination = Path(tmp_dir) / "result.pdf"
 
@@ -315,7 +355,10 @@ class TestSearchTopic(unittest.TestCase):
                 inner_dir = Path(tmp_dir) / "inner"
                 inner_dir.mkdir(exist_ok=True)
                 pdf_path = inner_dir / "paper.pdf"
-                pdf_path.write_bytes(b"%PDF-1.4 fake")
+                from PyPDF2 import PdfWriter
+                writer = PdfWriter(); writer.add_blank_page(width=72, height=72)
+                with pdf_path.open('wb') as stream:
+                    writer.write(stream)
                 with tarfile.open(archive_path, "w:gz") as archive:
                     archive.add(pdf_path, arcname="nested/paper.pdf")
                 return True
@@ -326,6 +369,38 @@ class TestSearchTopic(unittest.TestCase):
             self.assertTrue(ok)
             self.assertTrue(destination.exists())
             self.assertTrue(destination.read_bytes().startswith(b"%PDF"))
+
+    def test_candidate_download_urls_adds_pbmc_https_and_english_suffix(self):
+        urls = search_topic.candidate_download_urls("http://pbmc.ibmc.msk.ru/pdf/PBMC-2025-71-2-127")
+
+        self.assertEqual(urls[0], "http://pbmc.ibmc.msk.ru/pdf/PBMC-2025-71-2-127")
+        self.assertIn("https://pbmc.ibmc.msk.ru/pdf/PBMC-2025-71-2-127", urls)
+        self.assertIn("http://pbmc.ibmc.msk.ru/pdf/PBMC-2025-71-2-127-en", urls)
+        self.assertIn("https://pbmc.ibmc.msk.ru/pdf/PBMC-2025-71-2-127-en", urls)
+
+    def test_try_direct_pdf_attempts_candidate_urls(self):
+        record = self.base_record(
+            doi="10.18097/pbmcr1509",
+            pdf_url="http://pbmc.ibmc.msk.ru/pdf/PBMC-2025-71-2-127",
+        )
+        record["is_oa"] = True
+
+        attempts = []
+
+        def fake_download(url, destination, expected=None):
+            attempts.append(url)
+            if url == "https://pbmc.ibmc.msk.ru/pdf/PBMC-2025-71-2-127-en":
+                destination.write_bytes(b"%PDF-1.6\n" + b"x" * 2048)
+                return True
+            return False
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with patch("search_topic.download_binary", side_effect=fake_download):
+                path, status = search_topic.try_direct_pdf(record, Path(tmp_dir))
+
+        self.assertEqual(status, "downloaded")
+        self.assertTrue(path)
+        self.assertIn("https://pbmc.ibmc.msk.ru/pdf/PBMC-2025-71-2-127-en", attempts)
 
     def test_download_binary_rejects_html_when_pdf_expected(self):
         class FakeResponse:

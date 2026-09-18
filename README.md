@@ -1,5 +1,40 @@
 # EZresearchLM
 
+## EZ refactor: internal candidate
+
+The new interface is `ez`, operated by one agent named **EZ**. Your existing host
+agent prepares the research plan and reviews NotebookLM evidence; no additional
+model API is required. This refactor is still under validation. Offline tests and
+wheel installation do **not** establish launch readiness: authenticated E2E runs,
+closed beta and the release gates remain pending.
+
+```powershell
+python -m pip install -e .
+ez setup --check
+ez context --project my-project
+ez research "My research question" --project my-project --plan-only
+ez status <run-id>
+ez doctor <run-id>
+ez rescue <run-id>
+ez continue <run-id>
+```
+
+Read [the EZ host workflow](docs/ez-host-operator.md) for planning, scoped source
+policies, PDF rescue, reviewed claims and partial answers. `ez setup` initializes
+local configuration without replacing it; `--install-notebooklm` installs the
+supported NotebookLM CLI in an isolated environment. The user completes login.
+QMD remains optional.
+
+For legacy runs, `ez doctor <path> --migration-preview --json` produces a reviewed
+snapshot; `--migrate <preview-hash>` creates a separate EZ run without overwriting
+the originals. Source identity and old notebook mappings still require review.
+Details and release criteria are in the
+[implementation plan](docs/ez-refurbish-implementation-plan.md).
+
+The sections below document the historical wrappers retained during migration.
+For new EZ runs, use the workflow above. Legacy planner integrations are optional
+dependencies (`pip install '.[legacy-planners]'`), not part of the host-agent backend.
+
 NotebookLM-centered research automation for Claude Code, Codex, Hermes, or any
 local agent that can run shell commands.
 
@@ -68,7 +103,7 @@ find already processed evidence; it does not create uncited claims.
 - NotebookLM account and browser auth.
 - `notebooklm` CLI available in PATH.
 - QMD installed if you want local recall over exported notes.
-- Optional: Playwright/Chromium for Anna fallback.
+- Anna fallback requires a source-specific consent receipt; no browser challenge automation.
 - Optional: Unpaywall and NCBI email/API settings for better acquisition.
 
 ## Agent-First Quick Start
@@ -346,7 +381,7 @@ Codex should still preserve the evidence contract:
 - NotebookLM remains the evidence engine.
 - QMD is recall/index only.
 - `source-rescue.json` is the source of truth for missing papers.
-- `NEEDS_SOURCE_RESCUE`, `NEEDS_CORPUS`, and `NEEDS_MORE_QA` are valid stop
+- `NEEDS_SOURCE_REVIEW`, `NEEDS_SOURCE_RESCUE`, `NEEDS_CORPUS`, and `NEEDS_MORE_QA` are valid stop
   states.
 
 For the detailed Codex operator contract, see `docs/codex-operator-guide.md`.
@@ -378,6 +413,25 @@ powershell.exe -ExecutionPolicy Bypass -File ".\scripts\run_hermes_pipeline.ps1"
   -AllowAnnaFallback `
   -StopIfMissingMustHave
 ```
+
+Review candidates before acquisition:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File ".\scripts\run_hermes_pipeline.ps1" `
+  -Slug "membrane-stress" `
+  -Project "my-project" `
+  -Goal "Build a cited evidence set about membrane stress response" `
+  -QueriesFile ".\examples\queries.example.json" `
+  -NotebookTitle "Membrane stress evidence" `
+  -Dashboard "Membrane stress evidence" `
+  -ReviewBeforeAcquisition
+```
+
+This stops with `NEEDS_SOURCE_REVIEW` and writes `download-plan.md` in the run
+ directory. The plan separates bibliographic priority from full-text access. A
+ high-priority paywalled paper should be obtained through institutional,
+ repository, or author access and placed in the papers directory before
+ resuming acquisition or using `-SkipSearch`.
 
 Resume after questions are prepared:
 
@@ -495,12 +549,16 @@ Or override one search:
 
 ### Control Anna Fallback
 
-Anna is off unless `-AllowAnnaFallback` is passed or the must-have config sets
-`allow_anna_fallback: true`.
+Anna is off by default. In EZ, an explicit source-specific decision uses
+`ez rescue <run> --source <id> --allow-anna --anna-url <HTTPS-md5-page>`.
+The receipt expires after 24 hours and never authorizes bypassing access controls.
+The legacy `-AllowAnnaFallback` or config flag alone is insufficient: the adapter
+also requires `EZRESEARCH_ANNA_CONSENT_FILE` for the exact source. Historical
+permissions are not silently renewed during migration.
 
 ```text
 PAPER_SEARCH_MCP_ANNA_TIMEOUT_SECONDS=120
-PAPER_SEARCH_MCP_PLAYWRIGHT_CHROMIUM=C:\Path\To\chrome.exe
+EZRESEARCH_ANNA_CONSENT_FILE=C:\Path\To\source-consent.json
 ```
 
 ### Must-Have Sources
@@ -520,7 +578,10 @@ Use `must-have` files when a paper is required for the question:
 }
 ```
 
-If a must-have source is missing, the pipeline stops before QA.
+In new legacy-wrapper runs, `-StopIfMissingMustHave` controls whether a missing
+must-have stops QA. Omission on continuation inherits the effective prior setting;
+pre-v2 runs retain their historical gate. EZ uses five policies scoped to the
+relevant subquestions and can deliver a reviewed partial answer.
 
 ## Safety Model
 

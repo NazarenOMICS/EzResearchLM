@@ -4,8 +4,8 @@
 
 .DESCRIPTION
     Role split:
-    - gpt-5.4 main agent decides strategy and final synthesis.
-    - gpt-5.4-mini cheap subagent writes/curates queries, questions, and audits.
+    - EZ host agent decides strategy and final synthesis.
+    - The same EZ host agent writes queries, questions, and reviews.
     - This script only executes mechanics after queries/questions are provided.
 
     Non-interactive wrapper. Use this instead of manual search/upload/import steps.
@@ -49,6 +49,7 @@ param(
     [string]$MustHaveFile,
     [switch]$AllowAnnaFallback,
     [switch]$StopIfMissingMustHave,
+    [switch]$ReviewBeforeAcquisition,
     [string]$ResumeState,
     [string]$RetryDelaysMinutes = "",
     [int]$RetryAttempt = 0
@@ -81,6 +82,7 @@ $pythonCandidates = @(
 ) | Where-Object { $_ }
 $VENV_PY = @($pythonCandidates | Where-Object { $_ -eq "python" -or (Test-Path -LiteralPath $_) } | Select-Object -First 1)[0]
 $UVPY = $VENV_PY
+$EXTERNAL = Join-Path $EZRESEARCH_ROOT "scripts\run_external.py"
 $SCRIPTS = Join-Path $EZRESEARCH_ROOT "notebooklm\scripts"
 $RUNS_ROOT = if ($env:EZRESEARCH_RUNS_ROOT) { $env:EZRESEARCH_RUNS_ROOT } else { Join-Path $EZRESEARCH_ROOT "runs" }
 $SEARCH_ROOT = if ($env:EZRESEARCH_SEARCH_ROOT) { $env:EZRESEARCH_SEARCH_ROOT } else { Join-Path $EZRESEARCH_ROOT "Search" }
@@ -145,12 +147,18 @@ $UPLOAD_LOG = Join-Path $RUN_DIR "upload-log-$Slug.txt"
 $STATUS = Join-Path $RUN_DIR "STATUS.md"
 $QUESTION_PLANNER_PROMPT = Join-Path $RUN_DIR "subagent-question-planner-prompt.md"
 $RUN_STATE = Join-Path $RUN_DIR "run-state.json"
+# Preserve the historical effective gate when continuing a pre-v2 run. An old
+# false value did not disable the gate; only explicit input may change it.
+$gateStatePath = if ($ResumeState) { $ResumeState } else { $RUN_STATE }
+if ($ResumeState -and -not (Test-Path -LiteralPath $ResumeState)) { throw "ResumeState not found: $ResumeState" }
+. (Join-Path $PSScriptRoot 'resolve_must_have_gate.ps1')
+$StopIfMissingMustHave = Resolve-EzMustHaveGate -ExplicitlySet ($PSBoundParameters.ContainsKey('StopIfMissingMustHave')) -RequestedValue ([bool]$StopIfMissingMustHave) -StatePath $gateStatePath
 $RUN_CANDIDATE_SOURCES = Join-Path $RUN_DIR "candidate-sources.json"
 $RUN_SOURCE_RESCUE = Join-Path $RUN_DIR "source-rescue.json"
 $RUN_MISSING_SOURCES = Join-Path $RUN_DIR "missing-sources.md"
 
 if (-not $SaveDir) {
-    $SaveDir = Join-Path (Join-Path $SEARCH_ROOT $PROJECT) "$Slug-papers"
+    $SaveDir = Join-Path (Join-Path (Join-Path $SEARCH_ROOT $PROJECT) $Slug) "papers"
 }
 if (-not $BlockSummaryTitle) {
     $BlockSummaryTitle = "$Dashboard - NotebookLM block summary"
@@ -191,6 +199,7 @@ function Get-HermesResumeCommand {
     if ($MustHaveFile) { $parts += "-MustHaveFile `"$MustHaveFile`"" }
     if ($AllowAnnaFallback) { $parts += "-AllowAnnaFallback" }
     if ($StopIfMissingMustHave) { $parts += "-StopIfMissingMustHave" }
+    if ($ReviewBeforeAcquisition) { $parts += "-ReviewBeforeAcquisition" }
     if ($NotebookId) {
         $parts += "-SkipSearch"
         $parts += "-FromExistingQuestions"
@@ -267,6 +276,8 @@ function Write-RunState {
         project = $PROJECT
         vault_slug = $VAULT_SLUG
         goal = $Goal
+        notebook_title = $NotebookTitle
+        dashboard = $Dashboard
         stage = $Stage
         status = $StateStatus
         updated_at = (Get-Date -Format s)
@@ -282,6 +293,8 @@ function Write-RunState {
         must_have_file = $MustHaveFile
         allow_anna_fallback = [bool]$AllowAnnaFallback
         stop_if_missing_must_have = [bool]$StopIfMissingMustHave
+        must_have_gate_version = 2
+        review_before_acquisition = [bool]$ReviewBeforeAcquisition
         resume_state = $ResumeState
         retry_delays_minutes = $RETRY_DELAYS
         retry_attempt = $RetryAttempt
@@ -302,6 +315,35 @@ function Fail {
     Add-Content -Path $STATUS -Value "- FAIL: $Text"
     Write-RunState -Stage $Stage -StateStatus $StateStatus -Details @{ reason = $Text; exit_code = $Code }
     exit $Code
+}
+
+function Get-QuestionsTraceability {
+    param([string]$Path)
+    $result = [ordered]@{
+        status = "unknown"
+        citation_audit_note = ""
+        citation_audit_exit_code = $null
+    }
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return [pscustomobject]$result
+    }
+    try {
+        $payload = Get-Content -LiteralPath $Path -Raw -Encoding utf8 | ConvertFrom-Json
+    } catch {
+        return [pscustomobject]$result
+    }
+    if ($payload.PSObject.Properties.Name -contains "traceability_status" -and $payload.traceability_status) {
+        $result.status = ([string]$payload.traceability_status).ToLowerInvariant()
+    } elseif ($payload.PSObject.Properties.Name -contains "citation_audit_status" -and $payload.citation_audit_status) {
+        $result.status = ([string]$payload.citation_audit_status).ToLowerInvariant()
+    }
+    if ($payload.PSObject.Properties.Name -contains "citation_audit_note" -and $payload.citation_audit_note) {
+        $result.citation_audit_note = [string]$payload.citation_audit_note
+    }
+    if ($payload.PSObject.Properties.Name -contains "citation_audit_exit_code") {
+        $result.citation_audit_exit_code = $payload.citation_audit_exit_code
+    }
+    return [pscustomobject]$result
 }
 
 function Invoke-Checked {
@@ -346,7 +388,7 @@ function Get-NotebookSourcesJson {
 
     $oldErrorActionPreference = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
-    $raw = & notebooklm source list --notebook $NotebookId --json 2>&1
+    $raw = & $VENV_PY $EXTERNAL --timeout 180 -- notebooklm source list --notebook $NotebookId --json 2>&1
     $sourceListExitCode = $LASTEXITCODE
     $ErrorActionPreference = $oldErrorActionPreference
     if ($sourceListExitCode -ne 0) {
@@ -384,7 +426,7 @@ function Remove-NotebookSourcesByTitle {
         $title = if ($source.title) { [string]$source.title } elseif ($source.name) { [string]$source.name } else { "" }
         $id = if ($source.id) { [string]$source.id } elseif ($source.source_id) { [string]$source.source_id } else { "" }
         if ($title -and $id -and $titleSet.ContainsKey($title.ToLowerInvariant())) {
-            $deleteOutput = & notebooklm source delete --notebook $NotebookId $id -y 2>&1
+            $deleteOutput = & $VENV_PY $EXTERNAL --timeout 180 -- notebooklm source delete --notebook $NotebookId $id -y 2>&1
             if ($LASTEXITCODE -eq 0) {
                 $removed++
                 Note "Dropped failed upload source from notebook: $title"
@@ -411,7 +453,7 @@ function Remove-NotebookSourcesByStatus {
         $title = if ($source.title) { [string]$source.title } elseif ($source.name) { [string]$source.name } else { "" }
         $id = if ($source.id) { [string]$source.id } elseif ($source.source_id) { [string]$source.source_id } else { "" }
         if ($id) {
-            $deleteOutput = & notebooklm source delete --notebook $NotebookId $id -y 2>&1
+            $deleteOutput = & $VENV_PY $EXTERNAL --timeout 180 -- notebooklm source delete --notebook $NotebookId $id -y 2>&1
             if ($LASTEXITCODE -eq 0) {
                 $removed++
                 Note "Dropped NotebookLM errored source: $title [$status]"
@@ -453,7 +495,7 @@ function Get-NotebookIdFromQuestionsFile {
 }
 
 function Ensure-NotebookLM {
-    $output = & notebooklm list 2>&1
+    $output = & $VENV_PY $EXTERNAL --timeout 180 -- notebooklm list 2>&1
     if ($LASTEXITCODE -ne 0) {
         $text = ($output | Out-String)
         if ($text -match "Authentication expired|invalid|accounts.google.com") {
@@ -464,12 +506,14 @@ function Ensure-NotebookLM {
 }
 
 function Ensure-Qmd {
+    if (-not (Get-Command qmd -ErrorAction SilentlyContinue)) { return $false }
     Push-Location $VAULT
     try {
-        $output = & qmd collection list 2>&1
+        $output = & $VENV_PY $EXTERNAL --timeout 120 -- qmd collection list 2>&1
         if ($LASTEXITCODE -ne 0) {
-            Fail "qmd collection list failed from vault: $($output | Out-String)"
+            return $false
         }
+        return $true
     } finally {
         Pop-Location
     }
@@ -496,7 +540,7 @@ function Assert-NotebookSourcesReady {
         $title = if ($source.title) { $source.title } elseif ($source.name) { $source.name } else { $source.id }
         if (-not $status) {
             $unknown += $title
-        } elseif ($status.ToLowerInvariant() -notmatch "ready|completed|available") {
+        } elseif ($status.ToLowerInvariant() -notin @('ready', 'completed', 'available')) {
             $notReady += "$title [$status]"
         }
     }
@@ -515,7 +559,7 @@ function Assert-NotebookSourcesReady {
 }
 
 function Sync-SearchArtifacts {
-    foreach ($name in @("candidate-sources.json", "source-rescue.json", "missing-sources.md")) {
+    foreach ($name in @("candidate-sources.json", "source-rescue.json", "missing-sources.md", "download-plan.md")) {
         $sourcePath = Join-Path $SaveDir $name
         $targetPath = Join-Path $RUN_DIR $name
         if (Test-Path -LiteralPath $sourcePath) {
@@ -678,9 +722,9 @@ if (-not (Test-Path $VENV_PY)) { Fail "Python venv not found: $VENV_PY" }
 if (-not (Test-Path $UVPY)) { Fail "NotebookLM uv Python not found: $UVPY" }
 if (-not (Test-Path $QueriesFile)) { Fail "QueriesFile not found: $QueriesFile" }
 Ensure-NotebookLM
-Ensure-Qmd
+$QMD_AVAILABLE = Ensure-Qmd
 Note "NotebookLM list OK"
-Note "QMD collection list OK"
+if ($QMD_AVAILABLE) { Note "QMD collection list OK" } else { Note "QMD optional recall unavailable; NotebookLM QA remains available" }
 Note "Project: $PROJECT"
 Note "Vault slug: $VAULT_SLUG"
 Write-RunState -Stage "preflight" -StateStatus "ok"
@@ -701,7 +745,18 @@ if (-not $SkipSearch) {
     if ($MinOa) { $searchArgs += "-MinOa" }
     if ($MustHaveFile) { $searchArgs += @("-MustHaveFile", $MustHaveFile) }
     if ($AllowAnnaFallback) { $searchArgs += "-AllowAnnaFallback" }
+    if ($ReviewBeforeAcquisition) { $searchArgs += "-ReviewBeforeAcquisition" }
     & powershell.exe @searchArgs
+    if ($LASTEXITCODE -eq 3) {
+        Sync-SearchArtifacts
+        Add-Content -Path $STATUS -Value "`n## NEEDS_SOURCE_REVIEW`n- Download plan: $RUN_DIR\download-plan.md`n- Review the candidate papers, rescue high-priority paywalled papers if available, then rerun without -ReviewBeforeAcquisition or with -SkipSearch after placing PDFs in the papers directory."
+        Write-RunState -Stage "source_review" -StateStatus "needs_source_review" -Details @{ download_plan = (Join-Path $RUN_DIR "download-plan.md"); papers_dir = $SaveDir }
+        Write-Host "NEEDS_SOURCE_REVIEW" -ForegroundColor Yellow
+        Write-Host "Download plan: $(Join-Path $RUN_DIR 'download-plan.md')"
+        Write-Host "If you can obtain a high-priority paywalled paper legally, place its PDF in: $SaveDir"
+        Write-Host "Then rerun without -ReviewBeforeAcquisition, or use -SkipSearch after all desired PDFs are present."
+        exit 3
+    }
     if ($LASTEXITCODE -ne 0) {
         Sync-SearchArtifacts
         if ($RETRY_DELAYS.Count -gt 0) {
@@ -714,7 +769,7 @@ if (-not $SkipSearch) {
 }
 Sync-SearchArtifacts
 $missingRequired = @(Get-MissingRequiredSources)
-if ($missingRequired.Count -gt 0) {
+if ($StopIfMissingMustHave -and $missingRequired.Count -gt 0) {
     Add-Content -Path $STATUS -Value "`n## NEEDS_SOURCE_RESCUE`n- Missing required sources: $($missingRequired.Count)`n- Source rescue: $RUN_SOURCE_RESCUE`n- Missing sources: $RUN_MISSING_SOURCES"
     foreach ($missing in $missingRequired) {
         Add-Content -Path $STATUS -Value "- `$($missing.target_id)` $($missing.title) :: $($missing.failure_reason)"
@@ -741,7 +796,7 @@ if ($RESUME_NOTEBOOK_ID) {
     Write-RunState -Stage "notebook" -StateStatus "reused"
 } else {
     Step "2 Create NotebookLM notebook"
-    $createOutput = & notebooklm create $NotebookTitle 2>&1
+    $createOutput = & $VENV_PY $EXTERNAL --timeout 180 -- notebooklm create $NotebookTitle 2>&1
     if ($LASTEXITCODE -ne 0) { Fail "notebooklm create failed: $($createOutput | Out-String)" }
     $NOTEBOOK_ID = Get-NotebookIdFromText $createOutput
     if (-not $NOTEBOOK_ID) { Fail "Could not parse notebook ID from notebooklm create output" }
@@ -775,7 +830,7 @@ if ($RESUME_NOTEBOOK_ID) {
 Write-RunState -Stage "upload" -StateStatus "ok" -Details @{ failed_uploads = $FAILED_UPLOAD_NAMES.Count }
 
 Step "4 Export NotebookLM sources"
-& $UVPY (Join-Path $SCRIPTS "list_sources_to_json.py") `
+& $VENV_PY $EXTERNAL --timeout 180 -- $UVPY (Join-Path $SCRIPTS "list_sources_to_json.py") `
     --notebook $NOTEBOOK_ID `
     --out $TMP_SOURCES `
     --title $NotebookTitle
@@ -785,7 +840,7 @@ Note "Sources JSON: $TMP_SOURCES"
 if ($FAILED_UPLOAD_NAMES.Count -gt 0) {
     $removed = Remove-NotebookSourcesByTitle -NotebookId $NOTEBOOK_ID -Titles $FAILED_UPLOAD_NAMES
     if ($removed -gt 0) {
-        & $UVPY (Join-Path $SCRIPTS "list_sources_to_json.py") `
+        & $VENV_PY $EXTERNAL --timeout 180 -- $UVPY (Join-Path $SCRIPTS "list_sources_to_json.py") `
             --notebook $NOTEBOOK_ID `
             --out $TMP_SOURCES `
             --title $NotebookTitle
@@ -795,7 +850,7 @@ if ($FAILED_UPLOAD_NAMES.Count -gt 0) {
 }
 $removedErrored = Remove-NotebookSourcesByStatus -NotebookId $NOTEBOOK_ID
 if ($removedErrored -gt 0) {
-    & $UVPY (Join-Path $SCRIPTS "list_sources_to_json.py") `
+    & $VENV_PY $EXTERNAL --timeout 180 -- $UVPY (Join-Path $SCRIPTS "list_sources_to_json.py") `
         --notebook $NOTEBOOK_ID `
         --out $TMP_SOURCES `
         --title $NotebookTitle
@@ -834,7 +889,7 @@ if ($FromExistingQuestions -and $RESUME_NOTEBOOK_ID -and $existingSourceNotes.Co
             "--papers-dir", $SaveDir
         )
         if ($SkipGuides) { $importArgs += "--skip-guides" }
-        & $VENV_PY @importArgs
+        & $VENV_PY $EXTERNAL --timeout 1200 -- $VENV_PY @importArgs
         if ($LASTEXITCODE -ne 0) { Fail "import_sources.py failed" }
     } finally {
         Pop-Location
@@ -849,7 +904,7 @@ if (-not $FromExistingQuestions) {
     Set-Content -Path $QUESTION_PLANNER_PROMPT -Encoding utf8 -Value @"
 # NotebookLM Question Planner Subagent Task
 
-Use model: gpt-5.4-mini.
+Operator: EZ, using the existing host agent; no additional model API.
 
 Return JSON only. Do not run tools. Do not answer the questions.
 
@@ -975,22 +1030,45 @@ try {
     if ($BatchFromStep) {
         $batchArgs += @("--from-step", $BatchFromStep)
     }
-    & $VENV_PY @batchArgs
+    & $VENV_PY $EXTERNAL --timeout 3600 -- $VENV_PY @batchArgs
     if ($LASTEXITCODE -ne 0) { Fail "batch_ask.py failed" }
 } finally {
     Pop-Location
 }
 Note "QA exported"
-Write-RunState -Stage "qa" -StateStatus "ok"
-
-Step "8 QMD update"
-Push-Location $VAULT
-try {
-    & qmd update
-    if ($LASTEXITCODE -ne 0) { Fail "qmd update failed" }
-} finally {
-    Pop-Location
+$traceability = Get-QuestionsTraceability -Path $QUESTIONS_FILE
+$qaDetails = @{
+    traceability_status = $traceability.status
+    citation_audit_note = $traceability.citation_audit_note
+    citation_audit_exit_code = $traceability.citation_audit_exit_code
 }
-Note "QMD updated"
+if ($traceability.status -notin @("pass", "warn")) {
+    Note "TRACEABILITY_FAILED: latest citation audit failed"
+    if ($traceability.citation_audit_note) {
+        Note "Citation audit: $($traceability.citation_audit_note)"
+    }
+    Write-RunState -Stage "qa" -StateStatus "traceability_failed" -Details $qaDetails
+    Write-Host "NEEDS_TRACEABILITY_REPAIR" -ForegroundColor Yellow
+    Write-Host "Latest citation audit failed. Fix missing source notes or QA links, then rerun QA/audit."
+    exit 2
+}
+if ($traceability.status -eq "warn") {
+    Note "TRACEABILITY_WARN: citation audit passed source-note checks but found direct PDF links"
+}
+Write-RunState -Stage "qa" -StateStatus "ok" -Details $qaDetails
+
+Step "8 Optional QMD update"
+$qaDetails.qmd_index_status = 'pending'
+if ($QMD_AVAILABLE) {
+    Push-Location $VAULT
+    try {
+        & $VENV_PY $EXTERNAL --timeout 120 -- qmd update
+        if ($LASTEXITCODE -eq 0) { $qaDetails.qmd_index_status = 'updated' }
+    } finally {
+        Pop-Location
+    }
+}
+Note "QMD index: $($qaDetails.qmd_index_status)"
 Note "Done: $VAULT\Notes\NotebookLM\$VAULT_SLUG"
-Write-RunState -Stage "done" -StateStatus "ok"
+Write-RunState -Stage "done" -StateStatus "ok" -Details $qaDetails
+exit 0

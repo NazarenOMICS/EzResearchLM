@@ -52,6 +52,9 @@ def main() -> None:
 
     note_date = args.date or date.today().isoformat()
     qa_notes = qa_notes_from_questions(Path(args.questions))
+    question_data = json.loads(Path(args.questions).read_text(encoding="utf-8-sig"))
+    unexported = [str(q.get('id', '?')) for q in question_data.get('questions', [])
+                  if q.get('question', '').strip() and not q.get('vault_note')]
     sources_dir = VAULT / "Notes" / "NotebookLM" / args.slug / "Sources"
 
     total_source_links = 0
@@ -59,6 +62,9 @@ def main() -> None:
     total_pdf_links = 0
     broken_sources: set[str] = set()
     notes_without_source_links: list[str] = []
+    if not qa_notes:
+        notes_without_source_links.append('No exported QA notes: an empty audit cannot pass')
+    notes_without_source_links.extend('Question without exported QA: ' + q for q in unexported)
 
     source_re = re.compile(rf"\[\[Notes/NotebookLM/{re.escape(args.slug)}/Sources/([^\]#|]+)(#[^\]|]+)?")
     pdf_re = re.compile(r"\[\[Research/Papers/([^\]#|]+)")
@@ -78,8 +84,15 @@ def main() -> None:
             notes_without_source_links.append(qa_note)
         for match in source_matches:
             source_name = match.group(1)
-            if not (sources_dir / f"{source_name}.md").exists():
+            source_path = sources_dir / f"{source_name}.md"
+            if not source_path.resolve().is_relative_to(sources_dir.resolve()) or not source_path.exists():
                 broken_sources.add(source_name)
+            elif match.group(2):
+                anchor = match.group(2)[1:]
+                source_text = source_path.read_text(encoding='utf-8-sig')
+                headings = set(re.findall(r'^#{1,6}\s+(.+?)\s*#*\s*$', source_text, re.MULTILINE))
+                if anchor not in headings:
+                    broken_sources.add(source_name + '#' + anchor)
 
     status = "pass"
     if broken_sources or notes_without_source_links:
@@ -124,7 +137,7 @@ related:
 
 ## Interpretation
 
-- PASS means exported QA notes link claims to existing `Sources` notes.
+- PASS means nonempty exported QA notes link to existing `Sources` notes and referenced headings. It does not establish semantic support for claims.
 - WARN means QA notes are traceable, but some body links still point directly to PDFs.
 - FAIL means at least one QA note lacks source links or points to missing source notes.
 """

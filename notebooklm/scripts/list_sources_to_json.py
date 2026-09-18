@@ -9,6 +9,7 @@ import json
 import shutil
 import subprocess
 import sys
+from ez.process import run as run_bounded
 
 
 sys.stdout.reconfigure(encoding="utf-8")
@@ -21,7 +22,7 @@ def main(notebook_id: str, title: str, out_path: str) -> int:
         cmd = [notebooklm_exe, "source", "list", "--notebook", notebook_id, "--json"]
     else:
         cmd = [sys.executable, "-m", "notebooklm", "source", "list", "--notebook", notebook_id, "--json"]
-    proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+    proc = run_bounded(cmd, timeout=60)
     if proc.returncode != 0:
         sys.stderr.write(proc.stderr)
         sys.stderr.write(proc.stdout)

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["source_id", "acquisition_status", "validation_status", "identity_status", "notebook_status"],
+    "properties": {
+      "source_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,100}$"},
+      "acquisition_status": {"enum": ["pending", "downloaded", "manual_needed"]},
+      "validation_status": {"enum": ["unknown", "valid", "invalid"]},
+      "identity_status": {"enum": ["unknown", "needs_review", "verified"]},
+      "notebook_status": {"enum": ["pending", "processing", "ready"]},
+      "notebook_source_id": {"type": ["string", "null"]},
+      "content_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+      "pdf_path": {"type": ["string", "null"], "minLength": 1}
+    },
+    "allOf": [{"if": {"properties": {"validation_status": {"const": "valid"}}}, "then": {"required": ["pdf_path", "content_sha256"], "properties": {"pdf_path": {"type": "string", "minLength": 1}}}}]
+  }
+}

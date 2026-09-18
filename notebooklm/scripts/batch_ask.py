@@ -6,8 +6,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
+from ez.process import run as run_bounded
 import sys
 from datetime import date
 from pathlib import Path
@@ -68,13 +70,7 @@ _STDERR_MAX_CHARS = 1200
 def run_cmd(cmd: list[str], label: str) -> tuple[int, str]:
     print(f"\n[{label}]", file=sys.stderr)
     real_cmd = wrap_windows_cli(cmd)
-    result = subprocess.run(
-        real_cmd,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
+    result = run_bounded(real_cmd, timeout=float(os.environ.get('EZRESEARCH_QA_TIMEOUT_SECONDS', '180')))
     if result.stderr.strip():
         lines = result.stderr.strip().splitlines()
         if len(lines) > _STDERR_MAX_LINES:
@@ -254,7 +250,23 @@ def compile_source_curation(sources_path: str, slug: str, dashboard: str, note_d
     return stdout.strip() or None
 
 
-def audit_qa_citations(questions_path: str, slug: str, dashboard: str, note_date: str) -> str | None:
+def read_citation_audit_status(note_path: str | None) -> str:
+    if not note_path:
+        return "unknown"
+    path = VAULT / note_path
+    if not path.exists():
+        return "unknown"
+    text = path.read_text(encoding="utf-8")
+    frontmatter = re.search(r"(?m)^status:\s*([A-Za-z_-]+)\s*$", text)
+    if frontmatter:
+        return frontmatter.group(1).strip().lower()
+    verdict = re.search(r"(?m)^-\s*Status:\s*([A-Za-z_-]+)\s*$", text)
+    if verdict:
+        return verdict.group(1).strip().lower()
+    return "unknown"
+
+
+def audit_qa_citations(questions_path: str, slug: str, dashboard: str, note_date: str) -> tuple[str | None, str, int]:
     cmd = [
         sys.executable,
         str(SCRIPTS_DIR / 'audit_qa_citations.py'),
@@ -268,9 +280,13 @@ def audit_qa_citations(questions_path: str, slug: str, dashboard: str, note_date
         note_date,
     ]
     code, stdout = run_cmd(cmd, 'audit_qa_citations')
-    if code != 0:
-        return None
-    return stdout.strip() or None
+    note_path = stdout.strip().splitlines()[-1].strip() if stdout.strip() else None
+    if note_path and not (VAULT / note_path).exists():
+        note_path = None
+    status = read_citation_audit_status(note_path)
+    if code != 0 and note_path:
+        print(f"  WARNING: citation audit returned {code}; preserving {note_path}", file=sys.stderr)
+    return note_path, status, code
 
 
 def compile_block_summary(slug: str, dashboard: str, note_date: str, title: str, qa_notes: list[str]) -> str | None:
@@ -428,6 +444,8 @@ def main() -> None:
     source_curation_note = None
     block_summary_note = None
     citation_audit_note = None
+    citation_audit_status = "unknown"
+    citation_audit_exit_code = None
 
     # Persist vault_note fields before downstream summary compilers read the questions JSON
     questions_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -438,7 +456,7 @@ def main() -> None:
         update_source_usage(args.sources, vault_slug, exported_notes)
         summary_note = compile_qa_summary(str(questions_path), vault_slug, dashboard, note_date)
         source_curation_note = compile_source_curation(args.sources, vault_slug, dashboard, note_date)
-        citation_audit_note = audit_qa_citations(str(questions_path), vault_slug, dashboard, note_date)
+        citation_audit_note, citation_audit_status, citation_audit_exit_code = audit_qa_citations(str(questions_path), vault_slug, dashboard, note_date)
         if args.block_summary_title:
             block_summary_note = compile_block_summary(vault_slug, dashboard, note_date, args.block_summary_title, exported_notes)
         if summary_note:
@@ -447,6 +465,9 @@ def main() -> None:
             data["source_curation_note"] = source_curation_note
         if citation_audit_note:
             data["citation_audit_note"] = citation_audit_note
+        data["citation_audit_status"] = citation_audit_status
+        data["citation_audit_exit_code"] = citation_audit_exit_code
+        data["traceability_status"] = citation_audit_status
         if block_summary_note:
             data["block_summary_note"] = block_summary_note
 
@@ -460,7 +481,9 @@ def main() -> None:
     if source_curation_note:
         print(f"  Source curation : {source_curation_note}", file=sys.stderr)
     if citation_audit_note:
-        print(f"  Citation audit  : {citation_audit_note}", file=sys.stderr)
+        print(f"  Citation audit  : {citation_audit_note} ({citation_audit_status})", file=sys.stderr)
+    elif exported_notes:
+        print(f"  Citation audit  : unavailable ({citation_audit_status})", file=sys.stderr)
     if block_summary_note:
         print(f"  Block summary   : {block_summary_note}", file=sys.stderr)
     print(f"  Vault path      : Notes/NotebookLM/{vault_slug}/QA/", file=sys.stderr)

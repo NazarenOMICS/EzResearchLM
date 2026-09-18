@@ -4,13 +4,16 @@
 from __future__ import annotations
 
 import argparse
+from hashlib import md5
 import json
+import logging
 import multiprocessing as mp
 import os
 import re
 import sys
 import tarfile
 import tempfile
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
 from pathlib import Path
@@ -19,6 +22,7 @@ from urllib.parse import urlparse
 from xml.etree import ElementTree as ET
 
 import requests
+from requests.exceptions import SSLError
 
 from paper_search_mcp.academic_platforms.europepmc import EuropePMCSearcher
 from paper_search_mcp.academic_platforms.openalex import OpenAlexSearcher
@@ -42,14 +46,17 @@ SEARCHER_FACTORIES: dict[str, Callable[[], Any]] = {
 }
 
 IDCONV_URL = "https://www.ncbi.nlm.nih.gov/pmc/utils/idconv/v1.0/"
-OA_URL = "https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi"
 DEFAULT_SOURCES = "pubmed,europepmc,openalex,semantic,crossref"
 REQUEST_TIMEOUT = 30
 ANNA_TIMEOUT_SECONDS = int(os.environ.get("PAPER_SEARCH_MCP_ANNA_TIMEOUT_SECONDS", "120"))
 _UNPAYWALL_RESOLVER: UnpaywallResolver | None = None
 ANNA_SOURCE = "anna_archive"
-OA_FALLBACK_CHAIN = ["direct", "pmc_oa", "europepmc_openalex", "unpaywall", "core_openaire_semantic"]
 MIN_PDF_BYTES = 1024
+DOWNLOAD_HEADERS = {
+    "User-Agent": "EZresearchLM/0.1 (+https://github.com/openags/paper-search-mcp)",
+    "Accept": "application/pdf,application/octet-stream,*/*;q=0.8",
+}
+logger = logging.getLogger(__name__)
 
 
 def normalize_doi(value: str | None) -> str:
@@ -311,6 +318,35 @@ def target_priority(record: dict[str, Any], targets: list[dict[str, Any]]) -> in
     return 2
 
 
+def availability_status(record: dict[str, Any]) -> str:
+    """Report access separately from bibliographic relevance."""
+    if record.get("pdf_status") == "downloaded" or record.get("pdf_path"):
+        return "open_full_text"
+    if record.get("pdf_status") == "candidate":
+        return "candidate"
+    if record.get("pdf_status") == "manual_needed":
+        return "paywalled_or_unresolved"
+    if record.get("is_oa") or record.get("pdf_url") or record.get("tgz_url"):
+        return "open_full_text_candidate"
+    if record.get("abstract"):
+        return "abstract_only"
+    return "metadata_only"
+
+
+def review_priority(record: dict[str, Any], targets: list[dict[str, Any]]) -> str:
+    """Classify rescue urgency without treating OA as scientific quality."""
+    priority = target_priority(record, targets)
+    if priority == 0:
+        return "must_have"
+    if priority == 1:
+        return "nice_to_have"
+    if len(record.get("sources") or []) >= 2:
+        return "high_priority"
+    if record.get("abstract"):
+        return "candidate"
+    return "low_priority"
+
+
 def metadata_score(record: dict[str, Any]) -> int:
     return sum(
         1
@@ -333,20 +369,36 @@ def merge_records(best: dict[str, Any], candidate: dict[str, Any]) -> dict[str, 
     primary["oa_sources"] = sorted(set((primary.get("oa_sources") or []) + (secondary.get("oa_sources") or [])))
     primary["sources"] = sorted(set((primary.get("sources") or []) + (secondary.get("sources") or [])))
     primary["queries"] = sorted(set((primary.get("queries") or []) + (secondary.get("queries") or [])))
+    primary['pdf_urls'] = list(dict.fromkeys(u for item in (primary, secondary)
+                                           for u in [item.get('pdf_url'), *(item.get('pdf_urls') or [])] if u))
     primary["source"] = primary["sources"][0] if primary["sources"] else primary.get("source")
     return primary
 
 
 def dedupe_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    grouped: dict[str, dict[str, Any]] = {}
+    grouped: list[dict[str, Any]] = []
     for record in records:
-        doi = (record.get("doi") or "").strip().lower()
-        if doi:
-            key = f"doi:{doi}"
+        record['doi'] = normalize_doi(record.get('doi'))
+        match = next((i for i, previous in enumerate(grouped) if same_identity(previous, record)), None)
+        if match is None:
+            grouped.append(record)
         else:
-            key = f"title:{normalize_title(record.get('title', ''))}"
-        grouped[key] = merge_records(grouped[key], record) if key in grouped else record
-    return list(grouped.values())
+            grouped[match] = merge_records(grouped[match], record)
+    return grouped
+
+
+def same_identity(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    """Exact stable identifiers, never contradictory IDs or title-only similarity."""
+    ids = ('doi', 'pmid', 'pmcid')
+    def value(row, key):
+        return normalize_doi(row.get(key)) if key == 'doi' else str(row.get(key) or '').lower().strip()
+    shared = [key for key in ids if value(left, key) and value(right, key)]
+    if shared:
+        return all(value(left, key) == value(right, key) for key in shared)
+    if any(value(row, key) for row in (left, right) for key in ids):
+        return False
+    fields = ('title', 'year', 'authors')
+    return all(left.get(key) and right.get(key) and normalize_title(str(left[key])) == normalize_title(str(right[key])) for key in fields)
 
 
 def fetch_oa_metadata(pmid: str | None, pmcid: str | None) -> dict[str, Any]:
@@ -354,6 +406,8 @@ def fetch_oa_metadata(pmid: str | None, pmcid: str | None) -> dict[str, Any]:
     resolved_pmcid = (pmcid or "").strip().upper() or None
     pdf_url = None
     tgz_url = None
+    cloud_metadata = None
+    attempts = []
 
     if pmid and not resolved_pmcid:
         try:
@@ -367,16 +421,19 @@ def fetch_oa_metadata(pmid: str | None, pmcid: str | None) -> dict[str, Any]:
 
     if resolved_pmcid:
         try:
-            response = session.get(OA_URL, params={"id": resolved_pmcid}, timeout=REQUEST_TIMEOUT)
-            response.raise_for_status()
-            root = ET.fromstring(response.content)
-            for link in root.findall(".//record/link"):
-                format_name = (link.attrib.get("format") or "").lower()
-                href = normalize_ftp_url(link.attrib.get("href") or "")
-                if format_name == "pdf" and href:
-                    pdf_url = href
-                elif format_name == "tgz" and href:
-                    tgz_url = href
+            from ez.acquisition import Retriever
+            from ez.pmc import locations as pmc_locations
+            with tempfile.TemporaryDirectory() as folder:
+                retriever = Retriever(folder, 'legacy-pmc', seconds=60, attempts=1)
+                candidates = pmc_locations(retriever, {'pmcid': resolved_pmcid})
+                # Legacy has no per-version selection contract: do not choose
+                # between multiple PMC versions on the user's behalf.
+                if len(candidates) == 1:
+                    selected = retriever.location_metadata[candidates[0][0]]
+                    if not selected.get('requires_version_review') and not selected.get('is_retracted'):
+                        pdf_url = candidates[0][0]
+                        cloud_metadata = selected
+                attempts = retriever.history
         except Exception:
             pass
 
@@ -385,6 +442,8 @@ def fetch_oa_metadata(pmid: str | None, pmcid: str | None) -> dict[str, Any]:
         "pdf_url": pdf_url,
         "tgz_url": tgz_url,
         "is_oa": bool(pdf_url or tgz_url),
+        "pmc_cloud_metadata": cloud_metadata,
+        "pmc_resolution_attempts": attempts,
     }
 
 
@@ -435,11 +494,11 @@ def looks_like_pdf(data: bytes) -> bool:
     return bool(data) and data.lstrip().startswith(b"%PDF")
 
 
-def valid_pdf_file(path: Path, min_bytes: int = MIN_PDF_BYTES) -> bool:
+def valid_pdf_file(path: Path, min_bytes: int = 0) -> bool:
     if not path.exists() or path.stat().st_size < min_bytes:
         return False
-    with path.open("rb") as handle:
-        return looks_like_pdf(handle.read(4096))
+    from ez.pdf import validate_pdf_bounded
+    return validate_pdf_bounded(path)['status'] == 'valid'
 
 
 def _anna_download_worker(identifier: str, save_dir: str, queue: Any) -> None:
@@ -490,23 +549,65 @@ def pdf_source_for_record(record: dict[str, Any]) -> str:
     return "direct"
 
 
-def download_binary(url: str, destination: Path, expected: str | None = None) -> bool:
-    response = requests.get(url, timeout=90, stream=True)
-    response.raise_for_status()
-    chunk_iter = response.iter_content(65536)
-    first_chunk = next((chunk for chunk in chunk_iter if chunk), b"")
+def candidate_download_urls(url: str) -> list[str]:
+    """Return equivalent source-native URLs worth trying before rescue."""
+    raw = (url or "").strip()
+    if not raw:
+        return []
 
-    if expected == "pdf" and not looks_like_pdf(first_chunk):
-        response.close()
-        return False
+    candidates = [raw]
+    parsed = urlparse(raw)
+    if parsed.scheme == "http":
+        candidates.append("https://" + raw[len("http://"):])
 
-    with destination.open("wb") as handle:
-        if first_chunk:
-            handle.write(first_chunk)
-        for chunk in chunk_iter:
-            if chunk:
+    # PBMC's Unpaywall URL is sometimes http://.../PBMC-... while the working
+    # public PDF is served over HTTPS from the same path, occasionally with an
+    # -en suffix. Try both before marking the source manual_needed.
+    if parsed.netloc.lower() == "pbmc.ibmc.msk.ru" and not parsed.path.endswith("-en"):
+        candidates.append(raw + "-en")
+        if parsed.scheme == "http":
+            candidates.append("https://" + raw[len("http://"):] + "-en")
+
+    unique: list[str] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        if candidate and candidate not in seen:
+            seen.add(candidate)
+            unique.append(candidate)
+    return unique
+
+
+def _download_response(url: str) -> requests.Response:
+    # A PDF signature cannot establish the authenticity of a TLS peer.
+    return requests.get(url, timeout=90, stream=True, headers=DOWNLOAD_HEADERS)
+
+
+def download_binary(url: str, destination: Path, expected: str | None = None, expected_md5: str | None = None) -> bool:
+    started = time.monotonic()
+    response = _download_response(url)
+    temporary = destination.with_suffix(destination.suffix + '.part')
+    try:
+        response.raise_for_status()
+        size = 0
+        with temporary.open('wb') as handle:
+            for chunk in response.iter_content(65536):
+                if not chunk:
+                    continue
+                if not size and expected == 'pdf' and not looks_like_pdf(chunk):
+                    return False
+                size += len(chunk)
+                if size > 100 * 1024 * 1024 or time.monotonic() - started > 120:
+                    return False
                 handle.write(chunk)
-    return destination.exists() and destination.stat().st_size > 0
+        if not size or (expected == 'pdf' and not valid_pdf_file(temporary)):
+            return False
+        if expected_md5 and md5(temporary.read_bytes()).hexdigest() != expected_md5:
+            return False
+        os.replace(temporary, destination)
+        return True
+    finally:
+        response.close()
+        temporary.unlink(missing_ok=True)
 
 
 def try_anna_archive(record: dict[str, Any], save_dir: Path) -> tuple[str | None, str]:
@@ -527,33 +628,40 @@ def try_anna_archive(record: dict[str, Any], save_dir: Path) -> tuple[str | None
     return None, "failed"
 
 
-def extract_pdf_from_tgz(url: str, destination: Path) -> bool:
+def extract_pdf_from_tgz(url: str, destination: Path, record=None) -> bool:
+    from ez.acquisition import archive_pdf
     with tempfile.TemporaryDirectory() as tmp_dir:
         archive_path = Path(tmp_dir) / "paper.tgz"
         if not download_binary(url, archive_path):
             return False
-        with tarfile.open(archive_path, "r:gz") as archive:
-            extract_dir = Path(tmp_dir) / "extract"
-            extract_dir.mkdir(parents=True, exist_ok=True)
-            safe_tar_extract(archive, extract_dir)
-        pdf_candidates = sorted(extract_dir.rglob("*.pdf"))
-        if not pdf_candidates:
+        payload = archive_pdf(archive_path.read_bytes(), record or {})
+        candidate = Path(tmp_dir) / 'candidate.pdf'
+        candidate.write_bytes(payload)
+        if not valid_pdf_file(candidate):
             return False
-        destination.write_bytes(pdf_candidates[0].read_bytes())
-        return destination.exists() and destination.stat().st_size > 0
+        os.replace(candidate, destination)
+        return True
 
 
 def try_direct_pdf(record: dict[str, Any], save_dir: Path) -> tuple[str | None, str]:
     pdf_url = normalize_ftp_url(record.get("pdf_url") or "")
     tgz_url = normalize_ftp_url(record.get("tgz_url") or "")
     destination = save_dir / filename_for_record(record)
+    for candidate_url in candidate_download_urls(pdf_url):
+        try:
+            checksum = (record.get('pmc_cloud_metadata') or {}).get('expected_md5')
+            options = {'expected_md5': checksum} if checksum and candidate_url.startswith('https://pmc-oa-opendata.s3.amazonaws.com/') else {}
+            if download_binary(candidate_url, destination, expected="pdf", **options):
+                return str(destination), "downloaded"
+        except Exception as exc:
+            logger.debug("Direct PDF download failed for %s: %s", candidate_url, exc)
+
     try:
-        if pdf_url and download_binary(pdf_url, destination, expected="pdf"):
+        if tgz_url and extract_pdf_from_tgz(tgz_url, destination, record):
             return str(destination), "downloaded"
-        if tgz_url and extract_pdf_from_tgz(tgz_url, destination):
-            return str(destination), "downloaded"
-    except Exception:
-        return None, "failed"
+    except Exception as exc:
+        logger.debug("TGZ PDF extraction failed for %s: %s", tgz_url, exc)
+
     return None, "failed"
 
 
@@ -585,6 +693,10 @@ def enrich_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for record in records:
         record.setdefault("oa_sources", [])
         oa = fetch_oa_metadata(record.get("pmid"), record.get("pmcid"))
+        if oa.get('pmc_cloud_metadata'):
+            record['pmc_cloud_metadata'] = oa['pmc_cloud_metadata']
+        if oa.get('pmc_resolution_attempts'):
+            record['pmc_resolution_attempts'] = oa['pmc_resolution_attempts']
         if oa.get("pmcid") and not record.get("pmcid"):
             record["pmcid"] = oa["pmcid"]
         if oa.get("pdf_url"):
@@ -616,9 +728,11 @@ def download_for_record(record: dict[str, Any], save_dir: Path, min_oa: bool, al
     record["manual_reason"] = None
     record["acquisition_policy"] = "oa_first"
     record["fallback_after"] = []
+    record["acquisition_attempts"] = []
 
     if record.get("is_oa") or record.get("pdf_url") or record.get("tgz_url"):
         path, status = try_direct_pdf(record, save_dir)
+        record["acquisition_attempts"].append({"provider": "legacy_direct_or_pmc", "result": status})
         if path:
             record["pdf_path"] = path
             record["pdf_status"] = status
@@ -629,12 +743,17 @@ def download_for_record(record: dict[str, Any], save_dir: Path, min_oa: bool, al
 
     if allow_anna_fallback and (record.get("doi") or record.get("pmid") or record.get("title")):
         path, status = try_anna_archive(record, save_dir)
-        record["fallback_after"] = OA_FALLBACK_CHAIN.copy()
+        record["fallback_after"] = [attempt["provider"] for attempt in record["acquisition_attempts"]]
         if path:
             record["pdf_path"] = path
             record["pdf_status"] = "downloaded"
             record["pdf_source"] = ANNA_SOURCE
             record["acquisition_policy"] = "non_oa_fallback"
+            provenance_path = Path(str(path) + ".provenance.json")
+            if provenance_path.exists():
+                provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+                record["consent_id"] = provenance.get("consent_id")
+                record["anna_provenance"] = provenance.get("provenance")
             return record
         record["manual_reason"] = f"OA routes failed; Anna's Archive fallback {status}."
 
@@ -743,6 +862,51 @@ def write_source_rescue(entries: list[dict[str, Any]], output_dir: Path) -> Path
     return output_path
 
 
+def write_download_plan(slug: str, records: list[dict[str, Any]], targets: list[dict[str, Any]], output_dir: Path) -> Path:
+    """Write a human-reviewable acquisition plan before any PDF download."""
+    output_path = output_dir / "download-plan.md"
+    lines = [
+        f"# Download plan - {slug}",
+        "",
+        "This plan separates bibliographic priority from full-text availability.",
+        "A paywalled paper is not treated as irrelevant; it is queued for manual rescue.",
+        "",
+        "## Review instructions",
+        "",
+        "- Confirm which high-priority papers should be rescued.",
+        "- If you have institutional or author access, obtain the PDF legally.",
+        "- Place rescued PDFs in the papers directory shown by the run.",
+        "- Resume with the command recorded in STATUS.md.",
+        "",
+        "## Candidates",
+        "",
+    ]
+    for index, record in enumerate(records, start=1):
+        priority = review_priority(record, targets)
+        availability = availability_status(record)
+        identifiers = ", ".join(filter(None, [record.get("doi"), record.get("pmid"), record.get("pmcid")])) or "no stable identifier"
+        lines.extend([
+            f"### {index}. {record.get('title') or '(untitled)'}",
+            f"- bibliographic_priority: `{priority}`",
+            f"- availability: `{availability}`",
+            f"- year: `{record.get('year') or 'unknown'}`",
+            f"- identifiers: `{identifiers}`",
+            f"- discovered_by: `{', '.join(record.get('sources') or [])}`",
+            f"- abstract_available: `{bool(record.get('abstract'))}`",
+            f"- pdf_url: `{record.get('pdf_url') or 'not found'}`",
+            "",
+        ])
+    output_path.write_text("\n".join(lines), encoding="utf-8")
+    return output_path
+
+
+def suggested_manual_pdf_path(item: dict[str, Any], output_dir: Path) -> Path:
+    identifier = item.get("doi") or item.get("pmid") or item.get("pmcid") or item.get("target_id") or item.get("title") or "required-source"
+    title = item.get("title") or identifier
+    filename = f"{slugify_fragment(str(identifier), default='source', max_words=4)}_{slugify_fragment(str(title), default='paper', max_words=8)}.pdf"
+    return output_dir / filename
+
+
 def write_missing_sources(entries: list[dict[str, Any]], output_dir: Path) -> Path:
     missing = [item for item in entries if item.get("required") and item.get("status") not in ("downloaded", "notebook_ready")]
     output_path = output_dir / "missing-sources.md"
@@ -750,6 +914,14 @@ def write_missing_sources(entries: list[dict[str, Any]], output_dir: Path) -> Pa
     if not missing:
         lines.append("No required sources are missing.")
     else:
+        lines.extend([
+            "Manual rescue checklist:",
+            "",
+            "- Verify an authoritative open-access PDF URL before downloading.",
+            "- Save each verified PDF to its suggested destination path below.",
+            "- Re-run the normal pipeline/import step against this same papers directory.",
+            "",
+        ])
         for item in missing:
             lines.append(f"- `{item.get('target_id')}` - {item.get('title') or '(no title)'}")
             lines.append(f"  - status: `{item.get('status')}`")
@@ -758,6 +930,10 @@ def write_missing_sources(entries: list[dict[str, Any]], output_dir: Path) -> Pa
                 lines.append(f"  - doi: `{item.get('doi')}`")
             if item.get("pmid"):
                 lines.append(f"  - pmid: `{item.get('pmid')}`")
+            if item.get("pmcid"):
+                lines.append(f"  - pmcid: `{item.get('pmcid')}`")
+            lines.append("  - download_url: `TBD: verify authoritative OA PDF URL`")
+            lines.append(f"  - suggested_destination: `{suggested_manual_pdf_path(item, output_dir)}`")
     output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return output_path
 
@@ -770,6 +946,7 @@ def write_search_artifacts(slug: str, queries: list[str], records: list[dict[str
         "candidate": write_candidate_sources(slug, records, output_dir),
         "rescue": write_source_rescue(rescue_entries, output_dir),
         "missing": write_missing_sources(rescue_entries, output_dir),
+        "download_plan": write_download_plan(slug, records, targets, output_dir),
     }
 
 
@@ -834,18 +1011,19 @@ def run_topic_pipeline(
     allow_anna_fallback: bool = False,
     scout_only: bool = False,
     resolve_only: bool = False,
+    review_before_acquisition: bool = False,
 ) -> tuple[dict[str, Any], dict[str, Path]]:
     save_dir.mkdir(parents=True, exist_ok=True)
     allow_anna = bool(allow_anna_fallback or target_config.get("allow_anna_fallback"))
     targets = normalize_targets(target_config)
     records = discover_prepare_records(queries, sources, max_results, targets)
 
-    if scout_only or resolve_only:
+    if scout_only or resolve_only or review_before_acquisition:
         for record in records:
             record["pdf_status"] = "candidate"
             record["pdf_path"] = None
             record["pdf_source"] = None
-            record["manual_reason"] = "Scout/resolve mode did not acquire PDFs."
+            record["manual_reason"] = "Review/scout/resolve mode did not acquire PDFs."
         paths = write_search_artifacts(slug, queries, records, targets, save_dir)
     else:
         paths = acquire_records_incrementally(slug, queries, records, targets, save_dir, min_oa, allow_anna)
@@ -884,6 +1062,9 @@ def build_output(slug: str, queries: list[str], records: list[dict[str, Any]]) -
                 "source_match_reason": record.get("source_match_reason", ""),
                 "acquisition_policy": record.get("acquisition_policy", "oa_first"),
                 "fallback_after": record.get("fallback_after") or [],
+                "acquisition_attempts": record.get("acquisition_attempts") or [],
+                "consent_id": record.get("consent_id"),
+                "anna_provenance": record.get("anna_provenance"),
             }
             for record in records
         ],
@@ -911,6 +1092,7 @@ def main() -> None:
     parser.add_argument("--allow-anna-fallback", action="store_true", help="Try Anna's Archive after all OA routes fail")
     parser.add_argument("--scout-only", action="store_true", help="Discover and resolve candidates without downloading PDFs")
     parser.add_argument("--resolve-only", action="store_true", help="Resolve metadata and rescue queue without downloading PDFs")
+    parser.add_argument("--review-before-acquisition", action="store_true", help="Write download-plan.md and stop before attempting PDF acquisition")
     parser.add_argument(
         "--min-oa",
         action="store_true",
@@ -949,6 +1131,7 @@ def main() -> None:
         allow_anna_fallback=args.allow_anna_fallback,
         scout_only=args.scout_only,
         resolve_only=args.resolve_only,
+        review_before_acquisition=args.review_before_acquisition,
     )
     records = payload["papers"]
     oa_available = sum(1 for item in records if item.get("is_oa"))
@@ -961,10 +1144,14 @@ def main() -> None:
     print(f"Candidate sources: {paths['candidate']}")
     print(f"Source rescue: {paths['rescue']}")
     print(f"Missing sources: {paths['missing']}")
+    print(f"Download plan: {paths['download_plan']}")
     print(f"Manual needed: {payload['stats']['manual_needed']} papers identificados sin PDF OA descargable")
     print(f"Sin PDF/DOI util: {payload['stats']['no_pdf']} papers")
     if args.stdout_json:
         print(json.dumps(payload, ensure_ascii=False))
+    if args.review_before_acquisition:
+        print("NEEDS_SOURCE_REVIEW")
+        raise SystemExit(3)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["schema_version", "contract_id", "revision", "question", "context", "scope", "plan", "source_policies", "acquisition", "budgets", "operator"],
+  "properties": {
+    "schema_version": {"const": "2.0"},
+    "contract_id": {"type": "string", "minLength": 1},
+    "revision": {"type": "integer", "minimum": 1},
+    "question": {"type": "object", "required": ["original", "language"], "properties": {"original": {"type": "string", "minLength": 1}, "language": {"type": "string", "minLength": 1}}},
+    "context": {"type": "object"},
+    "scope": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["id", "question", "central"], "properties": {"id": {"type": "string", "minLength": 1}, "question": {"type": "string", "minLength": 1}, "central": {"type": "boolean"}}}},
+    "plan": {"type": "object", "required": ["status", "queries", "notebook_questions", "stop_rule"], "properties": {
+      "status": {"enum": ["needs_host_plan", "ready"]},
+      "discovery_mode": {"enum": ["search", "reuse_only"]},
+      "queries": {"type": "array", "items": {"$ref": "#/$defs/query"}},
+      "notebook_questions": {"type": "array", "items": {"$ref": "#/$defs/question"}},
+      "stop_rule": {"type": "string"}
+    }},
+    "source_policies": {"type": "array", "items": {"type": "object", "required": ["source_id", "policy", "scope_ids", "rationale", "locked_by_user"], "properties": {
+      "source_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,100}$"},
+      "pmc_version": {"type": "integer", "minimum": 1},
+      "policy": {"enum": ["hard_block", "soft_block", "contextual", "historical", "optional"]},
+      "effective_policy": {"enum": [null, "hard_block", "soft_block", "historical", "optional"]},
+      "scope_ids": {"$ref": "#/$defs/scopes"}, "rationale": {"type": "string", "minLength": 1}, "locked_by_user": {"type": "boolean"}
+    }}},
+    "acquisition": {"type": "object", "required": ["anna_enabled", "consent_id"], "properties": {"anna_enabled": {"type": "boolean"}, "consent_id": {"type": ["string", "null"]}}},
+    "budgets": {"type": "object", "required": ["run_seconds", "source_seconds", "attempts_per_route"], "properties": {"run_seconds": {"type": "integer", "minimum": 1, "maximum": 86400}, "source_seconds": {"type": "integer", "minimum": 1, "maximum": 3600}, "attempts_per_route": {"type": "integer", "minimum": 1, "maximum": 3}}},
+    "operator": {"type": "object", "required": ["name", "backend", "model"], "properties": {"name": {"const": "EZ"}, "backend": {"const": "host_agent"}, "model": {"type": "string"}}}
+  },
+  "$defs": {
+    "scopes": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+    "query": {"type": "object", "required": ["id", "provider", "text", "scope_ids"], "properties": {"id": {"type": "string", "minLength": 1}, "provider": {"enum": ["pubmed", "europepmc", "openalex", "semantic", "crossref"]}, "text": {"type": "string", "pattern": "\\S"}, "max_results": {"type": "integer", "minimum": 1, "maximum": 100}, "scope_ids": {"$ref": "#/$defs/scopes"}}},
+    "question": {"type": "object", "required": ["id", "text", "scope_ids"], "properties": {"id": {"type": "string", "minLength": 1}, "text": {"type": "string", "pattern": "\\S"}, "scope_ids": {"$ref": "#/$defs/scopes"}}}
+  }
+}

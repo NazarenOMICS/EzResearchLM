@@ -17,6 +17,7 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $EnvFile = Join-Path $Root ".env"
 $EnvExample = Join-Path $Root ".env.example"
+$External = Join-Path $Root "scripts\run_external.py"
 
 function Read-DotEnv {
     param([string]$Path)
@@ -199,7 +200,7 @@ if ($pythonExe) {
 $checks.notebooklm_cli_ok = Test-Command "notebooklm"
 if ($checks.notebooklm_cli_ok -and -not $SkipNotebookLM) {
     try {
-        & notebooklm list | Out-Null
+        & $pythonExe $External --timeout 30 -- notebooklm list | Out-Null
         $checks.notebooklm_auth_ok = ($LASTEXITCODE -eq 0)
     } catch {
         $checks.notebooklm_auth_ok = $false
@@ -210,7 +211,7 @@ $checks.qmd_cli_ok = Test-Command "qmd"
 if ($checks.qmd_cli_ok -and -not $SkipQmd) {
     Push-Location $vaultRoot
     try {
-        & qmd collection list | Out-Null
+        & $pythonExe $External --timeout 30 -- qmd collection list | Out-Null
         $checks.qmd_collection_ok = ($LASTEXITCODE -eq 0)
     } catch {
         $checks.qmd_collection_ok = $false
@@ -226,7 +227,7 @@ if ($CheckClaude) {
     $checks.claude_workspace_trusted = Get-ClaudeProjectTrust $Root
     if ($claudePath) {
         try {
-            $authJson = & $claudePath auth status 2>$null
+            $authJson = & $pythonExe $External --timeout 30 -- $claudePath auth status 2>$null
             if ($LASTEXITCODE -eq 0 -and $authJson) {
                 $auth = $authJson | ConvertFrom-Json
                 $checks.claude_auth_ok = [bool]$auth.loggedIn
@@ -238,7 +239,7 @@ if ($CheckClaude) {
 }
 
 $requiredOk = $checks.python_ok -and $checks.paper_search_import_ok
-$optionalOk = ($SkipNotebookLM -or ($checks.notebooklm_cli_ok -and $checks.notebooklm_auth_ok)) -and ($SkipQmd -or ($checks.qmd_cli_ok -and $checks.qmd_collection_ok))
+$optionalOk = ($checks.notebooklm_cli_ok -and $checks.notebooklm_auth_ok)
 $checks.ready_for_search = $requiredOk
 $checks.ready_for_full_pipeline = ($requiredOk -and $optionalOk)
 
@@ -269,7 +270,7 @@ if (-not $checks.notebooklm_auth_ok -and -not $SkipNotebookLM) {
     Write-Host "powershell.exe -ExecutionPolicy Bypass -File `"$Root\scripts\auto_login.ps1`""
 }
 if (-not $checks.ready_for_full_pipeline) {
-    Write-Host "Search-only readiness may still be OK; full pipeline needs NotebookLM and QMD."
+    Write-Host "Search-only readiness may still be OK; full pipeline needs NotebookLM. QMD recall is optional."
     Write-Host "Use -RequireFullPipeline when a run must reach NotebookLM QA."
 }
 if ($CheckClaude -and -not $checks.claude_auth_ok) {

@@ -1,5 +1,16 @@
 # /research
 
+Act as EZ and follow `docs/ez-host-operator.md` completely. Accept a natural
+question and infer project context from the session when available. Use
+`ez context` and `ez research`, prepare the contract proposal yourself, then
+continue through acquisition, NotebookLM QA and cited review. Do not require a
+slug, a query file or a must-have file from the user. Respect the five policies
+by scope and deliver only supported claims with their limitations. Existing
+runs resume from their recorded state; changed questions start a new run.
+
+The workflow below is **legacy reference only** for an explicitly selected old
+wrapper run. Its global must-have gate is not the policy model of EZ v2.
+
 Operate one EZresearchLM evidence run.
 
 Input expected from the user:

@@ -14,7 +14,8 @@ param(
     [string]$MustHaveFile,
     [switch]$AllowAnnaFallback,
     [switch]$ScoutOnly,
-    [switch]$ResolveOnly
+    [switch]$ResolveOnly,
+    [switch]$ReviewBeforeAcquisition
 )
 
 $EZRESEARCH_ROOT = if ($env:EZRESEARCH_ROOT) { $env:EZRESEARCH_ROOT } else { Split-Path -Parent $PSScriptRoot }
@@ -60,6 +61,7 @@ if ($MustHaveFile) { $args += @('--must-have-file', $MustHaveFile) }
 if ($AllowAnnaFallback) { $args += '--allow-anna-fallback' }
 if ($ScoutOnly) { $args += '--scout-only' }
 if ($ResolveOnly) { $args += '--resolve-only' }
+if ($ReviewBeforeAcquisition) { $args += '--review-before-acquisition' }
 
-& $PYTHON @args
+& $PYTHON (Join-Path $EZRESEARCH_ROOT "scripts\run_external.py") --timeout 1800 -- $PYTHON @args
 exit $LASTEXITCODE
