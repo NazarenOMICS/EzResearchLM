@@ -1,12 +1,33 @@
 # EZresearchLM
 
-## EZ refactor: internal candidate
+## Empieza con EZ
+
+EZ te acompaña a investigar: reúne documentos, consulta NotebookLM y conserva una
+respuesta con citas y límites. Lo operas conversando con tu agente habitual dentro
+de este proyecto. Por ahora no tiene una aplicación gráfica independiente.
+
+**Primer mensaje:** «EZ, ayúdame a empezar. Prepara mi entorno. Quiero investigar
+[mi pregunta] para [mi objetivo]».
+
+EZ prepara la instalación y te guía para completar el acceso a NotebookLM en tu
+navegador. Después puedes pedir «¿Cómo va?», «Continuemos» o «Tengo este PDF».
+No necesitas escribir archivos JSON ni contratar otra API de modelos.
+
+Lee la [guía de primer uso](docs/ez-user-guide.md). Si el programa ya está instalado,
+`ez` muestra la bienvenida y `ez --guide` muestra la guía sin conexión.
+
+**Estado:** candidato de prebeta. Hay CI Windows/Linux aprobado y dos recorridos
+autenticados internos de una revisión anterior. La facilidad de uso con personas
+nuevas y las condiciones de lanzamiento siguen pendientes. Consulta la
+[preparación de lanzamiento](docs/release-readiness.md).
+
+## Referencia del candidato EZ
 
 The new interface is `ez`, operated by one agent named **EZ**. Your existing host
 agent prepares the research plan and reviews NotebookLM evidence; no additional
 model API is required. This refactor is still under validation. Offline tests and
-wheel installation do **not** establish launch readiness: authenticated E2E runs,
-closed beta and the release gates remain pending.
+wheel installation do **not** establish launch readiness: clean Windows acceptance,
+independent review, closed beta and the release gates remain pending.
 
 ```powershell
 python -m pip install -e .
@@ -30,6 +51,9 @@ snapshot; `--migrate <preview-hash>` creates a separate EZ run without overwriti
 the originals. Source identity and old notebook mappings still require review.
 Details and release criteria are in the
 [implementation plan](docs/ez-refurbish-implementation-plan.md).
+
+<details>
+<summary>Referencia histórica: wrappers para corridas anteriores</summary>
 
 The sections below document the historical wrappers retained during migration.
 For new EZ runs, use the workflow above. Legacy planner integrations are optional
@@ -633,6 +657,8 @@ foreach ($file in $files) {
 - Anna fallback is best-effort and provenance-marked.
 - The repo ships no real corpus, PDFs, NotebookLM exports, or credentials.
 - The current interface is CLI/agent-first, not a graphical app.
+
+</details>
 
 ## License
 

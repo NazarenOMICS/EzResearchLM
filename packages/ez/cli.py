@@ -17,35 +17,12 @@ from .pdf import validate_pdf_bounded
 from .process import run
 from .state import Store, atomic_json, lock, read_json
 from .setup import prepare
+from .presenter import render, welcome
+from . import __version__
 
 
 def emit(value, machine=False):
-    if machine:
-        print(json.dumps(value, ensure_ascii=False, indent=2))
-        return
-    if 'run_id' in value:
-        print('Investigación:', value['run_id'])
-    if 'phase' in value:
-        phases = {'plan': 'Preparando la investigación', 'discover': 'Buscando fuentes', 'acquire': 'Recuperando documentos',
-                  'upload': 'Enviando fuentes a NotebookLM', 'readiness': 'Esperando que se procesen las fuentes',
-                  'qa': 'Consultando la evidencia', 'audit': 'Revisando citas y cobertura', 'done': 'Respuesta revisada'}
-        print('Etapa:', phases.get(value['phase'], value['phase']))
-    if value.get('answer'):
-        labels = {'unavailable': 'Aún no hay una respuesta académica verificada.', 'partial': 'Hay una respuesta parcial, con límites explícitos.', 'complete': 'El alcance acordado tiene una respuesta verificada.'}
-        print(labels.get(value['answer']['status'], value['answer']['status']))
-    if value.get('next_action'):
-        print(value['next_action'])
-    if value.get('login_command') and not value.get('can_notebook_qa'):
-        print('Acceso:', ' '.join('"' + x + '"' if ' ' in x else x for x in value['login_command']))
-    if not value.get('next_action') and not any(k in value for k in ('phase', 'answer')):
-        print(json.dumps(value, ensure_ascii=False, indent=2))
-    for claim in value.get('claims', []):
-        print('\n' + claim['text'] + ' ' + ' '.join(f'[{claim["question_id"]}:{n}]' for n in claim['citation_numbers']))
-    for row in value.get('coverage', []):
-        if row['status'] != 'sufficient':
-            print('\nPendiente (' + row['scope_id'] + '): ' + row['rationale'])
-        for limitation in row['limitations']:
-            print('Límite:', limitation)
+    print(json.dumps(value, ensure_ascii=False, indent=2) if machine else render(value))
 
 
 def context_path(root, project):
@@ -191,16 +168,18 @@ def main(argv=None):
         if hasattr(stream, 'reconfigure'):
             stream.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(prog='ez', description='EZ: investigación trazable con el agente anfitrión y NotebookLM.')
+    parser.add_argument('--version', action='version', version='EZ ' + __version__)
+    parser.add_argument('--guide', action='store_true', help='Leer la guía de primer uso, sin conexión ni cambios.')
     parser.add_argument('--root', type=Path, default=None, help='Carpeta de corridas (o EZRESEARCH_RUNS_ROOT).')
     parser.add_argument('--json', action='store_true', help='Salida estructurada.')
     sub = parser.add_subparsers(dest='command')
-    p = sub.add_parser('setup'); p.add_argument('--check', action='store_true'); p.add_argument('--install-notebooklm', action='store_true')
-    p = sub.add_parser('context'); p.add_argument('--project', default='general'); p.add_argument('--set', nargs=2, action='append', metavar=('FIELD', 'VALUE'))
-    p = sub.add_parser('research'); p.add_argument('question'); p.add_argument('--project', default='general'); p.add_argument('--plan-only', action='store_true'); p.add_argument('--contract', type=Path); p.add_argument('--reuse'); p.add_argument('--require-complete', action='store_true')
-    p = sub.add_parser('continue'); p.add_argument('run'); p.add_argument('--contract', type=Path); p.add_argument('--accept-policy-change', action='store_true'); p.add_argument('--review', type=Path); p.add_argument('--require-complete', action='store_true')
-    p = sub.add_parser('status'); p.add_argument('run'); p.add_argument('--answer', action='store_true')
-    p = sub.add_parser('doctor'); p.add_argument('run'); p.add_argument('--migration-preview', action='store_true'); p.add_argument('--migrate', metavar='PREVIEW_HASH'); p.add_argument('--remote', action='store_true'); p.add_argument('--metrics', action='store_true')
-    p = sub.add_parser('rescue'); p.add_argument('run'); p.add_argument('--import', dest='import_pdf'); p.add_argument('--source'); p.add_argument('--confirm-identity', action='store_true'); p.add_argument('--retry', action='store_true'); p.add_argument('--allow-anna', action='store_true'); p.add_argument('--anna-url')
+    p = sub.add_parser('setup', help='Preparar el entorno y comprobar el acceso.'); p.add_argument('--check', action='store_true'); p.add_argument('--install-notebooklm', action='store_true')
+    p = sub.add_parser('context', help='Guardar preferencias y consultar investigaciones anteriores.'); p.add_argument('--project', default='general'); p.add_argument('--set', nargs=2, action='append', metavar=('FIELD', 'VALUE'))
+    p = sub.add_parser('research', help='Iniciar una investigación con una pregunta.'); p.add_argument('question'); p.add_argument('--project', default='general'); p.add_argument('--plan-only', action='store_true'); p.add_argument('--contract', type=Path); p.add_argument('--reuse'); p.add_argument('--require-complete', action='store_true')
+    p = sub.add_parser('continue', help='Retomar una investigación guardada.'); p.add_argument('run'); p.add_argument('--contract', type=Path); p.add_argument('--accept-policy-change', action='store_true'); p.add_argument('--review', type=Path); p.add_argument('--require-complete', action='store_true')
+    p = sub.add_parser('status', help='Ver el avance y el siguiente paso.'); p.add_argument('run'); p.add_argument('--answer', action='store_true')
+    p = sub.add_parser('doctor', help='Diagnosticar problemas de una investigación.'); p.add_argument('run'); p.add_argument('--migration-preview', action='store_true'); p.add_argument('--migrate', metavar='PREVIEW_HASH'); p.add_argument('--remote', action='store_true'); p.add_argument('--metrics', action='store_true')
+    p = sub.add_parser('rescue', help='Ver documentos pendientes o incorporar un PDF.'); p.add_argument('run'); p.add_argument('--import', dest='import_pdf'); p.add_argument('--source'); p.add_argument('--confirm-identity', action='store_true'); p.add_argument('--retry', action='store_true'); p.add_argument('--allow-anna', action='store_true'); p.add_argument('--anna-url')
     p.add_argument('--origin'); p.add_argument('--origin-provider', choices=['repository', 'institution', 'publisher', 'anna_archive', 'user_import']); p.add_argument('--license'); p.add_argument('--source-version')
     p.add_argument('--reviewer', choices=['user', 'host_agent'], default='user')
     for command_parser in sub.choices.values():
@@ -210,8 +189,12 @@ def main(argv=None):
     load_environment()
     root = (args.root or data_root()).expanduser().resolve()
     try:
+        guide = runtime_root() / 'docs/ez-user-guide.md'
+        if args.guide:
+            emit({'kind': 'user_guide', 'path': str(guide), 'text': guide.read_text(encoding='utf-8-sig')}, args.json)
+            return 0
         if not args.command:
-            print('Soy EZ. Dime tu pregunta al agente anfitrión o usa ez research "tu pregunta".\nEmpieza con ez setup --check y ez context.')
+            emit(welcome(root, guide), args.json)
             return 0
         if args.command == 'setup':
             emit(prepare(root, args.check, args.install_notebooklm), args.json)

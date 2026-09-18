@@ -12,7 +12,7 @@ backend de planificación. No se contrató ni se exige otra API de modelos.
 | Fase | Cambios implementados | Evidencia disponible / condición pendiente |
 |---|---|---|
 | F0 · Línea base | Copia con hashes del trabajo previo; wrappers y corridas conservados | `baseline-validation.md`; no commits, reset, clean ni stash |
-| F1 · Validación | Ejecutor de pruebas offline, smoke aislado, CI Windows/Linux y comprobación del paquete instalado | Windows 3.10/3.11/3.12 y Ubuntu WSL 3.10/3.12 comprobados; instalación aislada y smoke; CI remoto pendiente |
+| F1 · Validación | Ejecutor de pruebas offline, smoke aislado, CI Windows/Linux y comprobación del paquete instalado | Matriz local comprobada; CI remoto aprobado en Windows/Linux con Python 3.10/3.12 sobre `257cb28`; instalación aislada y smoke |
 | F2 · Contratos y estado | Esquemas v2, journal con hashes, bloqueo de escritor, transacciones recuperables, migración lateral | Fixtures de cortes, modificaciones ajenas, versión desconocida, conflicto legacy y conservación del origen |
 | F3 · Políticas y gates | Cinco políticas por alcance, semántica real del switch, respuesta parcial, retención por integridad, `--require-complete` | Pruebas de políticas, switch en PowerShell, QA vacía, citas ajenas, archivos alterados y revisión obsoleta |
 | F4 · Supervisión | Presupuestos y procesos con deadline; cancelación de descendientes; reconciliación de operaciones remotas | Fixtures de cuelgues/hijos y HTTP continuo; cortes controlados con NotebookLM real después de subida y antes de confirmar QA |
@@ -88,7 +88,7 @@ su ID por el nombre determinista del archivo y no volvió a subirla. El recibo
 
 Los informes están en `runs/refurbish-validation/`, fuera del control de versiones:
 
-La matriz local actual pasa 95 pruebas por versión de Python (3.10, 3.11 y 3.12).
+La matriz local anterior a la publicación pasó 95 pruebas por versión de Python (3.10, 3.11 y 3.12).
 Incluye respuestas externas de formato incorrecto, recuperación tras pérdida de
 respuesta al crear notebook y un servidor HTTP local que transmite continuamente:
 el supervisor lo interrumpe dentro de cinco segundos más la gracia de limpieza.
@@ -144,8 +144,8 @@ repetir la comprobación de instalación antes de evaluar el candidato siguiente
 
 1. Repetir el protocolo de aceptación sobre Windows limpio con el candidato final,
    conservando creación, subida, readiness, QA, revisión, respaldo y respuesta.
-2. Verificar la matriz remota de CI y el benchmark de
-   recuperación con corpus curado. Comprobar los proveedores opcionales con sus
+2. Completar el benchmark de recuperación con corpus curado.
+   Comprobar los proveedores opcionales con sus
    credenciales legítimas cuando formen parte del alcance de soporte acordado.
 3. Designar revisor independiente y cohorte de beta. Evaluar afirmaciones centrales,
    onboarding, comprensión de estados, reanudación y métricas con denominadores.
@@ -154,3 +154,45 @@ repetir la comprobación de instalación antes de evaluar el candidato siguiente
 Renovar una sesión exige interacción del titular de la cuenta. La revisión humana,
 la beta y la aprobación de lanzamiento no pueden deducirse de pruebas automatizadas.
 No se publicará el producto como validado mientras falte esa evidencia.
+
+## Publicación del candidato para CI
+
+El usuario autorizó publicar los 87 archivos revisados en la rama
+[`codex/ez-refurbish-ci`](https://github.com/NazarenOMICS/EzResearchLM/tree/codex/ez-refurbish-ci).
+El commit `257cb2844370fc0336cb4911442a3097f69f740c` conserva la selección revisada
+y corrige una inicialización tardía del supervisor en el wrapper legacy de respuestas,
+con una prueba de regresión del recorrido de recall. El núcleo EZ no cambió.
+La rama se preparó en un worktree separado; el índice y la rama de trabajo original
+se conservaron. No se fusionó con main ni se publicó una versión de lanzamiento.
+
+La [corrida de GitHub Actions 35390317770](https://github.com/NazarenOMICS/EzResearchLM/actions/runs/35390317770)
+aprobó los cuatro trabajos: Windows y Ubuntu con Python 3.10 y 3.12. Incluye suite,
+construcción e instalación del wheel fuera del checkout, comprobación de archivos
+prohibidos y validación PowerShell 5.1/7 en Windows. La validación local previa del
+commit pasó 96 pruebas y la instalación aislada en Python 3.11.
+
+Los informes descargados y sus hashes quedan en `runs/refurbish-validation/`,
+con `ci-candidate-manifest.json` como referencia del candidato publicado. El wheel
+local de esta revisión está en `ci-dist/`, SHA-256
+`dde999f069a72d957b7b60f38bf4c1b739d8e33f159a90f539191ce70f0fd8db`.
+El manifiesto anterior y sus dos E2E se conservan como evidencia de la revisión
+precedente; no se reasignan a este wheel ni se consideran una prueba de usuario
+nuevo en Windows limpio. Siguen pendientes el benchmark curado, la revisión
+independiente, la beta y la aprobación de lanzamiento.
+
+## Preparación de primer uso, candidato 0.2.0a2
+
+La revisión de UX agrega bienvenida con tres pasos, guía local mediante `ez --guide`
+y ayuda de los siete comandos. README muestra primero el recorrido conversacional;
+la referencia legacy se conserva plegada. El anfitrión recibe instrucciones para
+explicar qué se completó, qué falta y quién debe actuar, sin pedir JSON al usuario.
+
+La presentación de contexto, fuentes pendientes y diagnóstico evita mostrar
+estructuras internas como recorrido principal. Las respuestas presentan una sola
+vez las afirmaciones, conservando marcadores, pasajes, alcance parcial y límites.
+El protocolo JSON y los gates de evidencia permanecen en el núcleo existente.
+
+`docs/release-readiness.md` define el ensayo de primer uso, la ficha de evaluación
+y las condiciones pendientes. El paquete se identifica como `0.2.0a2` para distinguirlo
+del candidato anterior. La validación automática de esta revisión debe registrarse
+por su propio commit; la comprensión por personas nuevas sigue sin evaluarse.

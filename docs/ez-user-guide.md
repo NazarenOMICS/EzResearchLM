@@ -7,10 +7,70 @@ está en validación interna y todavía no tiene aprobación de lanzamiento.
 
 ## Primer uso
 
-Pide: «EZ, prepara mi entorno y guarda el contexto de este proyecto».
-Indica la pregunta, la disciplina y cualquier límite importante: fechas, población,
-idioma, documentos obligatorios o presupuesto. EZ conserva ese contexto para las
-siguientes investigaciones y pregunta por lo que realmente cambie el alcance.
+Abre la carpeta de EZresearchLM con tu agente habitual, por ejemplo Codex o
+Claude Code. Ahí conversas con EZ. Por ahora no hay una aplicación gráfica propia:
+el programa `ez` ejecuta acciones y muestra el estado; la conversación la lleva tu
+agente, que ya tiene que estar instalado y disponible.
+
+Copia este primer mensaje en esa conversación:
+
+> EZ, ayúdame a empezar. Prepara mi entorno y explícame cada paso.
+> Quiero investigar [tu pregunta] para [tu objetivo].
+
+El recorrido es:
+
+1. **Preparar.** EZ comprueba qué está instalado y conserva la configuración
+   existente. Si falta algo, prepara una instalación separada. Te dice dónde se
+   guardará el trabajo y qué acceso falta.
+2. **Conectar.** Cuando haga falta, completas el acceso a NotebookLM en tu navegador
+   y vuelves a la conversación con «Ya inicié sesión». EZ comprueba el acceso.
+3. **Delimitar.** Explicas tu pregunta y para qué necesitas la respuesta. EZ pregunta
+   solo por datos que cambien el alcance: por ejemplo fechas, población o fuentes
+   obligatorias. Puedes empezar sin conocer términos de búsqueda ni DOI.
+4. **Investigar.** EZ resume qué va a buscar, conserva el contexto y consulta la
+   evidencia en NotebookLM. Te avisa si necesita un documento o una decisión.
+5. **Revisar el resultado.** Recibes la respuesta respaldada, sus citas, los límites
+   y lo que quedó pendiente. Una búsqueda sin suficiente evidencia no se convierte
+   en una respuesta inventada.
+
+No necesitas preparar archivos de configuración, búsquedas ni contratos a mano.
+Una carpeta nueva por sí sola no instala EZ ni conecta tu cuenta: el primer paso
+lo realiza el agente con las instrucciones de instalación.
+
+Si EZ ya está instalado, ejecutar `ez` muestra la bienvenida y `ez --guide` abre
+esta guía como texto en la terminal. Ambas acciones funcionan sin consultar
+NotebookLM ni modificar investigaciones. `ez --help` enumera las acciones.
+
+## Qué puedes pedir durante el trabajo
+
+| Tú dices | Qué hace EZ |
+|---|---|
+| «Guarda este proyecto como mi tesis» | Conserva el contexto para próximas investigaciones |
+| «¿Cómo va y qué falta?» | Explica el último estado guardado y el siguiente paso |
+| «Continuemos» | Retoma la investigación identificada en la conversación |
+| «Tengo este PDF; incorpóralo» | Conserva su origen, comprueba el documento y continúa el alcance afectado |
+| «Muéstrame lo que ya se puede responder» | Entrega la parte revisada si existe y señala lo pendiente |
+| «Usa esas fuentes para otra pregunta» | Crea una nueva investigación con el material verificado |
+| «Algo falló, ayúdame» | Diagnostica lo ocurrido y conserva el trabajo guardado |
+
+Si vuelves en una conversación nueva, indica el proyecto o la carpeta de la
+investigación. EZ consulta el historial; si hay varias candidatas, te pide elegir.
+Cerrar la conversación no deja a EZ trabajando en segundo plano: para continuar,
+vuelve al agente y pídeselo. Un servicio puede seguir procesando una fuente ya
+enviada, pero eso no equivale a que EZ continúe toda la investigación solo.
+
+## Dónde queda tu trabajo
+
+EZ muestra la carpeta efectiva al preparar el entorno. Si no se configuró otra,
+las investigaciones nuevas se guardan en `.ezresearch/runs` dentro de tu carpeta
+de usuario. Cada investigación conserva pregunta, decisiones, documentos y
+resultados; las preferencias del proyecto se guardan por separado.
+
+Para ver la respuesta, pide «Muéstrame la respuesta con sus citas y límites».
+Tu agente lee el resultado revisado y lo presenta en la conversación. La copia
+estructurada queda en `answer.json`; los documentos y registros completos siguen
+en la carpeta local y en el notebook correspondiente. Tener archivos guardados
+todavía no significa que haya una respuesta revisada disponible.
 
 Si necesitas instalar el programa, sigue [SETUP.md](../SETUP.md) con tu agente.
 El acceso a NotebookLM lo completas tú en el navegador. No compartas cookies ni
@@ -33,6 +93,12 @@ investigación desde la terminal deja un plan pendiente si el anfitrión todaví
 lo completó; el programa no simula haber entendido ni respondido tu pregunta.
 
 ## Entender el estado
+
+Ejemplo ilustrativo de una respuesta parcial, no un resultado académico real:
+
+> Ya puedo responder la primera parte con las fuentes revisadas. Falta el
+> documento necesario para la comparación final. Esa comparación queda pendiente.
+> Si lo tienes, puedes entregarme el PDF para continuar.
 
 - **Preparando o trabajando:** EZ busca, recupera, sube o consulta fuentes.
 - **Esperando acceso o procesamiento:** el avance queda guardado; se continúa

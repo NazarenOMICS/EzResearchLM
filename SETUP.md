@@ -4,9 +4,11 @@
 
 EZ usa el agente anfitrión que ya tienes abierto para planificar. NotebookLM
 aporta la evidencia. No necesitas otra API de modelos ni escribir archivos JSON.
-Este candidato todavía requiere validación E2E autenticada y beta.
+La aceptación de este candidato con usuarios nuevos y Windows limpio sigue
+pendiente. Las pruebas internas y CI se registran en `docs/refurbish-progress.md`.
 
 Pide al agente: «EZ, prepara el entorno y ayúdame a investigar esta pregunta».
+Para ver el recorrido completo, empieza por la [guía de primer uso](docs/ez-user-guide.md).
 El agente sigue [la guía operativa](docs/ez-host-operator.md): comprueba capacidades,
 conserva tu configuración, prepara el contrato y explica el siguiente paso.
 QMD es opcional. Anna está desactivado y requiere consentimiento específico;
@@ -20,6 +22,11 @@ python -m venv .venv
 .\.venv\Scripts\ez.exe setup --check
 .\.venv\Scripts\ez.exe setup
 ```
+
+La bienvenida aparece con `.\.venv\Scripts\ez.exe`; la guía completa, con
+`.\.venv\Scripts\ez.exe --guide`. No abren un chat separado: vuelve a tu agente
+para plantear la pregunta. Si `ez` no se encuentra en la terminal, usa esa ruta
+completa del entorno instalado; no hace falta modificar el PATH del sistema.
 
 Si falta NotebookLM, `ez setup --install-notebooklm` permite instalar la versión
 compatible en un entorno propio. `ez setup --check` muestra la ruta del comando de

@@ -44,6 +44,10 @@ def main():
     with tempfile.TemporaryDirectory(prefix='ez-installed-') as temp:
         root = Path(temp) / 'runs'
         flags = ['--root', str(root), '--json']
+        assert invoke(flags, 0)['kind'] == 'welcome'
+        user_guide = invoke(['--guide', *flags], 0)
+        assert '## Primer uso' in user_guide['text']
+        assert not root.exists(), 'Welcome/guide must not create research data'
         invoke(['context', '--project', 'smoke', '--set', 'discipline', 'Prueba técnica', *flags], 0)
         run = invoke(['research', 'Pregunta de instalación', '--project', 'smoke', '--plan-only', *flags], 0)
         contract = read_json(Path(run['path']) / 'research-contract.json')
@@ -55,7 +59,7 @@ def main():
     report = {'status': 'passed', 'version': metadata.version('ezresearchlm'), 'python': sys.version,
               'isolated_python': bool(sys.flags.isolated), 'installed_module': str(Path(ez.__file__).resolve()),
               'host_guide_sha256': sha256(guide.read_bytes()).hexdigest(),
-              'checks': ['installed_imports', 'four_schemas', 'host_guide', 'supervisor', 'context', 'research', 'continue_needs_plan', 'doctor'],
+              'checks': ['installed_imports', 'four_schemas', 'host_guide', 'welcome', 'offline_user_guide', 'supervisor', 'context', 'research', 'continue_needs_plan', 'doctor'],
               'authenticated_e2e': False, 'clean_windows_machine': False}
     if args.report:
         args.report.parent.mkdir(parents=True, exist_ok=True)
