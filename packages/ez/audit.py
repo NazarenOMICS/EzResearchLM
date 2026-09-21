@@ -8,6 +8,9 @@ from .paths import contained
 from .state import read_json
 
 
+SUPPORT_PROTOCOL = 'ez-verdict-v3-passages'
+
+
 def citation_markers(answer):
     """NotebookLM emits single, comma-separated and ranged citation markers."""
     markers = set()
@@ -100,11 +103,21 @@ def review_claims(review, state, contract, sources, answers):
     return enriched
 
 
-def support_verdict(response, sources, allowed_ids):
+def support_verdict(response, sources, allowed_ids, proposed_references=None):
     """Structured verdict plus native citation passages; malformed answers fail closed."""
     refs = references(response, sources)
     if not {r['source_id'] for r in refs.values()}.issubset(allowed_ids):
         raise ContractError('La verificación usó fuentes fuera de las citas propuestas.')
+    if proposed_references is not None:
+        # Native citation numbering belongs to each answer independently. Match
+        # source and literal passage instead; another paragraph is not evidence
+        # for the citation that will actually accompany the delivered claim.
+        for ref in refs.values():
+            passage = ' '.join(ref['cited_text'].split())
+            if not any(ref['source_id'] == proposed['source_id'] and
+                       passage in ' '.join(proposed['cited_text'].split())
+                       for proposed in proposed_references):
+                raise ContractError('La verificación citó un pasaje distinto de los propuestos; requiere nueva revisión QA.')
     text = response['answer'].strip()
     # NotebookLM may omit native citation objects inside JSON/code blocks.
     # This minimal plain-text protocol keeps its actual citation annotations.
@@ -121,4 +134,7 @@ def support_verdict(response, sources, allowed_ids):
         raise ContractError('La verificación de respaldo no devolvió JSON reconocido; requiere nueva QA.') from exc
     if not isinstance(value, dict) or value.get('verdict') not in ('supported', 'partial', 'unsupported') or not isinstance(value.get('rationale'), str) or not value['rationale'].strip():
         raise ContractError('La verificación no contiene un dictamen de respaldo.')
-    return value
+    if not citation_markers(value['rationale']):
+        raise ContractError('La justificación del dictamen no contiene citas.')
+    # Ignore unknown envelope fields; they are neither rationale nor authority.
+    return {'verdict': value['verdict'], 'rationale': value['rationale'].strip()}

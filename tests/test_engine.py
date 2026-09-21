@@ -32,6 +32,7 @@ class Service:
         self.interrupt_create = False
         self.notebooks = []
         self.discovery_records = []
+        self.verification_passage = None
 
     def __call__(self, args, **kwargs):
         self.calls.append(args)
@@ -63,7 +64,8 @@ class Service:
             answer = json.dumps({'verdict': self.verdict, 'rationale': 'Soporte del corpus [1]'}) if verification else 'Resultado de la fuente [1].'
             value = {'answer': answer, 'conversation_id': 'chat1', 'turn_number': 1, 'is_follow_up': False,
                      'references': [{'source_id': 'foreign' if self.wrong_citation else 'remote1', 'citation_number': 1,
-                                     'cited_text': 'Pasaje de prueba, sin contenido académico real.'}]}
+                                     'cited_text': self.verification_passage if verification and self.verification_passage is not None
+                                     else 'Pasaje de prueba, sin contenido académico real.'}]}
         else:
             raise AssertionError(args)
         return Result(0, json.dumps(value), '', None)
@@ -124,6 +126,73 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(asks_before, sum(args[1] == 'ask' for args in self.service.calls))
         self.assertEqual(self.service.create_count, 1)
         self.assertEqual(self.service.upload_count, 1)
+
+    def test_verification_must_use_the_passages_proposed_for_delivery(self):
+        self.run_engine()
+        self.service.verification_passage = 'Otro párrafo correcto de la misma fuente.'
+        code, state = self.run_engine(self.review())
+        self.assertEqual(code, 4)
+        self.assertEqual(state['answer']['status'], 'unavailable')
+        self.assertFalse((self.folder / 'answer.json').exists())
+        prompt = next(args[-2] for args in reversed(self.service.calls) if args[1] == 'ask')
+        supplied = json.loads(prompt.rsplit('\n', 1)[-1])
+        self.assertEqual(supplied['proposed_passages'], [{'source_id': 'remote1', 'citation_number': 1,
+                          'cited_text': 'Pasaje de prueba, sin contenido académico real.'}])
+
+    def test_historical_verification_is_retained_but_not_reused(self):
+        from ez.audit import SUPPORT_PROTOCOL, load_answers, review_claims
+        self.run_engine()
+        review = self.review()
+        with lock(self.folder):
+            engine = Engine(self.folder, runner=self.service)
+            answers = load_answers(self.folder, engine.state, engine.contract, engine.sources)
+            claim = review_claims(review, engine.state, engine.contract, engine.sources, answers)[0]
+            key = digest({'claim': claim, 'contract_hash': engine.state['contract_hash'],
+                          'corpus_hash': engine.state['corpus_hash'], 'support_protocol': 'ez-verdict-v2'})
+            old_path = self.folder / 'verification' / (key + '.json')
+            atomic_json(old_path, {'answer': 'Historical unchecked response', 'references': []})
+            old_bytes = old_path.read_bytes()
+            engine.checkpoint(verification_receipts={key: sha256(old_bytes).hexdigest()})
+        qa_before = {p.name: p.read_bytes() for p in (self.folder / 'qa').iterdir() if p.is_file()}
+        self.assertEqual(self.run_engine(review)[0], 0)
+        state = Store(self.folder).state()
+        self.assertIn(key, state['verification_receipts'])
+        self.assertEqual(len(state['verification_receipts']), 2)
+        self.assertEqual(old_path.read_bytes(), old_bytes)
+        self.assertEqual({p.name: p.read_bytes() for p in (self.folder / 'qa').iterdir() if p.is_file()}, qa_before)
+        self.assertEqual(read_json(self.folder / 'answer.json')['support_protocol'], SUPPORT_PROTOCOL)
+        asks_before = sum(args[1] == 'ask' for args in self.service.calls)
+        self.assertEqual(self.run_engine()[0], 0)
+        self.assertEqual(sum(args[1] == 'ask' for args in self.service.calls), asks_before)
+
+    def test_status_withholds_historical_answer_until_current_passage_review(self):
+        from contextlib import redirect_stdout
+        from io import StringIO
+        from ez.cli import main
+        self.run_engine(); self.run_engine(self.review())
+        with lock(self.folder):
+            store = Store(self.folder); state = store.state()
+            report = read_json(self.folder / 'answer.json'); report.pop('support_protocol')
+            store.commit(state, {'answer.json': report})
+        before = {p.relative_to(self.folder): p.read_bytes() for p in self.folder.rglob('*') if p.is_file()}
+        for extra in ([], ['--answer']):
+            with self.subTest(arguments=extra):
+                output = StringIO()
+                with redirect_stdout(output), patch('ez.cli.load_environment'):
+                    code = main(['status', str(self.folder), '--json', *extra])
+                self.assertEqual(code, 2)
+                result = json.loads(output.getvalue())
+                self.assertEqual(result['answer']['status'], 'unavailable')
+                self.assertEqual(result['phase'], 'audit')
+                self.assertEqual(result['execution']['status'], 'waiting_user')
+                self.assertIn('NEEDS_MORE_QA', result['legacy_signals'])
+                self.assertNotIn('claims', result)
+        self.assertEqual({p.relative_to(self.folder): p.read_bytes() for p in self.folder.rglob('*') if p.is_file()}, before)
+        self.assertEqual(self.run_engine()[0], 0)
+        output = StringIO()
+        with redirect_stdout(output), patch('ez.cli.load_environment'):
+            self.assertEqual(main(['status', str(self.folder), '--answer', '--json']), 0)
+        self.assertEqual(len(json.loads(output.getvalue())['claims']), 1)
 
     def test_discovery_accepts_pending_null_pdf_without_erasing_prior_import(self):
         self.service.discovery_records = [{'title': 'New metadata', 'doi': '10.1234/new', 'pdf_path': None, 'pdf_url': None,

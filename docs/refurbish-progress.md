@@ -1,6 +1,6 @@
 # Ejecución del refactor EZ
 
-Actualizado: 2026-09-18. Rama de trabajo: `codex/ez-refurbish`.
+Actualizado: 2026-09-20. Rama de trabajo: `codex/ez-refurbish`.
 Estado: **candidato interno; validación final incompleta; no listo para lanzar**.
 
 El plan de referencia es [ez-refurbish-implementation-plan.md](ez-refurbish-implementation-plan.md).
@@ -144,7 +144,7 @@ repetir la comprobación de instalación antes de evaluar el candidato siguiente
 
 1. Repetir el protocolo de aceptación sobre Windows limpio con el candidato final,
    conservando creación, subida, readiness, QA, revisión, respaldo y respuesta.
-2. Completar el benchmark de recuperación con corpus curado.
+2. Completar el [benchmark de recuperación con corpus curado](recovery-benchmark.md).
    Comprobar los proveedores opcionales con sus
    credenciales legítimas cuando formen parte del alcance de soporte acordado.
 3. Designar revisor independiente y cohorte de beta. Evaluar afirmaciones centrales,
@@ -194,5 +194,61 @@ El protocolo JSON y los gates de evidencia permanecen en el núcleo existente.
 
 `docs/release-readiness.md` define el ensayo de primer uso, la ficha de evaluación
 y las condiciones pendientes. El paquete se identifica como `0.2.0a2` para distinguirlo
-del candidato anterior. La validación automática de esta revisión debe registrarse
-por su propio commit; la comprensión por personas nuevas sigue sin evaluarse.
+del candidato anterior. La comprensión por personas nuevas sigue sin evaluarse.
+
+El candidato UX se publicó en `codex/ez-refurbish-ci`, commit
+`efcf2570c9c1c7f17b0821f2552ce2254d2dc7f6`. La
+[corrida de GitHub Actions 35392124066](https://github.com/NazarenOMICS/EzResearchLM/actions/runs/35392124066)
+aprobó cuatro trabajos en Windows y Ubuntu con Python 3.10 y 3.12; cada informe
+registra 101 pruebas y hashes de fuentes coincidentes con ese commit. La validación
+local previa también registra 101 pruebas. `ux-installed-validation.json` acredita
+instalación aislada en Python 3.11, bienvenida, guía local y comprobaciones del
+paquete instalado; declara explícitamente que no es un E2E autenticado ni Windows
+limpio.
+
+`runs/refurbish-validation/ux-candidate-manifest.json` identifica el candidato y sus
+informes privados. El wheel local `ux-dist/ezresearchlm-0.2.0a2-py3-none-any.whl`
+tiene SHA-256
+`194d5e965f407af7045b2769663f3215cb9659df1c9a0e130e7ad450ef3dcf4d`,
+comprobado nuevamente contra el archivo el 2026-09-20. Esta revisión no tiene un
+nuevo E2E autenticado; los dos E2E anteriores conservan su atribución al candidato
+previo. Siguen pendientes Windows limpio, benchmark representativo, revisión
+independiente, beta y aprobación de lanzamiento.
+
+## Piloto de recuperación sobre la línea base 0.2.0a2
+
+El 2026-09-20 se ejecutó el [piloto público de recuperación](recovery-benchmark.md)
+sobre el paquete instalado `0.2.0a2`. Se intentaron las cinco obras elegibles y se
+obtuvieron cinco PDFs estructuralmente válidos: tres con identidad automática
+favorable y dos en `needs_review`. Las rutas finales fueron OpenAlex para una obra,
+CORE para otra y descarga directa para tres. El control negativo de adenda quedó
+retenido en `needs_review`, sin aceptación falsa en ese único control; se contabiliza
+aparte de las cinco obras.
+
+El informe y el corpus congelado están en
+`runs/refurbish-validation/recovery-pilot-20260920/`, fuera de Git. No se configuraron
+credenciales opcionales de Unpaywall ni CORE y Anna estuvo deshabilitada. La
+aceptación independiente y su tasa permanecen pendientes. Este piloto no acredita
+el umbral de lanzamiento ni un E2E autenticado, y sus resultados no se reasignan
+al candidato `0.2.0a3` en desarrollo.
+
+## Correcciones de integridad, candidato 0.2.0a3
+
+Una revisión de código separada reprodujo dos problemas de prioridad alta y uno
+de validación del formato. Cambiar el texto de un alcance conservando su ID podía
+desplazar una obligación; la segunda QA podía respaldar una afirmación con un
+pasaje distinto del que se entregaba; y el dictamen JSON podía contener su único
+marcador en un campo ajeno a la justificación. No son nuevos resultados académicos
+ni una revisión científica independiente.
+
+La corrección fija el significado de los alcances tras discovery y protege cambios
+de alcances asociados a obligaciones del usuario antes de esa etapa. La comprobación
+de respaldo recibe los pasajes propuestos y exige citas de la misma fuente dentro
+de esos pasajes. También exige marcadores dentro de la justificación del dictamen.
+El protocolo `ez-verdict-v3-passages` separa la nueva comprobación de las anteriores.
+
+Las respuestas históricas permanecen guardadas, pero su entrega por la interfaz
+nueva requiere la nueva revisión. Consultar el estado no las reescribe; continuar
+con una revisión vuelve a comprobar el respaldo y conserva el historial anterior.
+El registro de CI y del wheel de este candidato debe conservarse por separado;
+ninguna prueba anterior acredita el nuevo protocolo ante NotebookLM real.

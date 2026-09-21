@@ -42,3 +42,22 @@ class CitationFormatsTests(unittest.TestCase):
         self.response['references'] = []
         with self.assertRaises(ContractError):
             support_verdict(self.response, self.sources, {'s'})
+
+    def test_json_verdict_needs_citations_in_its_rationale(self):
+        self.response['answer'] = '{"verdict":"supported","rationale":"Sin cita","extra":"[1]"}'
+        with self.assertRaisesRegex(ContractError, 'justificación'):
+            support_verdict(self.response, self.sources, {'s'})
+        self.response['answer'] = '{"verdict":"supported","rationale":"Respaldo [1]","extra":"dato"}'
+        self.assertEqual(support_verdict(self.response, self.sources, {'s'}),
+                         {'verdict': 'supported', 'rationale': 'Respaldo [1]'})
+
+    def test_support_cannot_substitute_another_passage_from_the_same_source(self):
+        self.response['answer'] = 'EZ_VERDICT: supported\nEZ_RATIONALE: Respaldo [1].'
+        proposed = [{'source_id': 's', 'citation_number': 7, 'cited_text': 'El estudio incluyó cien adultos.'}]
+        with self.assertRaisesRegex(ContractError, 'pasaje distinto'):
+            support_verdict(self.response, self.sources, {'s'}, proposed)
+        self.response['references'][0]['cited_text'] = 'incluyó\n cien adultos.'
+        self.assertEqual(support_verdict(self.response, self.sources, {'s'}, proposed)['verdict'], 'supported')
+        proposed[0]['source_id'] = 'another'
+        with self.assertRaisesRegex(ContractError, 'pasaje distinto'):
+            support_verdict(self.response, self.sources, {'s'}, proposed)

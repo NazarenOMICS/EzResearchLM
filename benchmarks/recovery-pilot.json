@@ -1,0 +1,36 @@
+{
+  "id": "public-recovery-pilot-20260920",
+  "purpose": "Five unique public works and one identity-negative control. Development pilot, not representative release acceptance.",
+  "cases": [
+    {
+      "case_id": "fair-doi", "kind": "eligible", "discipline": "research-data",
+      "eligibility_url": "https://www.nature.com/articles/sdata201618", "checked_at": "2026-09-20", "accepted_version": "published article",
+      "record": {"title": "The FAIR Guiding Principles for scientific data management and stewardship", "doi": "10.1038/sdata.2016.18"}
+    },
+    {
+      "case_id": "seaborn-publisher", "kind": "eligible", "discipline": "research-software",
+      "eligibility_url": "https://joss.theoj.org/papers/10.21105/joss.03021", "checked_at": "2026-09-20", "accepted_version": "published article",
+      "record": {"title": "seaborn: statistical data visualization", "doi": "10.21105/joss.03021", "pdf_url": "https://joss.theoj.org/papers/10.21105/joss.03021.pdf"}
+    },
+    {
+      "case_id": "ecology-doi", "kind": "eligible", "discipline": "ecology-evolution",
+      "eligibility_url": "https://journals.plos.org/plosbiology/article?id=10.1371/journal.pbio.1002295", "checked_at": "2026-09-20", "accepted_version": "published article",
+      "record": {"title": "Public Data Archiving in Ecology and Evolution: How Well Are We Doing?", "doi": "10.1371/journal.pbio.1002295"}
+    },
+    {
+      "case_id": "research-interviews", "kind": "eligible", "discipline": "social-research",
+      "eligibility_url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0348512", "checked_at": "2026-09-20", "accepted_version": "published article",
+      "record": {"title": "What helps and hinders reproducible research? Researchers’ perspectives from a cross-disciplinary interview study", "doi": "10.1371/journal.pone.0348512", "pdf_url": "https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0348512&type=printable"}
+    },
+    {
+      "case_id": "scikit-jmlr", "kind": "eligible", "discipline": "machine-learning",
+      "eligibility_url": "https://www.jmlr.org/papers/v12/pedregosa11a.html", "checked_at": "2026-09-20", "accepted_version": "JMLR published article, 2011, volume 12, pages 2825–2830",
+      "record": {"title": "Scikit-learn: Machine Learning in Python", "pdf_url": "https://www.jmlr.org/papers/volume12/pedregosa11a/pedregosa11a.pdf"}
+    },
+    {
+      "case_id": "wrong-addendum", "kind": "negative_control", "discipline": "research-data",
+      "eligibility_url": "https://www.nature.com/articles/s41597-019-0009-6.pdf", "checked_at": "2026-09-20", "accepted_version": "none: supplied addendum must not identify as the requested original",
+      "record": {"title": "The FAIR Guiding Principles for scientific data management and stewardship", "doi": "10.1038/sdata.2016.18", "pdf_url": "https://www.nature.com/articles/s41597-019-0009-6.pdf"}
+    }
+  ]
+}

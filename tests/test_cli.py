@@ -1,17 +1,66 @@
 from contextlib import redirect_stdout
 from io import StringIO
+from copy import deepcopy
 import json
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 
-from ez.cli import main
+from ez.cli import main, create_run, import_contract
+from ez.contracts import ContractError, draft
 from ez.setup import prepare
-from ez.state import read_json
+from ez.state import Store, atomic_json, lock, read_json
 
 
 class CliTests(unittest.TestCase):
+    def scope_contract(self):
+        contract = draft('Eficacia y seguridad', {})
+        contract['scope'] = [{'id': 'sq1', 'question': 'Eficacia', 'central': True},
+                             {'id': 'sq2', 'question': 'Seguridad', 'central': True}]
+        contract['source_policies'] = [{'source_id': 'required', 'policy': 'hard_block', 'scope_ids': ['sq2'],
+                                       'rationale': 'Fuente de seguridad requerida', 'locked_by_user': True}]
+        return contract
+
+    def test_scope_meaning_cannot_move_after_discovery_even_with_policy_authorization(self):
+        with tempfile.TemporaryDirectory() as temp:
+            contract = self.scope_contract()
+            folder, state = create_run(Path(temp), contract['question']['original'], {}, contract)
+            proposal = deepcopy(contract)
+            proposal['scope'][0]['question'], proposal['scope'][1]['question'] = 'Seguridad', 'Eficacia'
+            proposal_path = Path(temp) / 'proposal.json'; atomic_json(proposal_path, proposal)
+            with lock(folder):
+                state['discovery_complete'] = True; Store(folder).update(state)
+                before = (folder / 'events.jsonl').read_bytes()
+                for authorized in (False, True):
+                    with self.assertRaisesRegex(ContractError, 'alcance después'):
+                        import_contract(folder, proposal_path, authorized)
+                self.assertEqual((folder / 'events.jsonl').read_bytes(), before)
+                self.assertEqual(read_json(folder / 'research-contract.json'), contract)
+
+    def test_locked_scope_changes_need_authorization_before_discovery(self):
+        with tempfile.TemporaryDirectory() as temp:
+            contract = self.scope_contract()
+            folder, _ = create_run(Path(temp), contract['question']['original'], {}, contract)
+            proposal = deepcopy(contract); proposal['scope'][1]['question'] = 'Otro significado'
+            proposal_path = Path(temp) / 'proposal.json'; atomic_json(proposal_path, proposal)
+            with lock(folder):
+                with self.assertRaisesRegex(ContractError, 'obligación'):
+                    import_contract(folder, proposal_path)
+                import_contract(folder, proposal_path, accept_policy_change=True)
+            self.assertEqual(read_json(folder / 'research-contract.json')['scope'][1]['question'], 'Otro significado')
+
+    def test_scope_order_can_change_without_changing_meaning(self):
+        with tempfile.TemporaryDirectory() as temp:
+            contract = self.scope_contract()
+            folder, state = create_run(Path(temp), contract['question']['original'], {}, contract)
+            proposal = deepcopy(contract); proposal['scope'].reverse()
+            proposal_path = Path(temp) / 'proposal.json'; atomic_json(proposal_path, proposal)
+            with lock(folder):
+                state['discovery_complete'] = True; Store(folder).update(state)
+                import_contract(folder, proposal_path)
+            self.assertEqual(read_json(folder / 'research-contract.json')['scope'], proposal['scope'])
+
     def invoke(self, args):
         output = StringIO()
         with redirect_stdout(output), patch('ez.cli.load_environment'):

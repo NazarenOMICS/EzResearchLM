@@ -9,6 +9,7 @@ import sys
 from uuid import uuid4
 
 from .contracts import ContractError, draft, validate, digest, now
+from .audit import SUPPORT_PROTOCOL
 from .engine import Engine
 from .doctor import diagnose
 from .legacy import inspect_run, preview, migrate
@@ -23,6 +24,14 @@ from . import __version__
 
 def emit(value, machine=False):
     print(json.dumps(value, ensure_ascii=False, indent=2) if machine else render(value))
+
+
+def pending_passage_review(state):
+    """Read-only view of a historical answer awaiting the current support check."""
+    return dict(state, phase='audit', execution={'status': 'waiting_user'},
+                answer={'status': 'unavailable'}, integrity={'status': 'pending'},
+                legacy_signals=sorted(set(state.get('legacy_signals', [])) | {'NEEDS_MORE_QA'}),
+                next_action='La respuesta histórica requiere verificar sus pasajes con el protocolo actual. Usa ez continue; se conservan sus registros.')
 
 
 def context_path(root, project):
@@ -62,13 +71,18 @@ def import_contract(folder, proposal, accept_policy_change=False):
         raise ContractError('La propuesta debe conservar contract_id.')
     if value['context'] != old['context']:
         raise ContractError('El contexto conserva la revisión original. Para cambiarlo actualiza el contexto y crea una corrida nueva.')
+    old_scopes = {s['id']: s for s in old['scope']}
+    new_scopes = {s['id']: s for s in value['scope']}
+    if state.get('discovery_complete') and new_scopes != old_scopes:
+        raise ContractError('Cambiar el alcance después del descubrimiento requiere una corrida nueva.')
     if state.get('discovery_complete') and (value['plan']['queries'] != old['plan']['queries'] or value['question'] != old['question']):
         raise ContractError('Una búsqueda o pregunta distinta requiere una corrida nueva; no se reutilizan resultados incompatibles.')
     for policy in old['source_policies']:
         replacement = next((p for p in value['source_policies'] if p['source_id'] == policy['source_id']), None)
         if state.get('discovery_complete') and replacement and replacement.get('pmc_version') != policy.get('pmc_version'):
             raise ContractError('Cambiar la versión PMC después del descubrimiento requiere una corrida nueva.')
-        if policy.get('locked_by_user') and policy not in value['source_policies'] and not accept_policy_change:
+        scope_changed = any(new_scopes.get(scope_id) != old_scopes[scope_id] for scope_id in policy['scope_ids'])
+        if policy.get('locked_by_user') and (policy not in value['source_policies'] or scope_changed) and not accept_policy_change:
             raise ContractError('Una obligación del usuario cambió. Requiere --accept-policy-change explícito.')
     value['revision'] = old['revision'] + 1
     value['parent_contract_hash'] = digest(old)
@@ -248,6 +262,12 @@ def main(argv=None):
             if args.command == 'status' and not args.answer:
                 state = Store(folder).state()
                 validate(state, 'run-state')
+                if state.get('answer', {}).get('status') in ('complete', 'partial'):
+                    answer_path = folder / 'answer.json'
+                    report = read_json(answer_path) if answer_path.exists() else {}
+                    if report.get('support_protocol') != SUPPORT_PROTOCOL:
+                        emit(dict(pending_passage_review(state), snapshot_only=True), args.json)
+                        return 2
                 emit(dict(state, snapshot_only=True), args.json)
                 return 0
             with lock(folder):
@@ -277,6 +297,9 @@ def main(argv=None):
                     report = read_json(folder / 'answer.json')
                     if report['contract_hash'] != state['contract_hash'] or report['corpus_hash'] != state['corpus_hash']:
                         raise ContractError('La respuesta guardada pertenece a otra versión.')
+                    if report.get('support_protocol') != SUPPORT_PROTOCOL:
+                        emit(pending_passage_review(state), args.json)
+                        return 2
                     emit(report, args.json)
                 else:
                     emit(state, args.json)
