@@ -29,7 +29,7 @@ locales no queda certificada si todavía faltan sus comprobaciones externas.
 - `packages/ez/cli.py`, `setup.py`, `context.py`: interfaz, entorno y contexto.
 - `contracts.py`, `schemas/`, `state.py`, `legacy.py`: contratos, persistencia y migración.
 - `policies.py`, `engine.py`, `audit.py`, `doctor.py`: ejecución y controles de entrega.
-- `discovery.py`, `acquisition.py`, `pdf.py`, `consent.py`: fuentes y recuperación.
+- `discovery.py`, `acquisition.py`, `pdf.py`: fuentes y recuperación.
 - `process.py`, `winjob.py`, `upload.py`: procesos acotados y subidas.
 - `tests/`, `packages/paper_search/tests/`, `notebooklm/tests/`: pruebas de regresión.
 - `scripts/validate.py`, `check_installed.py`, `run_smoke_tests.ps1`, `.github/workflows/ci.yml`: comprobaciones reproducibles.
