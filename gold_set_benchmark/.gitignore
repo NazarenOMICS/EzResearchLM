@@ -1,0 +1,4 @@
+# Textos completos extraidos de los PDFs: no se redistribuyen en un repositorio publico.
+# Su huella por pagina queda en anexo_hashes_paginas.json; verificar_pasajes.py los coteja localmente.
+anexo_textos_extraidos/*.json
+anexo_textos_extraidos/*_resultados.json
