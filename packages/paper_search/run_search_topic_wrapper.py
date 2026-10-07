@@ -15,7 +15,6 @@ def main() -> None:
     parser.add_argument("--min-oa", action="store_true")
     parser.add_argument("--stdout-json", action="store_true")
     parser.add_argument("--must-have-file")
-    parser.add_argument("--allow-anna-fallback", action="store_true")
     parser.add_argument("--scout-only", action="store_true")
     parser.add_argument("--resolve-only", action="store_true")
     parser.add_argument("--review-before-acquisition", action="store_true")
@@ -39,7 +38,6 @@ def main() -> None:
         save_dir=save_dir,
         target_config=target_config,
         min_oa=args.min_oa,
-        allow_anna_fallback=args.allow_anna_fallback,
         scout_only=args.scout_only,
         resolve_only=args.resolve_only,
         review_before_acquisition=args.review_before_acquisition,
@@ -49,7 +47,6 @@ def main() -> None:
 
     print(f"Papers encontrados: {len(records)} (deduplicados)")
     print(f"PDFs descargados: {payload['stats']['downloaded']} / {oa_available} OA disponibles")
-    print(f"Anna fallback downloads: {payload['stats'].get('anna_downloaded', 0)}")
     print(f"Guardados en: {save_dir}")
     print(f"Metadata: {paths['output']}")
     print(f"Candidate sources: {paths['candidate']}")

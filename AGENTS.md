@@ -24,9 +24,8 @@ candidate; authenticated E2E and closed beta are still required before release.
 - Before drafting academic prose in Nazareno's voice, read `Rules_Of_Writing.md` completely. Its EZresearchLM-specific section preserves QA citation markers, evidence gaps, and `NEEDS_*` states during intermediate synthesis.
 - If evidence is missing, emit `NEEDS_CORPUS`, `NEEDS_MORE_QA`,
   `NEEDS_SOURCE_REVIEW`, or `NEEDS_SOURCE_RESCUE`.
-- Anna's Archive is an optional acquisition fallback only. It must never answer
-  questions or erase provenance. Require source-scoped consent; never automate
-  access challenges or integrate Sci-Hub.
+- Acquisition uses only open-access routes and PDFs the user imports. Anna's
+  Archive and Sci-Hub are not supported; never automate access challenges.
 - Do not commit real PDFs, notebooks, tokens, cookies, source exports, or run
   artifacts.
 
@@ -134,14 +133,10 @@ Normal acquisition order:
 3. EuropePMC/OpenAlex source-native OA
 4. Unpaywall
 5. CORE/OpenAIRE and repository locations (new EZ acquisition)
-6. optional Anna's Archive fallback with an expiring source-specific receipt
 
-Anna-acquired PDFs must keep:
-
-- `pdf_source: "anna_archive"`
-- `acquisition_policy: "non_oa_fallback"`
-- `fallback_after`
-- `consent_id` and the actual acquisition attempts
+When every route fails, the source stays `manual_needed`. The user can import a
+PDF they already have with `ez rescue <run> --source <id> --import <pdf>`; its
+origin is recorded.
 
 ## Validation
 

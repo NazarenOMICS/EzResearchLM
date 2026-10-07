@@ -12,7 +12,6 @@ param(
     [switch]$MinOa,
     [switch]$StdoutJson,
     [string]$MustHaveFile,
-    [switch]$AllowAnnaFallback,
     [switch]$ScoutOnly,
     [switch]$ResolveOnly,
     [switch]$ReviewBeforeAcquisition
@@ -58,7 +57,6 @@ $args = @(
 if ($MinOa) { $args += '--min-oa' }
 if ($StdoutJson) { $args += '--stdout-json' }
 if ($MustHaveFile) { $args += @('--must-have-file', $MustHaveFile) }
-if ($AllowAnnaFallback) { $args += '--allow-anna-fallback' }
 if ($ScoutOnly) { $args += '--scout-only' }
 if ($ResolveOnly) { $args += '--resolve-only' }
 if ($ReviewBeforeAcquisition) { $args += '--review-before-acquisition' }

@@ -264,22 +264,11 @@ class Retriever:
         candidates = ([(u, 'direct') for u in [record.get('pdf_url'), *self.strings(record.get('pdf_urls') or [], 'input')]
                        if isinstance(u, str) and u] if candidates is None else list(candidates))
         seen = set()
-        anna_considered = False
-        fallback_after = []
-        while candidates or not resolved or not anna_considered:
-            if not candidates and not resolved:
+        while candidates or not resolved:
+            if not candidates:
                 resolved = True
                 candidates = self.locations(record)
                 continue
-            if not candidates:
-                anna_considered = True
-                if record.get('anna_consent'):
-                    from .consent import validate_anna
-                    receipt = validate_anna(record['anna_consent'], record)
-                    fallback_after = list(dict.fromkeys(h['provider'] for h in self.history if h.get('attempt_id') and h['provider'] != 'anna_archive'))
-                    candidates.append((receipt['url'], 'anna_archive'))
-                else:
-                    break
             url, provider = candidates.pop(0)
             if len(seen) >= 40 or time.monotonic() >= self.deadline:
                 break
@@ -329,11 +318,6 @@ class Retriever:
             result['provenance'] = {'requested_url': safe_url(url), 'final_url': safe_url(final), 'acquired_at': now(),
                                     'validation': validation, 'location': self.location_metadata.get(url, {}),
                                     'acquisition_policy': 'public_route', 'source_version': self.location_metadata.get(url, {}).get('version') or 'unknown'}
-            if provider == 'anna_archive':
-                result.update(acquisition_policy='non_oa_fallback', fallback_after=fallback_after,
-                              consent_id=record['anna_consent']['consent_id'])
-                result['provenance'].update(acquisition_policy='non_oa_fallback', fallback_after=fallback_after,
-                                             consent_id=record['anna_consent']['consent_id'])
             result['attempts'] = self.history
             return result
         reason = 'source_budget_exhausted' if time.monotonic() >= self.deadline else 'candidate_limit' if len(seen) >= 40 else 'routes_exhausted'

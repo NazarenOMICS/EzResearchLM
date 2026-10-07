@@ -10,7 +10,7 @@ from PyPDF2 import PdfWriter
 
 from ez.acquisition import Retriever, archive_pdf, failure, normalize_doi
 from ez.acquisition import verify_identity
-from ez.consent import create_anna, validate_anna
+from ez.contracts import draft, validate
 from ez.contracts import ContractError
 
 
@@ -57,30 +57,20 @@ class AcquisitionTests(unittest.TestCase):
             self.assertEqual(verify_identity('synthetic.pdf', {'title': 'A scientific data example', 'doi': '10.1234/example'}), 'verified')
             self.assertEqual(verify_identity('synthetic.pdf', {'title': 'An unrelated paper title', 'doi': '10.1234/example'}), 'needs_review')
             self.assertEqual(verify_identity('synthetic.pdf', {'title': 'A scientific data example', 'doi': '10.1234/other'}), 'needs_review')
-    def test_anna_requires_matching_unexpired_consent(self):
-        source = {'source_id': 's1', 'doi': '10.1234/example'}
-        receipt = create_anna(source, 'https://annas-archive.org/md5/' + 'a' * 32, 'run1')
-        validate_anna(receipt, source)
+    def test_anna_archive_is_not_reachable_from_contracts_or_records(self):
+        contract = draft('Pregunta', {})
+        contract['acquisition'].update(anna_enabled=True, consent_id='legacy')
         with self.assertRaises(ContractError):
-            validate_anna(receipt, dict(source, source_id='different'))
-        receipt['expires_at'] = '2000-01-01T00:00:00+00:00'
-        with self.assertRaises(ContractError):
-            validate_anna(receipt, source)
-        with self.assertRaises(ContractError):
-            create_anna(source, 'https://annas-archive.org/slow_download/x', 'run1')
-
-    def test_anna_is_never_contacted_without_consent_and_runs_after_public_routes(self):
+            validate(contract)
         with tempfile.TemporaryDirectory() as folder:
-            source = {'source_id': 's1', 'doi': '10.1234/example'}
-            retriever = Retriever(folder, 's1', session=Session([]), check_url=lambda u: None)
-            self.assertEqual(retriever.acquire(source, candidates=[])['acquisition_status'], 'manual_needed')
-            source['anna_consent'] = create_anna(source, 'https://annas-archive.org/md5/' + 'b' * 32, 'run1')
-            session = Session([Response(404), Response(data=b'<html>captcha</html>')])
+            source = {'source_id': 's1', 'doi': '10.1234/example',
+                      'anna_consent': {'url': 'https://annas-archive.org/md5/' + 'b' * 32}}
+            session = Session([Response(404)])
             retriever = Retriever(folder, 's1', session=session, check_url=lambda u: None)
             result = retriever.acquire(source, candidates=[('https://repository.example/paper.pdf', 'direct')])
             self.assertEqual(result['acquisition_status'], 'manual_needed')
-            self.assertEqual([url for url, _ in session.calls], ['https://repository.example/paper.pdf', source['anna_consent']['url']])
-            self.assertEqual(result['attempts'][-1]['failure_code'], 'captcha_or_challenge')
+            self.assertEqual([url for url, _ in session.calls], ['https://repository.example/paper.pdf'])
+
     def test_challenge_stops_same_host_and_records_diagnosis(self):
         with tempfile.TemporaryDirectory() as folder:
             session = Session([Response(data=b'<html>verify you are human</html>')])

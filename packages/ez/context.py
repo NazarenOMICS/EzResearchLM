@@ -54,7 +54,7 @@ def reuse_sources(origin, destination):
                 raise ContractError('La copia de evidencia no conserva el hash original.')
             source['reused_from'] = {'run_id': old_state['run_id'], 'sources_hash': old_state['sources_hash'],
                                      'notebook_source_id': source.get('notebook_source_id')}
-            for key in ('notebook_source_id', 'upload_pending', 'anna_consent'):
+            for key in ('notebook_source_id', 'upload_pending', 'anna_consent', 'consent_id'):
                 source.pop(key, None)
             source.update(pdf_path=str(blob), notebook_status='pending')
             sources.append(source)

@@ -11,8 +11,8 @@ Pide al agente: «EZ, prepara el entorno y ayúdame a investigar esta pregunta»
 Para ver el recorrido completo, empieza por la [guía de primer uso](docs/ez-user-guide.md).
 El agente sigue [la guía operativa](docs/ez-host-operator.md): comprueba capacidades,
 conserva tu configuración, prepara el contrato y explica el siguiente paso.
-QMD es opcional. Anna está desactivado y requiere consentimiento específico;
-no se instala un navegador para eludir restricciones de acceso.
+QMD es opcional. EZ solo adquiere PDFs de acceso abierto o importados por el
+usuario; no usa Anna's Archive ni instala un navegador para eludir restricciones de acceso.
 
 Si partes de un clon sin instalar, el agente prepara un entorno separado:
 
@@ -165,8 +165,7 @@ Must-have file:
       "title": "Comparative proteome analysis of Mycobacterium smegmatis in response to ethambutol"
     }
   ],
-  "nice_to_have": [],
-  "allow_anna_fallback": false
+  "nice_to_have": []
 }
 ```
 

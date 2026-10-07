@@ -47,7 +47,6 @@ param(
     [switch]$FromExistingQuestions,
     [string]$ExistingNotebookId,
     [string]$MustHaveFile,
-    [switch]$AllowAnnaFallback,
     [switch]$StopIfMissingMustHave,
     [switch]$ReviewBeforeAcquisition,
     [string]$ResumeState,
@@ -197,7 +196,6 @@ function Get-HermesResumeCommand {
         "-SaveDir `"$SaveDir`""
     )
     if ($MustHaveFile) { $parts += "-MustHaveFile `"$MustHaveFile`"" }
-    if ($AllowAnnaFallback) { $parts += "-AllowAnnaFallback" }
     if ($StopIfMissingMustHave) { $parts += "-StopIfMissingMustHave" }
     if ($ReviewBeforeAcquisition) { $parts += "-ReviewBeforeAcquisition" }
     if ($NotebookId) {
@@ -238,7 +236,6 @@ function Start-SmartRetry {
         "-RetryAttempt", $nextAttempt.ToString()
     )
     if ($MustHaveFile) { $retryArgs += @("-MustHaveFile", $MustHaveFile) }
-    if ($AllowAnnaFallback) { $retryArgs += "-AllowAnnaFallback" }
     if ($StopIfMissingMustHave) { $retryArgs += "-StopIfMissingMustHave" }
     if ($ResumeState) { $retryArgs += @("-ResumeState", $ResumeState) }
     if ($RetryDelaysMinutes) { $retryArgs += @("-RetryDelaysMinutes", $RetryDelaysMinutes) }
@@ -291,7 +288,6 @@ function Write-RunState {
         candidate_sources = $RUN_CANDIDATE_SOURCES
         missing_sources = $RUN_MISSING_SOURCES
         must_have_file = $MustHaveFile
-        allow_anna_fallback = [bool]$AllowAnnaFallback
         stop_if_missing_must_have = [bool]$StopIfMissingMustHave
         must_have_gate_version = 2
         review_before_acquisition = [bool]$ReviewBeforeAcquisition
@@ -694,7 +690,6 @@ Queries file: $QueriesFile
 Papers dir: $SaveDir
 Resume notebook: $RESUME_NOTEBOOK_ID
 Must-have file: $MustHaveFile
-Allow Anna fallback: $([bool]$AllowAnnaFallback)
 Stop if missing must-have: $([bool]$StopIfMissingMustHave)
 Resume state: $ResumeState
 "@
@@ -744,7 +739,6 @@ if (-not $SkipSearch) {
     )
     if ($MinOa) { $searchArgs += "-MinOa" }
     if ($MustHaveFile) { $searchArgs += @("-MustHaveFile", $MustHaveFile) }
-    if ($AllowAnnaFallback) { $searchArgs += "-AllowAnnaFallback" }
     if ($ReviewBeforeAcquisition) { $searchArgs += "-ReviewBeforeAcquisition" }
     & powershell.exe @searchArgs
     if ($LASTEXITCODE -eq 3) {

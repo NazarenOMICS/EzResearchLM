@@ -121,8 +121,8 @@ Puedes entregar un PDF que hayas obtenido por una vía autorizada. EZ conserva e
 origen informado, comprueba su estructura y pide o realiza un cotejo de identidad.
 No reemplaza silenciosamente una versión ya usada por NotebookLM.
 
-Anna es un último recurso opcional con consentimiento por fuente y procedencia
-conservada. No se usa para contestar preguntas ni para evadir controles de acceso.
+EZ no descarga desde Anna's Archive ni evade controles de acceso. Si un artículo
+no es de acceso abierto, la vía es entregar el PDF que ya tengas.
 
 Para otra pregunta sobre material anterior, pide reutilizar la investigación.
 EZ copia los PDFs verificados a una corrida nueva y vuelve a comprobar qué

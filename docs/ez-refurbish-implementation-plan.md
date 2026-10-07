@@ -2,6 +2,8 @@
 
 Fecha de inspección: 2026-09-16. Estado: propuesta para revisión; no es una implementación ni una autorización de lanzamiento.
 
+> **Decisión posterior (2026-10-07):** Anna's Archive se retiró del producto. Las secciones de este plan que lo mencionan quedan como registro histórico; la adquisición usa solo rutas de acceso abierto y PDFs importados por el usuario.
+
 ## 1. Alcance, evidencia y línea base
 
 El objetivo es ofrecer un único agente, **EZ**, que reciba preguntas naturales, prepare el entorno, conserve contexto y ejecute una investigación reproducible. NotebookLM sigue siendo el motor de evidencia y QA. EZ puede planificar y explicar; no puede completar huecos académicos con memoria del modelo ni inventar citas. QMD y la búsqueda local sirven para localizar evidencia ya procesada.

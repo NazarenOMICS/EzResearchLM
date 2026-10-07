@@ -16,7 +16,7 @@ Run this before pushing or making the repository public.
 - Unit tests pass.
 - README quick start is current.
 - `docs/source-rescue.md` matches the actual JSON contract.
-- Anna fallback is documented as optional acquisition only.
+- No acquisition route uses Anna's Archive or Sci-Hub.
 
 ## Commands
 

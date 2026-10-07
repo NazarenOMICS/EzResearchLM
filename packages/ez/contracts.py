@@ -47,8 +47,8 @@ def validate(value, kind='research-contract'):
         for policy in value['source_policies']:
             if not set(policy['scope_ids']).issubset(scope):
                 raise ContractError('Unknown scope in source policy')
-        if value['acquisition']['anna_enabled'] and not value['acquisition'].get('consent_id'):
-            raise ContractError('Anna requires an explicit consent receipt')
+        if value['acquisition']['anna_enabled']:
+            raise ContractError("Anna's Archive no está soportado; importa el PDF con ez rescue --import.")
     return value
 
 

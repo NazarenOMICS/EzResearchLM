@@ -98,7 +98,7 @@ def rescue(folder, args):
     sources = read_json(folder / 'sources.json') if (folder / 'sources.json').exists() else []
     if state.get('sources_hash') and digest(sources) != state['sources_hash']:
         raise ContractError('El manifiesto de fuentes no coincide con el registro.')
-    if not args.import_pdf and not args.confirm_identity and not args.retry and not args.allow_anna:
+    if not args.import_pdf and not args.confirm_identity and not args.retry:
         contract = read_json(folder / 'research-contract.json')
         missing = [p for p in contract['source_policies'] if not any(s['source_id'] == p['source_id'] for s in sources)]
         return {'sources': sources, 'unresolved_requirements': missing,
@@ -112,21 +112,6 @@ def rescue(folder, args):
         source = {'source_id': args.source, 'title': policy.get('title', ''), 'doi': policy.get('doi', ''), 'notebook_status': 'pending',
                   'validation_status': 'unknown', 'identity_status': 'unknown', 'acquisition_status': 'pending'}
         sources.append(source)
-    if args.allow_anna:
-        from .consent import create_anna
-        if not args.anna_url:
-            raise ContractError('--allow-anna requiere --anna-url para la fuente concreta.')
-        contract = read_json(folder / 'research-contract.json')
-        receipt = create_anna(source, args.anna_url, state['run_id'])
-        source.update(anna_consent=receipt, acquisition_status='pending')
-        contract['parent_contract_hash'] = digest(contract)
-        contract['revision'] += 1
-        contract['acquisition'].update(anna_enabled=True, consent_id=receipt['consent_id'])
-        store.append('decision', {'kind': 'anna_consent', 'actor': 'user', 'consent_id': receipt['consent_id'],
-                                  'receipt_hash': digest(receipt), 'source_id': source['source_id']})
-        state.update(contract_hash=digest(contract), sources_hash=digest(sources), answer={'status': 'unavailable'})
-        store.commit(state, {'research-contract.json': contract, f'contracts/{contract["revision"]}.json': contract,
-                             f'consents/{receipt["consent_id"]}.json': receipt, 'sources.json': sources})
     if args.import_pdf:
         if source.get('notebook_source_id'):
             raise ContractError('Esta versión ya pertenece al corpus remoto. Crea una corrida nueva para sustituirla sin invalidar citas históricas.')
@@ -149,15 +134,9 @@ def rescue(folder, args):
                       'origin': args.origin or 'not_supplied', 'license': args.license or 'unknown',
                       'source_version': args.source_version or 'unknown', 'imported_at': now(),
                       'validation': report, 'original_filename': original.name}
-        if args.origin_provider == 'anna_archive':
-            from .consent import validate_anna
-            receipt = validate_anna(source.get('anna_consent'), source)
-            provenance.update(consent_id=receipt['consent_id'], acquisition_policy='non_oa_fallback')
         source.update(pdf_path=str(destination), content_sha256=report['sha256'], validation_status='valid',
                       identity_status='needs_review', pdf_source=args.origin_provider or 'user_import', acquisition_status='downloaded',
                       notebook_status='pending', provenance=provenance, previous_versions=previous_versions)
-        if args.origin_provider == 'anna_archive':
-            source.update(consent_id=receipt['consent_id'], acquisition_policy='non_oa_fallback', fallback_after=[])
         source.pop('notebook_source_id', None)
         store.append('decision', {'actor': 'user', 'kind': 'pdf_import', 'source_id': args.source, 'sha256': report['sha256'], 'at': now()})
     if args.confirm_identity:
@@ -193,8 +172,8 @@ def main(argv=None):
     p = sub.add_parser('continue', help='Retomar una investigación guardada.'); p.add_argument('run'); p.add_argument('--contract', type=Path); p.add_argument('--accept-policy-change', action='store_true'); p.add_argument('--review', type=Path); p.add_argument('--require-complete', action='store_true')
     p = sub.add_parser('status', help='Ver el avance y el siguiente paso.'); p.add_argument('run'); p.add_argument('--answer', action='store_true')
     p = sub.add_parser('doctor', help='Diagnosticar problemas de una investigación.'); p.add_argument('run'); p.add_argument('--migration-preview', action='store_true'); p.add_argument('--migrate', metavar='PREVIEW_HASH'); p.add_argument('--remote', action='store_true'); p.add_argument('--metrics', action='store_true')
-    p = sub.add_parser('rescue', help='Ver documentos pendientes o incorporar un PDF.'); p.add_argument('run'); p.add_argument('--import', dest='import_pdf'); p.add_argument('--source'); p.add_argument('--confirm-identity', action='store_true'); p.add_argument('--retry', action='store_true'); p.add_argument('--allow-anna', action='store_true'); p.add_argument('--anna-url')
-    p.add_argument('--origin'); p.add_argument('--origin-provider', choices=['repository', 'institution', 'publisher', 'anna_archive', 'user_import']); p.add_argument('--license'); p.add_argument('--source-version')
+    p = sub.add_parser('rescue', help='Ver documentos pendientes o incorporar un PDF.'); p.add_argument('run'); p.add_argument('--import', dest='import_pdf'); p.add_argument('--source'); p.add_argument('--confirm-identity', action='store_true'); p.add_argument('--retry', action='store_true')
+    p.add_argument('--origin'); p.add_argument('--origin-provider', choices=['repository', 'institution', 'publisher', 'user_import']); p.add_argument('--license'); p.add_argument('--source-version')
     p.add_argument('--reviewer', choices=['user', 'host_agent'], default='user')
     for command_parser in sub.choices.values():
         command_parser.add_argument('--json', action='store_true', default=argparse.SUPPRESS)

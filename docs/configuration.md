@@ -35,9 +35,6 @@ powershell.exe -ExecutionPolicy Bypass -File ".\scripts\run_search_topic.ps1" `
 - `PAPER_SEARCH_MCP_UNPAYWALL_EMAIL`: enables Unpaywall lookup.
 - `NCBI_EMAIL`: polite PubMed/NCBI email.
 - `NCBI_API_KEY`: optional NCBI API key.
-- `PAPER_SEARCH_MCP_PLAYWRIGHT_CHROMIUM`: optional Chromium executable for Anna fallback.
-- `PAPER_SEARCH_MCP_ANNA_TIMEOUT_SECONDS`: per-identifier Anna fallback timeout;
-  defaults to `120`.
 
 ## Optional Model Keys
 

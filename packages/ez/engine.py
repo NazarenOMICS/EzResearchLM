@@ -178,13 +178,6 @@ class Engine:
         for index, source in enumerate(self.sources):
             if source.get('validation_status') == 'valid' or source.get('acquisition_status') == 'manual_needed':
                 continue
-            if source.get('anna_consent'):
-                from .consent import validate_anna
-                receipt = validate_anna(source['anna_consent'], source)
-                decisions = [e['payload'] for e in self.store.events() if e['kind'] == 'decision']
-                if not self.contract['acquisition']['anna_enabled'] or receipt['run_id'] != self.state['run_id'] or not any(
-                    d.get('kind') == 'anna_consent' and d.get('receipt_hash') == digest(receipt) for d in decisions):
-                    raise ContractError('La adquisición Anna no tiene una decisión de consentimiento para esta corrida.')
             dest = contained(self.folder, 'acquisition/' + source['source_id'])
             dest.mkdir(parents=True, exist_ok=True)
             record_path, result_path = dest / 'record.json', dest / 'result.json'

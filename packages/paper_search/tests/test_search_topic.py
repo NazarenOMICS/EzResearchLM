@@ -184,43 +184,7 @@ class TestSearchTopic(unittest.TestCase):
         self.assertEqual(search_topic.normalize_identifier("PMC3962153"), "PMCID:PMC3962153")
         self.assertEqual(search_topic.normalize_identifier("Some useful title"), "TITLE:some useful title")
 
-    def test_anna_fallback_runs_only_after_oa_failure_when_enabled(self):
-        record = {
-            "title": "Closed paper",
-            "authors": "Smith J",
-            "year": 2024,
-            "doi": "10.1000/test",
-            "pmid": "123",
-            "pmcid": None,
-            "abstract": "",
-            "url": "https://example.org",
-            "pdf_url": "https://example.org/paywalled.pdf",
-            "tgz_url": None,
-            "is_oa": True,
-            "pdf_path": None,
-            "pdf_status": None,
-            "source": "pubmed",
-            "sources": ["pubmed"],
-            "queries": ["query"],
-            "paper_id": "123",
-            "oa_sources": [],
-        }
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            anna_pdf = Path(tmp_dir) / "anna.pdf"
-            anna_pdf.write_bytes(b"%PDF-1.4\n" + b"x" * 2048)
-            with patch("search_topic.try_direct_pdf", return_value=(None, "failed")) as direct, \
-                 patch("search_topic.try_anna_archive", return_value=(str(anna_pdf), "downloaded")) as anna:
-                updated = search_topic.download_for_record(record, Path(tmp_dir), min_oa=True, allow_anna_fallback=True)
-
-        direct.assert_called_once()
-        anna.assert_called_once()
-        self.assertEqual(updated["pdf_status"], "downloaded")
-        self.assertEqual(updated["pdf_source"], "anna_archive")
-        self.assertEqual(updated["acquisition_policy"], "non_oa_fallback")
-        self.assertEqual(updated["fallback_after"], ["legacy_direct_or_pmc"])
-        self.assertNotIn("unpaywall", updated["fallback_after"])
-
-    def test_anna_fallback_not_called_when_disabled(self):
+    def test_failed_oa_routes_end_in_manual_rescue_without_fallback(self):
         record = {
             "title": "Closed paper",
             "authors": "Smith J",
@@ -242,23 +206,10 @@ class TestSearchTopic(unittest.TestCase):
             "oa_sources": [],
         }
         with tempfile.TemporaryDirectory() as tmp_dir:
-            with patch("search_topic.try_anna_archive") as anna:
-                updated = search_topic.download_for_record(record, Path(tmp_dir), min_oa=True, allow_anna_fallback=False)
-        anna.assert_not_called()
+            updated = search_topic.download_for_record(record, Path(tmp_dir), min_oa=True)
+        self.assertFalse(hasattr(search_topic, "try_anna_archive"))
         self.assertEqual(updated["pdf_status"], "manual_needed")
         self.assertIsNone(updated["pdf_source"])
-
-    def test_anna_timeout_marks_manual_needed(self):
-        record = self.base_record(doi="10.1000/test")
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            with patch("search_topic.try_direct_pdf", return_value=(None, "failed")), \
-                 patch("search_topic.download_anna_identifier_with_timeout", return_value=(None, "timeout")):
-                updated = search_topic.download_for_record(record, Path(tmp_dir), min_oa=True, allow_anna_fallback=True)
-
-        self.assertEqual(updated["pdf_status"], "manual_needed")
-        self.assertIn("timeout", updated["manual_reason"])
-        self.assertEqual(updated["fallback_after"], [a["provider"] for a in updated["acquisition_attempts"]])
-        self.assertNotIn("core_openaire_semantic", updated["fallback_after"])
 
     def test_incremental_artifacts_survive_acquisition_exception(self):
         targets = [{"target_id": "PMID:20686769", "title": "", "doi": "", "pmid": "20686769", "pmcid": "", "required": True}]
@@ -273,7 +224,6 @@ class TestSearchTopic(unittest.TestCase):
                     targets,
                     save_dir,
                     min_oa=True,
-                    allow_anna_fallback=True,
                 )
             rescue = json.loads(paths["rescue"].read_text(encoding="utf-8"))
             candidates = json.loads(paths["candidate"].read_text(encoding="utf-8"))
@@ -282,7 +232,7 @@ class TestSearchTopic(unittest.TestCase):
         self.assertEqual(rescue["sources"][0]["failure_reason"], "network")
         self.assertEqual(candidates["candidates"][0]["pdf_status"], "failed")
 
-    def test_anna_pdf_validation_rejects_html_and_tiny_pdf(self):
+    def test_pdf_validation_rejects_html_and_tiny_pdf(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             html = Path(tmp_dir) / "paper.pdf"
             html.write_bytes(b"<html>not a pdf</html>" + b"x" * 2048)

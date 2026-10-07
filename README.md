@@ -1,5 +1,10 @@
 # EZresearchLM
 
+> **Versión preliminar en validación.** EZ todavía no completó las pruebas autenticadas
+> ni la beta. No uses sus resultados en una tesis o un artículo sin revisar cada cita
+> contra el PDF original. La verificación de respaldo la hace el mismo NotebookLM que
+> genera la respuesta: es una comprobación automática, no una revisión humana.
+
 ## Empieza con EZ
 
 EZ te acompaña a investigar: reúne documentos, consulta NotebookLM y conserva una
@@ -111,7 +116,6 @@ find already processed evidence; it does not create uncited claims.
 - Normalizes DOI, PMID, PMCID, title, year, journal, and authors.
 - Deduplicates candidate records.
 - Downloads open PDFs when available.
-- Optionally tries Anna's Archive only after open-access routes fail.
 - Validates PDF downloads and records acquisition provenance.
 - Writes `source-rescue.json` for missing or failed required sources.
 - Stops before NotebookLM QA if required sources are missing.
@@ -127,7 +131,6 @@ find already processed evidence; it does not create uncited claims.
 - NotebookLM account and browser auth.
 - `notebooklm` CLI available in PATH.
 - QMD installed if you want local recall over exported notes.
-- Anna fallback requires a source-specific consent receipt; no browser challenge automation.
 - Optional: Unpaywall and NCBI email/API settings for better acquisition.
 
 ## Agent-First Quick Start
@@ -419,8 +422,7 @@ powershell.exe -ExecutionPolicy Bypass -File ".\scripts\run_search_topic.ps1" `
   -Slug "membrane-stress" `
   -QueriesFile ".\examples\queries.example.json" `
   -MustHaveFile ".\examples\must-have.example.json" `
-  -SaveDir "E:\paper-cache\membrane-stress" `
-  -AllowAnnaFallback
+  -SaveDir "E:\paper-cache\membrane-stress"
 ```
 
 Full pipeline:
@@ -434,7 +436,6 @@ powershell.exe -ExecutionPolicy Bypass -File ".\scripts\run_hermes_pipeline.ps1"
   -NotebookTitle "Membrane stress evidence" `
   -Dashboard "Membrane stress evidence" `
   -MustHaveFile ".\examples\must-have.example.json" `
-  -AllowAnnaFallback `
   -StopIfMissingMustHave
 ```
 
@@ -526,15 +527,14 @@ EZresearchLM/
 
 1. `discover`: query scholarly sources and collect candidate records.
 2. `resolve`: normalize identifiers and confidence fields.
-3. `acquire`: try direct/OA routes first.
-4. `fallback`: optionally try Anna's Archive only after OA routes fail.
-5. `rescue`: keep missing or failed required sources visible.
-6. `notebook`: upload acquired PDFs to NotebookLM.
-7. `qa`: ask focused NotebookLM questions.
-8. `audit`: export summaries and citation checks.
+3. `acquire`: try direct/OA routes.
+4. `rescue`: keep missing or failed required sources visible.
+5. `notebook`: upload acquired PDFs to NotebookLM.
+6. `qa`: ask focused NotebookLM questions.
+7. `audit`: export summaries and citation checks.
 
-The acquisition layer writes artifacts incrementally. If a download, Anna
-lookup, or browser step hangs, the run should still leave enough state for
+The acquisition layer writes artifacts incrementally. If a download or
+browser step hangs, the run should still leave enough state for
 `run_hermes_doctor.ps1` to report what happened.
 
 ## Customization
@@ -571,19 +571,12 @@ Or override one search:
 -Sources "pubmed,europepmc,openalex"
 ```
 
-### Control Anna Fallback
+### Sources Without Open Access
 
-Anna is off by default. In EZ, an explicit source-specific decision uses
-`ez rescue <run> --source <id> --allow-anna --anna-url <HTTPS-md5-page>`.
-The receipt expires after 24 hours and never authorizes bypassing access controls.
-The legacy `-AllowAnnaFallback` or config flag alone is insufficient: the adapter
-also requires `EZRESEARCH_ANNA_CONSENT_FILE` for the exact source. Historical
-permissions are not silently renewed during migration.
-
-```text
-PAPER_SEARCH_MCP_ANNA_TIMEOUT_SECONDS=120
-EZRESEARCH_ANNA_CONSENT_FILE=C:\Path\To\source-consent.json
-```
+EZ only acquires open-access PDFs. Anna's Archive is not supported. When a
+required paper is paywalled, import the PDF you already have with
+`ez rescue <run> --source <id> --import <pdf>`; EZ records its origin and asks
+for an identity check before using it as evidence.
 
 ### Must-Have Sources
 
@@ -597,8 +590,7 @@ Use `must-have` files when a paper is required for the question:
       "title": "Comparative proteome analysis of Mycobacterium smegmatis in response to ethambutol"
     }
   ],
-  "nice_to_have": [],
-  "allow_anna_fallback": false
+  "nice_to_have": []
 }
 ```
 
@@ -612,7 +604,7 @@ relevant subquestions and can deliver a reviewed partial answer.
 - NotebookLM is the evidence engine.
 - Claude Code, Codex, Hermes, and GPT-style agents are operators.
 - QMD is recall/index only.
-- Anna's Archive is acquisition fallback only.
+- Only open-access routes and user-imported PDFs are used for acquisition.
 - Missing sources remain `manual_needed`; they are not silently converted into
   claims.
 - Real PDFs, run artifacts, cookies, tokens, and `.env` are ignored by Git.
@@ -654,7 +646,7 @@ foreach ($file in $files) {
 
 - NotebookLM auth is external and can expire.
 - Some publishers block automated PDF acquisition.
-- Anna fallback is best-effort and provenance-marked.
+- Paywalled papers require a PDF imported by the user.
 - The repo ships no real corpus, PDFs, NotebookLM exports, or credentials.
 - The current interface is CLI/agent-first, not a graphical app.
 

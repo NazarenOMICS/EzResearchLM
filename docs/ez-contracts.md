@@ -20,7 +20,6 @@ Una versión futura desconocida del contrato o journal se rechaza sin migrarla.
 | `verification/*.json` | QA de respaldo de las afirmaciones propuestas | Recibos por hash de afirmación/contrato/corpus |
 | `citation-resolution/*.json` | QA original, texto indexado de NotebookLM y cotejo literal | Recibos en el estado; original conservado |
 | `answer.json` | Afirmaciones habilitadas, referencias, cobertura y límites | Derivado de la revisión y QA de respaldo |
-| `consents/<id>.json` | Consentimiento Anna por fuente, URL y vencimiento | Decisión explícita, no heredada de legacy |
 
 Las transacciones registran documentos y estado antes de proyectarlos. Si un corte
 deja un archivo en su versión anterior, `continue` puede completar esa transacción.
@@ -107,8 +106,7 @@ que cambios posteriores no reescriban decisiones históricas.
 `ez research --reuse <corrida>` copia únicamente PDFs válidos con identidad
 verificada, conserva procedencia y hashes, y registra el origen en `reused_from`.
 Los IDs remotos anteriores se conservan como antecedentes, pero no habilitan QA
-del notebook nuevo. Se crea y verifica un corpus independiente. Un permiso Anna
-anterior no autoriza nuevas descargas. El modo `reuse_only` omite descubrimiento
+del notebook nuevo. Se crea y verifica un corpus independiente. El modo `reuse_only` omite descubrimiento
 solamente cuando existe esa copia verificada; no declara suficiente el corpus.
 
 ## Límites externos
@@ -133,7 +131,7 @@ revisión y los IDs remotos se conservan sin considerarlos prueba de identidad.
 Un corpus remoto desconocido se detiene antes de subir nuevos archivos.
 
 El flag legacy anterior a v2 siempre bloqueaba, incluso si guardaba `false`:
-ese gate efectivo se conserva. La versión corregida hereda su bool real. Anna
-histórico conserva procedencia, pero no renueva permiso. Rutas relativas ambiguas
+ese gate efectivo se conserva. La versión corregida hereda su bool real. Una
+fuente histórica de Anna conserva su procedencia, pero EZ no vuelve a usar esa vía. Rutas relativas ambiguas
 no se adivinan. Para volver al flujo anterior, usar los originales con los wrappers
 compatibles; no convertir la corrida nueva sobrescribiendo los archivos anteriores.
