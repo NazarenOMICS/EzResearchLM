@@ -7,6 +7,7 @@ Uso: python m3_busqueda.py  ->  escribe m3_resultados.json e imprime un resumen 
 import datetime
 import json
 import os
+import sys
 import time
 import urllib.error
 import urllib.parse
@@ -79,14 +80,20 @@ for label, body in RCSB.items():
     items = []
     for pdb_id in ids[:100]:
         e = get("https://data.rcsb.org/rest/v1/core/entry/" + pdb_id)
+        organismos = set()
+        for ent in e.get("rcsb_entry_container_identifiers", {}).get("polymer_entity_ids", []):
+            p = get(f"https://data.rcsb.org/rest/v1/core/polymer_entity/{pdb_id}/{ent}") or {}
+            organismos.update(o.get("scientific_name", "") for o in p.get("rcsb_entity_source_organism", []))
         items.append({"pdb": pdb_id, "titulo": e.get("struct", {}).get("title", ""),
-                      "metodo": ",".join(x.get("method", "") for x in e.get("exptl", []))})
+                      "metodo": ",".join(x.get("method", "") for x in e.get("exptl", [])),
+                      "organismos": sorted(o for o in organismos if o)})
     res["rcsb_pdb"].append({"consulta": label, "cuerpo": body, "n": (r or {}).get("total_count", 0), "items": items})
 
 json.dump(res, open(os.path.join(D, "m3_resultados.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # la consola cp1252 no muestra "α"
 print("Fecha:", res["fecha"])
 for key in ("pubmed", "europepmc", "rcsb_pdb"):
     for block in res[key]:
         print(f"\n### {key.upper()} | {block['consulta']} -> {block['n']}")
         for it in block["items"][:80]:
-            print("  ", it.get("pmid") or it.get("pdb") or it.get("id"), it.get("anio", it.get("metodo", "")), it["titulo"][:150])
+            print("  ", it.get("pmid") or it.get("pdb") or it.get("id"), it.get("anio", it.get("metodo", "")), "; ".join(it.get("organismos", [])), it["titulo"][:150])
