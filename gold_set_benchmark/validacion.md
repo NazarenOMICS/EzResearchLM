@@ -1,5 +1,7 @@
 # Validación humana del gold set
 
+> **Versión 2.** Cambios respecto de la versión 1 en `CAMBIOS.md`: M3 tiene una pregunta nueva (sección B), M2-R07 precisa que se midió la fusión DivIVA-mCherry, Devlin 2025 dejó de ser artículo clave y dos lagunas pasaron a `notas_corpus.md`. La verificación mecánica se reejecuta con `python verificar_pasajes.py`.
+
 Revisá cada ítem contra el PDF original y marcá la casilla solo si el pasaje sostiene **exactamente** la afirmación: misma especie, cepa, medio, condición y fuerza causal.
 
 **Convenciones:**
@@ -81,13 +83,13 @@ Nota: Schubert usa medio BHI.
 
 ### 7. M2-R07 (SQ2)
 
-**Afirmación:** En C. glutamicum tratado con etambutol aumenta el nivel de la proteína DivIVA (confirmado por inmunoblot), mientras que su ARNm no cambia (dato no mostrado por los autores).
+**Afirmación:** En C. glutamicum tratado con etambutol aumenta el nivel de la fusión DivIVA-mCherry expresada desde el locus nativo (confirmado por inmunoblot contra mCherry), mientras que el ARNm de divIVA no cambia (dato no mostrado por los autores).
 
 **Pasaje:** «DivIVA mRNA levels, and thus transcription rates, were not altered upon the addition of EMB (data not shown). [...] Immunoblotting with antibodies directed against the mCherry protein conﬁrmed the increase in DivIVA levels»
 
 Fuente: `Obsidian Vault/Research/Papers/schubert_2017_the_antituberculosis_drug_ethambutol_selectively_blocks_apical_growth.pdf`, p. 5 · DOI 10.1128/mbio.02213-16 · verificación mecánica: **ok**
 
-Nota: el ARNm sin cambios es un dato no mostrado por los autores. Medio BHI.
+Nota: el ARNm sin cambios es un dato no mostrado por los autores. Medio BHI. En v2 se agregó que la medición es de la fusión DivIVA-mCherry (Schubert p. 5: "Allelic replacement of divIVA at the native locus with an mCherry fusion gene").
 
 - [ ] el pasaje sostiene exactamente esto
 
@@ -169,15 +171,27 @@ Nota: es una inferencia de los autores a partir de que el AG y la micomembrana n
 
 - [ ] el pasaje contradice o limita exactamente esto
 
-### 15. M3-P01 (PROHIBIDA)
+### 15. M3-P01 (PROHIBIDA, v2)
 
-**Afirmación incorrecta:** No existe ningún estudio proteómico del efecto del etambutol en micobacterias ni en organismos relacionados.
+**Afirmación incorrecta:** La estructura por crio-EM de la Emb de C. glutamicum muestra el etambutol unido en el sitio del donador de arabinosa.
 
-**Pasaje que la contradice:** «Sin pasaje en PDF de la carpeta. Evidencia: resúmenes de PMID 18275136 y 20686769 en Europe PMC (ver busqueda_control_negativo.md).»
+**Pasaje que la contradice:** «Herein, we report the cryo-EM struc- tures of Mycobacterium smegmatis EmbB in its “resting state” and DPA-bound “active state ”.» (p. 1) y «The recently reported structure of the ethambutol bound EmbA-EmbB complex enables us to analyze the structural features of the potential drug binding pockets of EmbB2 in this study.» (p. 11), `Obsidian Vault/Research/Papers/zhang_2020_cryo_em_snapshots_mycobacterial_arabinosyltransferase_embb2_complex.pdf` · verificación mecánica: **ok**
 
-**Por qué:** Generaliza la ausencia. Lo que falta es el estudio en C. glutamicum. En M. smegmatis hay al menos dos estudios proteómicos con etambutol (PMID 18275136, proteómica shotgun de 2008; PMID 20686769, 2D-DIGE de 2011), que están fuera de la carpeta.
+**Por qué:** Atribuye a C. glutamicum estructuras de micobacterias. Las estructuras del corpus son de EmbB de M. smegmatis, y la estructura con etambutol unido que citan es la del complejo EmbA-EmbB.
 
 - [ ] el pasaje contradice o limita exactamente esto
+
+### 15b. M3-P02 (PROHIBIDA, v2)
+
+**Afirmación incorrecta:** No se sabe nada de la Emb de C. glutamicum más allá de su secuencia.
+
+**Evidencia que la contradice:** sin pasaje en PDF de la carpeta. Títulos de PMID 17088267 (topología y mutagénesis de la Emb de C. glutamicum) y PMID 30046665 (Jankute 2018, actividad bioquímica) en `busqueda_m2_proteomica_etambutol.md`, consulta P1.
+
+**Por qué:** Generaliza la ausencia. Lo que falta es la estructura experimental, no todo conocimiento sobre la enzima.
+
+- [ ] la evidencia contradice o limita exactamente esto
+
+**Atención:** M3 solo puede usarse cuando `busqueda_control_negativo.md` esté ejecutada y documentada.
 
 ## C. Afirmaciones dudosas (no incluidas como referencia)
 
@@ -306,14 +320,14 @@ Lo que queda por revisar: varias afirmaciones de M2 no nombran el medio porque e
 
 **c) ¿Dependencia de un solo grupo o de una sola revisión?**
 - Referencias de M2: Radmacher 2005 aporta 4 de 10 (bajé de 5: cambié el eflujo de glutamato por Hart 2024). Schubert 2017 y Meyer 2023 son del mismo grupo (Bramkamp) y suman 4. Lim 2019 y Hart 2024 suman 2. Dos grupos aportan 8 de 10 afirmaciones.
-- Artículos clave: hay 12, de por lo menos 9 grupos distintos. No dependen de ninguna revisión.
+- Artículos clave: en v2 quedan 11 (salió Devlin 2025, que es un distractor). La versión 1 contaba al menos 9 grupos con Devlin incluido; falta recontar sin él. No dependen de ninguna revisión.
 - El riesgo real es otro: la evidencia en *C. glutamicum* es escasa y está concentrada en dos grupos (Eggeling/Besra y Bramkamp).
 
 **d) ¿Las prohibidas son errores realistas?** Sí, y son específicas del corpus:
 - Devlin 2025: el nombre del archivo (`..._drug_treatment`) induce a leerlo como un estudio con fármacos.
 - BHI frente a CGXII: es la confusión de medio más probable para esta tesis.
 - Las otras dos convierten una ausencia o una acumulación en un mecanismo.
-- La prohibida de M3 detecta a un sistema que, por exceso de cautela, niega también la literatura en *M. smegmatis*.
+- En v2, las prohibidas de M3 detectan dos errores opuestos: atribuirle a *C. glutamicum* estructuras de micobacterias (P01) y negar todo lo que se sabe de su Emb (P02).
 - "Reproducible" en lugar de "Reusable" en M1 es un error frecuente.
 
-**e) ¿Podría M3 tener respuesta en literatura que no busqué?** Sí, en tres lugares: repositorios de datos (PRIDE), tesis o actas de congresos, y literatura no indexada. Detalle en `busqueda_control_negativo.md`, sección Límites. El riesgo más concreto es un dataset en PRIDE sin artículo asociado.
+**e) ¿Podría M3 (versión 1) tener respuesta en literatura que no busqué?** Sí, en tres lugares: repositorios de datos (PRIDE), tesis o actas de congresos, y literatura no indexada. Detalle en `busqueda_m2_proteomica_etambutol.md`, sección Límites. Para la M3 de la versión 2, ver los límites previstos en `busqueda_control_negativo.md`. El riesgo más concreto es un dataset en PRIDE sin artículo asociado.
