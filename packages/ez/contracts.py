@@ -24,7 +24,7 @@ def validate(value, kind='research-contract'):
     schema = json.loads(files('ez').joinpath('schemas', kind + '.json').read_text(encoding='utf-8'))
     errors = sorted(Draft202012Validator(schema).iter_errors(value), key=lambda e: str(e.path))
     if errors:
-        raise ContractError('; '.join(f'{list(e.path)}: {e.message}' for e in errors))
+        raise ContractError('; '.join(f"campo {'.'.join(str(p) for p in e.path) or 'raíz'}: {e.message}" for e in errors))
     if kind == 'source-manifest':
         ids = [s['source_id'] for s in value]
         if len(ids) != len(set(ids)):

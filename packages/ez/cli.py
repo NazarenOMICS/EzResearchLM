@@ -30,7 +30,7 @@ def pending_passage_review(state):
     """Read-only view of a historical answer awaiting the current support check."""
     return dict(state, phase='audit', execution={'status': 'waiting_user'},
                 answer={'status': 'unavailable'}, integrity={'status': 'pending'},
-                legacy_signals=sorted(set(state.get('legacy_signals', [])) | {'NEEDS_MORE_QA'}),
+                legacy_signals=sorted(set(state.get('legacy_signals', [])) | {'NEEDS_QA_REVIEW'}),
                 next_action='La respuesta histórica requiere verificar sus pasajes con el protocolo actual. Usa ez continue; se conservan sus registros.')
 
 
@@ -62,7 +62,7 @@ def create_run(root, question, context, contract=None):
     return folder, state
 
 
-def import_contract(folder, proposal, accept_policy_change=False):
+def import_contract(folder, proposal, accept_policy_change=False, dry_run=False):
     store = Store(folder)
     state = store.state()
     old = read_json(folder / 'research-contract.json')
@@ -86,6 +86,8 @@ def import_contract(folder, proposal, accept_policy_change=False):
             raise ContractError('Una obligación del usuario cambió. Requiere --accept-policy-change explícito.')
     value['revision'] = old['revision'] + 1
     value['parent_contract_hash'] = digest(old)
+    if dry_run:
+        return value
     store.append('decision', {'actor': 'host_agent', 'kind': 'contract_revision', 'before': digest(old), 'after': digest(value),
                               'policy_change_authorized': accept_policy_change})
     state.update(contract_hash=digest(value), answer={'status': 'unavailable'})
@@ -156,6 +158,31 @@ def rescue(folder, args):
     return state
 
 
+def check_proposal(folder, args):
+    """Dry run: report what an import would reject, without writing or calling services."""
+    if bool(args.contract) == bool(args.review):
+        raise ContractError('Usa --check con --contract o con --review.')
+    if args.contract:
+        value = import_contract(folder, args.contract, args.accept_policy_change, dry_run=True)
+        try:
+            from .contracts import require_ready
+            require_ready(value)
+            pending = None
+        except ContractError as exc:
+            pending = str(exc)
+        return {'kind': 'check', 'target': 'contract', 'valid': True, 'ready': pending is None,
+                'next_action': pending or 'La propuesta es válida y está lista. Impórtala con ez continue --contract.'}
+    from .audit import check_review_version, load_answers, review_claims
+    state = Store(folder).state()
+    contract = read_json(folder / 'research-contract.json')
+    sources = read_json(folder / 'sources.json') if (folder / 'sources.json').exists() else []
+    review = read_json(args.review)
+    check_review_version(review, state)
+    claims = review_claims(review, state, contract, sources, load_answers(folder, state, contract, sources))
+    return {'kind': 'check', 'target': 'review', 'valid': True, 'claims': len(claims),
+            'next_action': 'La revisión es válida. Impórtala con ez continue --review; EZ verificará cada afirmación con NotebookLM.'}
+
+
 def main(argv=None):
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, 'reconfigure'):
@@ -170,6 +197,7 @@ def main(argv=None):
     p = sub.add_parser('context', help='Guardar preferencias y consultar investigaciones anteriores.'); p.add_argument('--project', default='general'); p.add_argument('--set', nargs=2, action='append', metavar=('FIELD', 'VALUE'))
     p = sub.add_parser('research', help='Iniciar una investigación con una pregunta.'); p.add_argument('question'); p.add_argument('--project', default='general'); p.add_argument('--plan-only', action='store_true'); p.add_argument('--contract', type=Path); p.add_argument('--reuse'); p.add_argument('--require-complete', action='store_true')
     p = sub.add_parser('continue', help='Retomar una investigación guardada.'); p.add_argument('run'); p.add_argument('--contract', type=Path); p.add_argument('--accept-policy-change', action='store_true'); p.add_argument('--review', type=Path); p.add_argument('--require-complete', action='store_true')
+    p.add_argument('--check', action='store_true', help='Validar la propuesta o la revisión sin modificar la corrida ni consultar servicios.')
     p = sub.add_parser('status', help='Ver el avance y el siguiente paso.'); p.add_argument('run'); p.add_argument('--answer', action='store_true')
     p = sub.add_parser('doctor', help='Diagnosticar problemas de una investigación.'); p.add_argument('run'); p.add_argument('--migration-preview', action='store_true'); p.add_argument('--migrate', metavar='PREVIEW_HASH'); p.add_argument('--remote', action='store_true'); p.add_argument('--metrics', action='store_true')
     p = sub.add_parser('rescue', help='Ver documentos pendientes o incorporar un PDF.'); p.add_argument('run'); p.add_argument('--import', dest='import_pdf'); p.add_argument('--source'); p.add_argument('--confirm-identity', action='store_true'); p.add_argument('--retry', action='store_true')
@@ -291,6 +319,9 @@ def main(argv=None):
                 Store(folder).update(state)
             if args.command == 'rescue':
                 emit(rescue(folder, args), args.json)
+                return 0
+            if args.command == 'continue' and args.check:
+                emit(check_proposal(folder, args), args.json)
                 return 0
             if args.command == 'continue' and args.contract:
                 import_contract(folder, args.contract, args.accept_policy_change)

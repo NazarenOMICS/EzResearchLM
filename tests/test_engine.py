@@ -52,16 +52,21 @@ class Service:
             self.upload_count += 1
             # The real CLI's file upload uses the filename even with --title.
             title = Path(args[-2]).name
-            self.sources.append({'id': 'remote1', 'title': title, 'status': 'ready'})
+            remote_id = 'remote%d' % self.upload_count
+            self.sources.append({'id': remote_id, 'title': title, 'status': 'ready'})
             if self.interrupt_upload:
                 self.interrupt_upload = False
                 return Result(124, '', '', 'deadline_exceeded')
-            value = {'source': {'id': 'remote1'}}
+            value = {'source': {'id': remote_id}}
         elif args[1:3] == ['source', 'list']:
             value = {'sources': self.sources}
         elif args[1] == 'ask':
             verification = 'Evalúa si las fuentes' in args[-2]
-            answer = json.dumps({'verdict': self.verdict, 'rationale': 'Soporte del corpus [1]'}) if verification else 'Resultado de la fuente [1].'
+            if verification:
+                claim_ids = [c['id'] for c in json.loads(args[-2].rsplit('\n', 1)[-1])['claims']]
+                answer = '\n'.join(f'EZ_VERDICT {cid}: {self.verdict}\nEZ_RATIONALE {cid}: Soporte del corpus [1].' for cid in claim_ids)
+            else:
+                answer = 'Resultado de la fuente [1].'
             value = {'answer': answer, 'conversation_id': 'chat1', 'turn_number': 1, 'is_follow_up': False,
                      'references': [{'source_id': 'foreign' if self.wrong_citation else 'remote1', 'citation_number': 1,
                                      'cited_text': self.verification_passage if verification and self.verification_passage is not None
@@ -131,12 +136,14 @@ class EngineTests(unittest.TestCase):
         self.run_engine()
         self.service.verification_passage = 'Otro párrafo correcto de la misma fuente.'
         code, state = self.run_engine(self.review())
-        self.assertEqual(code, 4)
+        self.assertEqual(code, 2)
         self.assertEqual(state['answer']['status'], 'unavailable')
-        self.assertFalse((self.folder / 'answer.json').exists())
+        report = read_json(self.folder / 'answer.json')
+        self.assertEqual(report['claims'], [])
+        self.assertEqual(report['withheld_claims'][0]['reason'], 'verification_passage_mismatch')
         prompt = next(args[-2] for args in reversed(self.service.calls) if args[1] == 'ask')
         supplied = json.loads(prompt.rsplit('\n', 1)[-1])
-        self.assertEqual(supplied['proposed_passages'], [{'source_id': 'remote1', 'citation_number': 1,
+        self.assertEqual(supplied['claims'][0]['proposed_passages'], [{'source_id': 'remote1', 'citation_number': 1,
                           'cited_text': 'Pasaje de prueba, sin contenido académico real.'}])
 
     def test_historical_verification_is_retained_but_not_reused(self):
@@ -147,7 +154,7 @@ class EngineTests(unittest.TestCase):
             engine = Engine(self.folder, runner=self.service)
             answers = load_answers(self.folder, engine.state, engine.contract, engine.sources)
             claim = review_claims(review, engine.state, engine.contract, engine.sources, answers)[0]
-            key = digest({'claim': claim, 'contract_hash': engine.state['contract_hash'],
+            key = digest({'claims': [claim], 'contract_hash': engine.state['contract_hash'],
                           'corpus_hash': engine.state['corpus_hash'], 'support_protocol': 'ez-verdict-v2'})
             old_path = self.folder / 'verification' / (key + '.json')
             atomic_json(old_path, {'answer': 'Historical unchecked response', 'references': []})
@@ -185,7 +192,7 @@ class EngineTests(unittest.TestCase):
                 self.assertEqual(result['answer']['status'], 'unavailable')
                 self.assertEqual(result['phase'], 'audit')
                 self.assertEqual(result['execution']['status'], 'waiting_user')
-                self.assertIn('NEEDS_MORE_QA', result['legacy_signals'])
+                self.assertIn('NEEDS_QA_REVIEW', result['legacy_signals'])
                 self.assertNotIn('claims', result)
         self.assertEqual({p.relative_to(self.folder): p.read_bytes() for p in self.folder.rglob('*') if p.is_file()}, before)
         self.assertEqual(self.run_engine()[0], 0)
@@ -309,7 +316,10 @@ class EngineTests(unittest.TestCase):
     def test_empty_review_cannot_claim_coverage(self):
         self.run_engine()
         review = self.review(); review['claims'] = []
-        self.assertEqual(self.run_engine(review)[0], 4)
+        code, state = self.run_engine(review)
+        self.assertEqual(code, 2)
+        self.assertEqual(state['legacy_signals'], ['review_invalid'])
+        self.assertEqual(state['integrity']['status'], 'pending')
 
     def test_doctor_detects_changed_pdf_without_altering_the_run(self):
         self.run_engine()
@@ -384,7 +394,10 @@ class EngineTests(unittest.TestCase):
         self.run_engine()
         review = self.review()
         review['contract_hash'] = '0' * 64
-        self.assertEqual(self.run_engine(review)[0], 4)
+        code, state = self.run_engine(review)
+        self.assertEqual(code, 2)
+        self.assertEqual(state['legacy_signals'], ['review_outdated'])
+        self.assertFalse((self.folder / 'answer.json').exists())
         qa = read_json(self.folder / 'qa/manifest.json')['answers'][0]
         (self.folder / qa['path']).write_text('{}')
         self.assertEqual(self.run_engine(self.review())[0], 4)

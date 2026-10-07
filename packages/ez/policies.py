@@ -41,7 +41,8 @@ def evaluate(contract, sources, coverage=None, integrity='unknown'):
     if not available:
         supported.clear()
         signals.add('NEEDS_CORPUS')
-    elif supported != scopes:
+    elif scopes - supported - withheld:
+        # More QA only helps scopes that no source policy is holding back.
         signals.add('NEEDS_MORE_QA')
     status = 'complete' if supported == scopes else ('partial' if supported else 'unavailable')
     return {'answer': {'status': status, 'scope_ids': sorted(supported)}, 'integrity': {'status': integrity},

@@ -7,6 +7,27 @@ ANSWER_LABELS = {
     'partial': 'Respuesta parcial: hay partes respaldadas y otras pendientes.',
     'complete': 'Respuesta completa para el alcance acordado, con sus límites.',
 }
+REASON_LABELS = {
+    'verdict_partial': 'la verificación encontró respaldo solo parcial',
+    'verdict_unsupported': 'la verificación no encontró respaldo en los pasajes',
+    'verification_unparsed': 'la verificación no devolvió un dictamen legible',
+    'verification_ambiguous': 'la verificación devolvió citas ambiguas',
+    'verification_without_citations': 'la verificación no citó ningún pasaje',
+    'verification_citation_without_passage': 'la verificación citó sin pasaje verificable',
+    'verification_foreign_source': 'la verificación citó una fuente distinta de la propuesta',
+    'verification_passage_mismatch': 'el respaldo aparece en otro pasaje; requiere una nueva revisión',
+    'scope_withheld_by_policy': 'su alcance espera una fuente obligatoria',
+    'scope_not_sufficient': 'otra afirmación del mismo alcance no pasó la verificación; revisa ese alcance',
+    'required_source_missing': 'falta una fuente obligatoria para ese alcance',
+    'policy_review_pending': 'hay una decisión pendiente sobre una fuente',
+    'not_asked': 'no se consultó',
+    'identity_unconfirmed': 'falta confirmar qué artículo y versión contiene el PDF',
+    'paywall': 'sin acceso abierto',
+    'access_denied': 'el sitio negó el acceso',
+    'routes_exhausted': 'ninguna ruta de acceso abierto funcionó',
+    'source_budget_exhausted': 'se agotó el tiempo asignado a la fuente',
+    'not_acquired': 'todavía no se intentó descargar',
+}
 PHASE_LABELS = {
     'plan': 'Preparando la investigación', 'discover': 'Buscando fuentes',
     'acquire': 'Recuperando documentos', 'upload': 'Enviando fuentes a NotebookLM',
@@ -28,6 +49,20 @@ def welcome(root, guide):
     }
 
 
+def cite(reference):
+    """Bibliographic identity of a cited source; the remote ID only when nothing else is known."""
+    source = reference.get('source') or {}
+    if not source.get('title') and not source.get('doi'):
+        return 'Fuente NotebookLM: ' + reference['source_id']
+    parts = [source.get('title') or source.get('source_id')]
+    if source.get('year'):
+        parts[0] += f' ({source["year"]})'
+    for key, label in (('doi', 'DOI'), ('pmid', 'PMID'), ('pmcid', 'PMCID')):
+        if source.get(key):
+            parts.append(f'{label} {source[key]}')
+    return '. '.join(parts)
+
+
 def render(value):
     lines = []
     if value.get('kind') == 'welcome':
@@ -39,6 +74,9 @@ def render(value):
                           'Guía completa: ez --guide', 'Comprobar el entorno: ez setup --check'])
     if value.get('kind') == 'user_guide':
         return value['text']
+    if value.get('kind') == 'check':
+        return ('Comprobación sin cambios: ' + ('la propuesta' if value['target'] == 'contract' else 'la revisión') + ' es válida.\n'
+                'Siguiente paso: ' + value['next_action'])
     if 'can_notebook_qa' in value:
         lines.append('Preparación de EZ')
         lines.append('Configuración: ' + ('guardada.' if value['configuration_exists'] else 'pendiente; usa ez setup para guardarla.'))
@@ -103,8 +141,23 @@ def render(value):
         markers = ' '.join(f'[{claim["question_id"]}:{n}]' for n in claim['citation_numbers'])
         lines.append('\n' + claim['text'] + ' ' + markers)
         for reference in claim.get('references', []):
-            lines.append(f'  [{claim["question_id"]}:{reference["citation_number"]}] Fuente NotebookLM: {reference["source_id"]}')
+            lines.append(f'  [{claim["question_id"]}:{reference["citation_number"]}] ' + cite(reference))
+            source = reference.get('source', {})
+            if source.get('pdf_path'):
+                lines.append(f'  Archivo: {source["pdf_path"]} (SHA-256 {source.get("content_sha256", "")[:12]})')
             lines.append('  Pasaje: ' + reference['cited_text'])
+    if value.get('withheld_claims'):
+        lines.append('\nNo se pudo afirmar:')
+        for claim in value['withheld_claims']:
+            lines.append(f'- {claim["text"]} ({REASON_LABELS.get(claim["reason"], claim["reason"])})')
+    if value.get('skipped_questions'):
+        lines.append('Preguntas no consultadas:')
+        for question in value['skipped_questions']:
+            lines.append(f'- {question["question_id"]} ({", ".join(question["scope_ids"])}): {REASON_LABELS.get(question["reason"], question["reason"])}')
+    if value.get('corpus_exclusions'):
+        lines.append(f'Fuentes fuera del corpus: {len(value["corpus_exclusions"])}.')
+        for source in value['corpus_exclusions'][:20]:
+            lines.append(f'- {source.get("title") or source["source_id"]}: {REASON_LABELS.get(source["reason"], source["reason"])}')
     for row in value.get('coverage', []):
         if row['status'] != 'sufficient':
             lines.append('Pendiente (' + row['scope_id'] + '): ' + row['rationale'])

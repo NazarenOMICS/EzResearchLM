@@ -55,7 +55,10 @@ alcance acordado. `integrity.status` separa trazabilidad `pending`, `unknown`,
 
 Señales compatibles: `NEEDS_CORPUS` para falta de corpus utilizable;
 `NEEDS_SOURCE_RESCUE` para fuentes pendientes; `NEEDS_SOURCE_REVIEW` para identidad
-o política pendiente; `NEEDS_MORE_QA` para cobertura insuficiente;
+o política pendiente; `NEEDS_MORE_QA` para cobertura insuficiente en alcances que
+ninguna política retiene; `NEEDS_QA_REVIEW` cuando EZ espera la revisión del
+anfitrión; `review_invalid` y `review_outdated` cuando la revisión enviada no se puede
+usar tal como está; `quota_exhausted` cuando NotebookLM alcanzó el límite de la cuenta;
 `NEEDS_TRACEABILITY_REPAIR` para integridad no verificable. Pueden coexistir con una
 respuesta parcial. Un fallo de integridad impide entregar afirmaciones afectadas.
 
@@ -70,8 +73,17 @@ El anfitrión presenta `qa-review.json` con hashes del contrato y corpus, reviso
 cobertura por subpregunta y afirmaciones con IDs de preguntas y números de cita.
 Cada cita debe aparecer en la respuesta original de NotebookLM, referir a una
 fuente verificada y conservar un pasaje citado. El adaptador exige otra QA de
-NotebookLM sobre el respaldo completo de cada afirmación. Una respuesta de formato
-no reconocido, vacía o sin citas no cuenta como aprobación.
+NotebookLM sobre el respaldo completo de cada afirmación, en lotes de hasta seis
+afirmaciones por consulta (protocolo `ez-verdict-v4-batch`). Una respuesta de formato
+no reconocido, vacía o sin citas no cuenta como aprobación y retiene solo la
+afirmación afectada.
+
+`answer.json` (esquema 2.1) agrega a cada referencia el objeto `source` con título,
+autores, año, DOI/PMID/PMCID, hash y ruta del PDF y origen. También registra
+`withheld_claims` (afirmaciones retenidas y su motivo), `skipped_questions`
+(preguntas QA no consultadas por una política) y `corpus_exclusions` (fuentes que
+quedaron fuera del corpus). Las respuestas de protocolos anteriores se muestran como
+pendientes de una nueva verificación.
 
 Los marcadores individuales, agrupados y por rango (`[1]`, `[1, 2]`, `[3–5]`)
 conservan todos sus números. El anfitrión puede descartar material incompleto del

@@ -55,9 +55,15 @@ correcto comprueba archivos; no certifica una conclusión científica.
    Una política `contextual` pendiente necesita una decisión explícita antes de
    habilitar sus conclusiones. Las obligaciones fijadas por el usuario conservan
    `locked_by_user: true`.
-5. Importar mediante `ez continue <corrida> --contract <propuesta> --json`. Guardar
+5. Validar la propuesta con `ez continue <corrida> --contract <propuesta> --check --json`:
+   informa errores y pendientes sin escribir ni consultar servicios. Corregirla
+   hasta que `ready` sea verdadero.
+   Importar mediante `ez continue <corrida> --contract <propuesta> --json`. Guardar
    resultados y atender el siguiente paso indicado. Reanudar la misma corrida
    ante una interrupción; cambiar la pregunta o la búsqueda exige otra corrida.
+   El estado informa en `corpus_exclusions` qué fuentes quedaron fuera del corpus y
+   por qué; explicarlo antes de revisar QA. Con `quota_exhausted`, NotebookLM llegó
+   al límite de la cuenta: avisar y continuar más tarde, sin repetir el trabajo.
 6. Ante PDFs no disponibles, explicar qué alcance depende de ellos. Usar
    `ez rescue <corrida> --json`, importar el archivo obtenido por el usuario con
    `--source <id> --import <pdf>` y confirmar identidad solamente después de
@@ -66,16 +72,27 @@ correcto comprueba archivos; no certifica una conclusión científica.
    Si el agente realizó el cotejo, registrar `--confirm-identity --reviewer host_agent`;
    no atribuir al usuario una revisión que hizo el agente.
 7. Cuando QA termine, leer **completos** `qa/manifest.json` y sus respuestas. Revisar
-   pasajes, alcance y límites. Preparar una copia de `review-request.json` según
+   pasajes, alcance y límites. `review-request.json` corresponde siempre al corpus
+   vigente; si el corpus cambió, la plantilla anterior queda archivada como
+   `review-request-<hash>.json` y no debe usarse. Preparar una copia según
    `packages/ez/schemas/qa-review.json`. Cada afirmación lleva pregunta QA,
    subpreguntas y números de cita presentes en NotebookLM. Marcar insuficiencia
    donde corresponda, aunque se hayan encontrado muchas fuentes.
-8. Importar con `ez continue <corrida> --review <revisión> --json`. EZ vuelve a
-   preguntar a NotebookLM por el respaldo de cada afirmación propuesta. Una
-   comprobación sin citas, con fuentes ajenas o de formato desconocido no habilita
-   entrega. El respaldo automatizado no equivale a revisión científica humana.
+8. Validar la revisión con `ez continue <corrida> --review <revisión> --check --json`
+   y luego importarla sin `--check`. EZ verifica las afirmaciones con NotebookLM en
+   lotes (una consulta cada seis afirmaciones), cada una contra sus propios pasajes.
+   Una afirmación sin citas, con fuentes ajenas, con otro pasaje o con dictamen
+   ilegible queda retenida con su motivo en `withheld_claims`; las demás siguen su
+   curso. Una afirmación retenida deja su alcance como insuficiente: para entregar el
+   resto de ese alcance, quitarla o reformularla en una revisión nueva. Si la revisión
+   tiene errores (`review_invalid`) o corresponde a otro corpus (`review_outdated`),
+   la corrida espera una revisión corregida; no es un fallo de integridad. El
+   respaldo automatizado no equivale a revisión científica humana.
 9. Leer `ez status <corrida> --answer --json`. Entregar solamente el contenido
-   habilitado, conservando referencias, omisiones y límites. Decir claramente
+   habilitado, conservando referencias, omisiones y límites. Cada referencia trae en
+   `source` el título, los identificadores, el archivo y su hash: citarlos desde ahí,
+   no desde memoria. Informar también `withheld_claims`, `skipped_questions` y
+   `corpus_exclusions`. Decir claramente
    cuándo la respuesta es parcial y qué falta para ampliarla. No completar huecos
    desde memoria ni usar resultados QMD como evidencia académica.
 
