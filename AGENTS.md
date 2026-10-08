@@ -21,7 +21,7 @@ candidate; authenticated E2E and closed beta are still required before release.
 - NotebookLM is the evidence and QA engine.
 - Local search and QMD are recall/acquisition helpers, not answer engines.
 - Do not write strong bibliographic claims from memory.
-- Before drafting academic prose in Nazareno's voice, read `Rules_Of_Writing.md` completely. Its EZresearchLM-specific section preserves QA citation markers, evidence gaps, and `NEEDS_*` states during intermediate synthesis.
+- Before drafting academic prose, read `Rules_Of_Writing.md` completely. Draft only from `ez draft` claims, keep their `[EZ:<id>]` markers and the reported gaps, and check the draft with `ez draft <run> --check <file>`.
 - If evidence is missing, emit `NEEDS_CORPUS`, `NEEDS_MORE_QA`,
   `NEEDS_SOURCE_REVIEW`, or `NEEDS_SOURCE_RESCUE`.
 - Acquisition uses only open-access routes and PDFs the user imports. Anna's
@@ -64,8 +64,8 @@ Important output overrides:
 
 ## Main Commands
 
-New EZ runs use `ez setup`, `ez context`, `ez research`, `ez continue`, `ez status`,
-`ez doctor` and `ez rescue`. See `docs/ez-host-operator.md` for the host workflow.
+New EZ runs use `ez setup`, `ez context`, `ez research`, `ez continue` (including
+`--screening` and `--review`), `ez status`, `ez rescue`, `ez draft` and `ez doctor`. See `docs/ez-host-operator.md` for the host workflow.
 Use `ez doctor <legacy-path> --migration-preview --json` to inspect a sidecar
 migration; apply only the reviewed preview hash. Original files are preserved.
 

@@ -17,11 +17,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-legacy-planners = [
-  "google-genai",
-  "anthropic",
-  "google-auth-oauthlib"
-]
 notebooklm = ["notebooklm-py==0.8.0"]
 
 [project.scripts]

@@ -326,7 +326,7 @@ class Retriever:
 
 def normalize_doi(value):
     value = str(value or '').lower().strip()
-    return re.sub(r'^(?:https?://(?:dx\.)?doi\.org/|doi:\s*)', '', value)
+    return re.sub(r'^(?:https?://(?:dx\.)?doi\.org/|doi:\s*)', '', value).strip().rstrip('.')
 
 
 def archive_pdf(data, record):

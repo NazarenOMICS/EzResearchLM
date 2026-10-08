@@ -38,9 +38,4 @@ powershell.exe -ExecutionPolicy Bypass -File ".\scripts\run_search_topic.ps1" `
 - `NCBI_EMAIL`: polite PubMed/NCBI email.
 - `NCBI_API_KEY`: optional NCBI API key.
 
-## Optional Model Keys
-
-- `GEMINI_API_KEY`
-- `ANTHROPIC_API_KEY`
-
 Do not commit `.env`.

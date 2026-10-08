@@ -76,9 +76,11 @@ class Engine:
         try:
             value = json.loads(result.stdout)
         except ValueError as exc:
-            raise Pause('invalid_notebooklm_output', 'NotebookLM devolvió un formato no reconocido.', 3) from exc
+            raise Pause('invalid_notebooklm_output', 'NotebookLM devolvió un formato no reconocido. Si se repite, puede que NotebookLM '
+                        'haya cambiado: actualiza EZ y notebooklm-py. El trabajo quedó guardado.', 3) from exc
         if not valid_response(value, args):
-            raise Pause('invalid_notebooklm_output', 'La respuesta de NotebookLM no es válida.', 3)
+            raise Pause('invalid_notebooklm_output', 'La respuesta de NotebookLM no tiene el formato esperado. Si se repite, puede que '
+                        'NotebookLM haya cambiado: actualiza EZ y notebooklm-py. El trabajo quedó guardado.', 3)
         return self.resolve_citations(value) if args[0] == 'ask' else value
 
     def resolve_citations(self, response):

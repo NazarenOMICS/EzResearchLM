@@ -17,6 +17,8 @@ Run this before pushing or making the repository public.
 - README quick start is current.
 - `docs/source-rescue.md` matches the actual JSON contract.
 - No acquisition route uses Anna's Archive or Sci-Hub.
+- `python scripts/canary_notebooklm.py --notebook <id>` passes against a real account
+  (it checks the NotebookLM CLI shapes EZ relies on; two chat queries).
 
 ## Commands
 
