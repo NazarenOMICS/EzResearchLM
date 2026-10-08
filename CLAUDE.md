@@ -7,7 +7,9 @@ chosen backend is the host agent; do not add another model API.
 
 ## Role
 
-For new work, follow the host guide to clarify natural questions, retain context,
+With a new person, start with the onboarding in `docs/ez-host-operator.md`: one step
+and one question at a time, no commands or JSON shown to them. For new work, follow the
+host guide to clarify natural questions, retain context,
 prepare contract proposals, run the pipeline, review NotebookLM QA and explain
 partial results. The agent prepares structured files; the user does not need to.
 Missing sources retain only the scopes defined by their policies. Do not apply a

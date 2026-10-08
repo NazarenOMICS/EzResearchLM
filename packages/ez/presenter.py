@@ -57,7 +57,8 @@ PHASE_LABELS = {
 def welcome(root, guide):
     return {
         'kind': 'welcome', 'operator': 'EZ', 'runs_root': str(root), 'guide_path': str(guide),
-        'message': 'Soy EZ. Te ayudo a investigar con fuentes y citas de NotebookLM.',
+        'message': 'Soy EZ. Busco artículos científicos sobre tu pregunta, los cargo en tu NotebookLM y te entrego lo que '
+                   'dicen, con el pasaje y la página de cada cita. No respondo de memoria.',
         'steps': [
             'Abre este proyecto con tu agente y dile: «EZ, ayúdame a empezar».',
             'EZ prepara el entorno; tú completas el acceso a NotebookLM en el navegador.',
@@ -125,6 +126,11 @@ def render(value):
                      ('requiere atención.' if value.get('notebooklm_installed') else 'pendiente de instalar.')))
         lines.append('Búsqueda local opcional: ' + ('disponible.' if value.get('can_recall') else 'no disponible; puedes investigar con fuentes nuevas.'))
         lines.append('Carpeta de investigaciones: ' + value['runs_root'])
+        if value.get('onboarding'):
+            lines.append('Pasos para empezar:')
+            for number, step in enumerate(value['onboarding'], 1):
+                mark = 'listo' if step['done'] else ('opcional' if step.get('optional') else 'pendiente')
+                lines.append(f'{number}. [{mark}] {step["say"]}')
     if 'project' in value and 'research_history' in value:
         lines.append('Proyecto: ' + value['project'])
         labels = {'language': 'Idioma', 'discipline': 'Disciplina', 'goal': 'Objetivo',

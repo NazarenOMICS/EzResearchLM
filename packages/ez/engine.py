@@ -1029,9 +1029,10 @@ class Engine:
                   'corpus_exclusions': self.state.get('corpus_exclusions', []), 'review_adjustments': [], 'coverage': rows,
                   'audit_kind': 'notebooklm_native_citations', 'support_protocol': DIRECT_PROTOCOL, 'release_validation': False}
         return self.publish(report, delivered, result, None,
-                            'Respuesta directa guardada en report.md: oraciones de NotebookLM con sus pasajes citados. Para '
-                            'verificar cada afirmación por separado antes de redactar, completa review-request.json y usa '
-                            'ez continue --review.' if delivered else
+                            'Respuesta directa guardada en report.md: oraciones de NotebookLM con sus pasajes y páginas. '
+                            'Resume lo central y ofrece: 1) verificar afirmaciones para redactar (ez continue --verify); '
+                            '2) exportar la bibliografía a Zotero (ez export); 3) redactar con marcas [EZ:<id>] (ez draft); '
+                            '4) otra pregunta del mismo proyecto, que reutiliza los PDFs ya cargados.' if delivered else
                             'NotebookLM no respondió con citas verificables. Revisa las preguntas QA o el corpus.')
 
     def execute(self, review=None, screening=None):

@@ -12,6 +12,11 @@ Claude Code. Ahí conversas con EZ. Por ahora no hay una aplicación gráfica pr
 el programa `ez` ejecuta acciones y muestra el estado; la conversación la lleva tu
 agente, que ya tiene que estar instalado y disponible.
 
+No hace falta saber comandos: EZ te guía paso a paso, con una pregunta por vez. Te va a
+pedir que entres a NotebookLM con tu cuenta de Google (en tu navegador), opcionalmente un
+correo de contacto para buscar más artículos gratuitos, y que le cuentes qué quieres
+investigar. Antes de empezar te muestra el plan y cuánto va a tardar.
+
 Copia este primer mensaje en esa conversación:
 
 > EZ, ayúdame a empezar. Prepara mi entorno y explícame cada paso.
@@ -59,6 +64,10 @@ NotebookLM ni modificar investigaciones. `ez --help` enumera las acciones.
 | «¿Cómo va y qué falta?» | Explica el último estado guardado y el siguiente paso |
 | «Continuemos» | Retoma la investigación identificada en la conversación |
 | «Tengo este PDF; incorpóralo» | Conserva su origen, comprueba el documento y continúa el alcance afectado |
+| «Tengo mis PDFs en esta carpeta» | Asigna cada PDF al artículo que corresponde y te pide confirmar los dudosos |
+| «Sigue sin esos artículos» | Continúa sin los PDFs que no se pudieron bajar y lo dice en el informe |
+| «Exporta la bibliografía» | Genera un archivo BibTeX o RIS para Zotero o Mendeley |
+| «Verifica lo central para redactar» | Vuelve a consultar NotebookLM por cada afirmación central y deja solo las que pasan |
 | «Muéstrame lo que ya se puede responder» | Entrega la parte revisada si existe y señala lo pendiente |
 | «Usa esas fuentes para otra pregunta» | Crea una nueva investigación con el material verificado |
 | «Algo falló, ayúdame» | Diagnostica lo ocurrido y conserva el trabajo guardado |

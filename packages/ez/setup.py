@@ -14,6 +14,26 @@ from .state import atomic_json, lock, read_json
 NOTEBOOKLM_SPEC = 'notebooklm-py==0.8.0'
 
 
+def onboarding(checks):
+    """First-use steps in order: who acts, whether it is done, and what the agent says to the user."""
+    return [
+        {'id': 'notebooklm_installed', 'done': checks.get('notebooklm_installed', False), 'who': 'EZ',
+         'say': 'Voy a instalar la herramienta que conecta con NotebookLM; tarda uno o dos minutos y no toca tu configuración.',
+         'command': 'ez setup --install-notebooklm'},
+        {'id': 'notebooklm_login', 'done': checks.get('can_notebook_qa', False), 'who': 'usuario',
+         'say': 'Se va a abrir NotebookLM en tu navegador. Entra con tu cuenta de Google y avísame cuando termines. '
+                'EZ nunca ve tu contraseña.',
+         'command': ' '.join(checks.get('login_command') or ['notebooklm', 'login'])},
+        {'id': 'unpaywall_email', 'done': checks.get('unpaywall_configured', False), 'who': 'usuario', 'optional': True,
+         'say': '¿Me das un correo de contacto? Unpaywall, el índice de artículos de acceso abierto, lo pide para '
+                'consultarlo. Solo se envía a Unpaywall y ayuda a encontrar más PDFs gratuitos.',
+         'command': 'ez setup --unpaywall-email <correo>'},
+        {'id': 'first_question', 'done': False, 'who': 'usuario',
+         'say': '¿Qué quieres investigar y para qué lo necesitas (tesis, artículo, clase)? Cuéntamelo con tus palabras.',
+         'command': 'ez research "<pregunta>" --project <proyecto> --plan-only'},
+    ]
+
+
 def prepare(root, check=False, install_notebooklm=False, unpaywall_email=None):
     receipt = None
     if install_notebooklm:
@@ -74,6 +94,8 @@ def prepare(root, check=False, install_notebooklm=False, unpaywall_email=None):
         checks['next_action'] = 'Puedes preparar el corpus. Para consultar la evidencia, abre el login de NotebookLM y completa el acceso en tu navegador.'
     else:
         checks['next_action'] = 'Falta NotebookLM. EZ puede instalarlo en un entorno aislado con ez setup --install-notebooklm; después debes iniciar sesión.'
+    checks['onboarding'] = onboarding(checks)
+    checks['next_step'] = next((step for step in checks['onboarding'] if not step['done']), None)
     if not checks['unpaywall_configured']:
         # Unpaywall is the widest open-access index; without a contact email EZ skips it and more PDFs fail.
         checks['next_action'] += (' Para encontrar más PDFs de acceso abierto, guarda un correo de contacto para Unpaywall con '

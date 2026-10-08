@@ -106,5 +106,22 @@ class EstimateTests(unittest.TestCase):
         self.assertIn('alrededor de un minuto', fresh['text'])
 
 
+class OnboardingTests(unittest.TestCase):
+    def test_setup_lists_the_first_use_steps_and_the_next_one(self):
+        import os, tempfile
+        with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {}, clear=False):
+            for key in ('PAPER_SEARCH_MCP_UNPAYWALL_EMAIL', 'UNPAYWALL_EMAIL'):
+                os.environ.pop(key, None)
+            output = StringIO()
+            with redirect_stdout(output), patch('ez.cli.load_environment'), patch('ez.setup.executable', return_value=None):
+                main(['--root', str(Path(temp) / 'runs'), 'setup', '--check', '--json'])
+            value = json.loads(output.getvalue())
+        self.assertEqual([s['id'] for s in value['onboarding']],
+                         ['notebooklm_installed', 'notebooklm_login', 'unpaywall_email', 'first_question'])
+        self.assertEqual((value['next_step']['id'], value['next_step']['who']), ('notebooklm_installed', 'EZ'))
+        from ez.presenter import render
+        self.assertIn('1. [pendiente]', render(value))
+
+
 if __name__ == '__main__':
     unittest.main()
