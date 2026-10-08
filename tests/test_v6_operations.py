@@ -13,6 +13,7 @@ from ez.engine import Engine
 from ez.process import Result
 from ez.state import Store, atomic_json, lock, read_json
 import test_engine
+import test_phase1
 
 
 class DownloadDiagnosticsTests(unittest.TestCase):
@@ -66,6 +67,52 @@ class UnpaywallSetupTests(unittest.TestCase):
             self.assertEqual(os.environ['PAPER_SEARCH_MCP_UNPAYWALL_EMAIL'], 'tesista@example.org')
             with redirect_stdout(StringIO()), patch('ez.cli.load_environment'), patch('ez.setup.executable', return_value=None):
                 self.assertEqual(main(['--root', str(root), 'setup', '--unpaywall-email', 'no-es-un-correo', '--json']), 1)
+
+
+class BatchImportTests(unittest.TestCase):
+    setUp = test_engine.EngineTests.setUp
+    add_source = test_phase1.Phase1Tests.add_source
+
+    def cli(self, *arguments):
+        output = StringIO()
+        with redirect_stdout(output), patch('ez.cli.load_environment'):
+            code = main(['--root', self.temp.name, *arguments, '--json'])
+        return code, json.loads(output.getvalue())
+
+    def test_a_folder_of_pdfs_is_matched_to_the_missing_sources(self):
+        from PyPDF2 import PdfWriter
+        with lock(self.folder):
+            store = Store(self.folder); state = store.state()
+            sources = read_json(self.folder / 'sources.json')
+            sources += [{'source_id': sid, 'title': 'Artículo ' + sid, 'doi': '10.1/' + sid, 'acquisition_status': 'manual_needed',
+                         'screening': 'include', 'validation_status': 'unknown', 'identity_status': 'unknown',
+                         'notebook_status': 'pending'} for sid in ('p1', 'p2')]
+            state['sources_hash'] = digest(sources)
+            store.commit(state, {'sources.json': sources})
+        library = Path(self.temp.name) / 'mis-pdfs'
+        library.mkdir()
+        for index, name in enumerate(('p1.pdf', 'otro.pdf')):
+            writer = PdfWriter(); writer.add_blank_page(width=80 + index, height=80)
+            with (library / name).open('wb') as stream:
+                writer.write(stream)
+        fake = lambda path, record, provider=None: 'verified' if Path(path).stem == record['source_id'] else 'needs_review'
+        with patch('ez.acquisition.verify_identity', fake):
+            code, result = self.cli('rescue', str(self.folder), '--import-folder', str(library))
+        self.assertEqual(code, 0)
+        summary = result['import_folder']
+        self.assertEqual(([i['source_id'] for i in summary['imported']], summary['unmatched_files']), (['p1'], ['otro.pdf']))
+        self.assertEqual([m['source_id'] for m in summary['still_missing']], ['p2'])
+        p1 = next(s for s in read_json(self.folder / 'sources.json') if s['source_id'] == 'p1')
+        self.assertEqual((p1['validation_status'], p1['identity_status']), ('valid', 'verified'))
+
+    def test_several_identities_are_confirmed_at_once(self):
+        self.add_source('s2', identity='needs_review')
+        self.add_source('s3', identity='needs_review')
+        code, _ = self.cli('rescue', str(self.folder), '--source', 's2,s3', '--confirm-identity', '--reviewer', 'host_agent')
+        self.assertEqual(code, 0)
+        status = {s['source_id']: s['identity_status'] for s in read_json(self.folder / 'sources.json')}
+        self.assertEqual((status['s2'], status['s3']), ('verified', 'verified'))
+        self.assertEqual(self.cli('rescue', str(self.folder), '--source', 's2,s3', '--retry')[0], 4)
 
 
 if __name__ == '__main__':

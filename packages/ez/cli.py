@@ -94,68 +94,109 @@ def import_contract(folder, proposal, accept_policy_change=False, dry_run=False)
     store.commit(state, {'research-contract.json': value, f'contracts/{value["revision"]}.json': value})
 
 
+def import_pdf(folder, store, source, path, args, actor='user'):
+    """Copy a validated PDF into the run as the source's new version; identity still needs a check."""
+    if source.get('notebook_source_id'):
+        raise ContractError('Esta versión ya pertenece al corpus remoto. Crea una corrida nueva para sustituirla sin invalidar citas históricas.')
+    if Path(path).is_symlink():
+        raise ContractError('Selecciona el archivo original, no un enlace.')
+    original = Path(path).resolve(strict=True)
+    report = validate_pdf_bounded(original)
+    if report['status'] != 'valid':
+        raise ContractError('PDF rechazado: ' + report['reason'])
+    destination = contained(folder, 'imports/' + report['sha256'] + '.pdf')
+    destination.parent.mkdir(exist_ok=True)
+    if not destination.exists():
+        shutil.copyfile(original, destination)
+    if sha256(destination.read_bytes()).hexdigest() != report['sha256']:
+        raise ContractError('La copia importada no conserva el hash.')
+    previous_versions = list(source.get('previous_versions', []))
+    if source.get('content_sha256') and source['content_sha256'] != report['sha256']:
+        previous_versions.append({k: source.get(k) for k in ('content_sha256', 'pdf_path', 'pdf_source', 'provenance')})
+    provenance = {'method': 'user_import', 'origin_provider': args.origin_provider or 'unspecified',
+                  'origin': args.origin or 'not_supplied', 'license': args.license or 'unknown',
+                  'source_version': args.source_version or 'unknown', 'imported_at': now(),
+                  'validation': report, 'original_filename': original.name}
+    source.update(pdf_path=str(destination), content_sha256=report['sha256'], validation_status='valid',
+                  identity_status='needs_review', pdf_source=args.origin_provider or 'user_import', acquisition_status='downloaded',
+                  notebook_status='pending', provenance=provenance, previous_versions=previous_versions)
+    source.pop('notebook_source_id', None)
+    store.append('decision', {'actor': actor, 'kind': 'pdf_import', 'source_id': source['source_id'], 'sha256': report['sha256'], 'at': now()})
+
+
+def import_folder(folder, store, sources, directory, args):
+    """Match each PDF of a folder to the one pending source whose title and identifiers it prints; import the matches."""
+    from .acquisition import verify_identity
+    pending = [s for s in sources if s.get('validation_status') != 'valid' and s.get('screening', 'include') == 'include'
+               and not s.get('notebook_source_id')]
+    imported, unmatched, ambiguous = [], [], []
+    for path in sorted(Path(directory).glob('*.pdf')):
+        if path.is_symlink() or validate_pdf_bounded(path.resolve())['status'] != 'valid':
+            unmatched.append(path.name)
+            continue
+        matches = [s for s in pending if verify_identity(path, s) == 'verified']
+        if len(matches) != 1:
+            (ambiguous if matches else unmatched).append(path.name)
+            continue
+        source = matches[0]
+        import_pdf(folder, store, source, path, args, actor='ez')
+        # The PDF prints this work's own title and identifiers: the same rule automatic downloads use.
+        source['identity_status'] = 'verified'
+        store.append('decision', {'actor': 'ez', 'kind': 'identity_confirmed', 'source_id': source['source_id'],
+                                  'sha256': source['content_sha256'], 'method': 'printed_identifiers'})
+        pending.remove(source)
+        imported.append({'file': path.name, 'source_id': source['source_id'], 'title': source.get('title')})
+    return {'imported': imported, 'unmatched_files': unmatched, 'ambiguous_files': ambiguous,
+            'still_missing': [{'source_id': s['source_id'], 'title': s.get('title'), 'doi': s.get('doi')} for s in pending]}
+
+
 def rescue(folder, args):
     store = Store(folder)
     state = store.state()
     sources = read_json(folder / 'sources.json') if (folder / 'sources.json').exists() else []
     if state.get('sources_hash') and digest(sources) != state['sources_hash']:
         raise ContractError('El manifiesto de fuentes no coincide con el registro.')
-    if not args.import_pdf and not args.confirm_identity and not args.retry:
+    if not args.import_pdf and not args.import_folder and not args.confirm_identity and not args.retry:
         contract = read_json(folder / 'research-contract.json')
         missing = [p for p in contract['source_policies'] if not any(s['source_id'] == p['source_id'] for s in sources)]
         return {'sources': sources, 'unresolved_requirements': missing,
-                'next_action': 'Importa un PDF con --import y --source, verifica identidad con --confirm-identity o reintenta con --retry.'}
-    source = next((s for s in sources if s['source_id'] == args.source), None)
-    if not source:
-        contract = read_json(folder / 'research-contract.json')
-        policy = next((s for s in contract['source_policies'] if s['source_id'] == args.source), None)
-        if not policy:
-            raise ContractError('Selecciona un source_id registrado en fuentes o políticas.')
-        source = {'source_id': args.source, 'title': policy.get('title', ''), 'doi': policy.get('doi', ''), 'notebook_status': 'pending',
-                  'validation_status': 'unknown', 'identity_status': 'unknown', 'acquisition_status': 'pending'}
-        sources.append(source)
-    if args.import_pdf:
-        if source.get('notebook_source_id'):
-            raise ContractError('Esta versión ya pertenece al corpus remoto. Crea una corrida nueva para sustituirla sin invalidar citas históricas.')
-        if Path(args.import_pdf).is_symlink():
-            raise ContractError('Selecciona el archivo original, no un enlace.')
-        original = Path(args.import_pdf).resolve(strict=True)
-        report = validate_pdf_bounded(original)
-        if report['status'] != 'valid':
-            raise ContractError('PDF rechazado: ' + report['reason'])
-        destination = contained(folder, 'imports/' + report['sha256'] + '.pdf')
-        destination.parent.mkdir(exist_ok=True)
-        if not destination.exists():
-            shutil.copyfile(original, destination)
-        if sha256(destination.read_bytes()).hexdigest() != report['sha256']:
-            raise ContractError('La copia importada no conserva el hash.')
-        previous_versions = list(source.get('previous_versions', []))
-        if source.get('content_sha256') and source['content_sha256'] != report['sha256']:
-            previous_versions.append({k: source.get(k) for k in ('content_sha256', 'pdf_path', 'pdf_source', 'provenance')})
-        provenance = {'method': 'user_import', 'origin_provider': args.origin_provider or 'unspecified',
-                      'origin': args.origin or 'not_supplied', 'license': args.license or 'unknown',
-                      'source_version': args.source_version or 'unknown', 'imported_at': now(),
-                      'validation': report, 'original_filename': original.name}
-        source.update(pdf_path=str(destination), content_sha256=report['sha256'], validation_status='valid',
-                      identity_status='needs_review', pdf_source=args.origin_provider or 'user_import', acquisition_status='downloaded',
-                      notebook_status='pending', provenance=provenance, previous_versions=previous_versions)
-        source.pop('notebook_source_id', None)
-        store.append('decision', {'actor': 'user', 'kind': 'pdf_import', 'source_id': args.source, 'sha256': report['sha256'], 'at': now()})
-    if args.confirm_identity:
-        if source.get('validation_status') != 'valid':
-            raise ContractError('Primero importa o recupera un PDF válido.')
-        if sha256(Path(source['pdf_path']).read_bytes()).hexdigest() != source['content_sha256']:
-            raise ContractError('El PDF cambió después de validarlo; importa la versión correcta.')
-        source['identity_status'] = 'verified'
-        store.append('decision', {'actor': args.reviewer, 'kind': 'identity_confirmed', 'source_id': args.source, 'sha256': source['content_sha256']})
-    if args.retry:
-        source['acquisition_status'] = 'pending'
+                'next_action': 'Importa un PDF con --import y --source, o una carpeta entera con --import-folder; verifica '
+                               'identidad con --confirm-identity (acepta varios IDs separados por comas) o reintenta con --retry.'}
+    summary = None
+    if args.import_folder:
+        summary = import_folder(folder, store, sources, args.import_folder, args)
+    ids = [x.strip() for x in (args.source or '').split(',') if x.strip()]
+    if (args.import_pdf or args.retry) and len(ids) != 1:
+        raise ContractError('--import y --retry requieren un solo --source.')
+    for source_id in ids:
+        source = next((s for s in sources if s['source_id'] == source_id), None)
+        if not source:
+            contract = read_json(folder / 'research-contract.json')
+            policy = next((s for s in contract['source_policies'] if s['source_id'] == source_id), None)
+            if not policy:
+                raise ContractError(f'Selecciona un source_id registrado en fuentes o políticas: {source_id}.')
+            source = {'source_id': source_id, 'title': policy.get('title', ''), 'doi': policy.get('doi', ''), 'notebook_status': 'pending',
+                      'validation_status': 'unknown', 'identity_status': 'unknown', 'acquisition_status': 'pending'}
+            sources.append(source)
+        if args.import_pdf:
+            import_pdf(folder, store, source, args.import_pdf, args)
+        if args.confirm_identity:
+            if source.get('validation_status') != 'valid':
+                raise ContractError(f'Primero importa o recupera un PDF válido para {source_id}.')
+            if sha256(Path(source['pdf_path']).read_bytes()).hexdigest() != source['content_sha256']:
+                raise ContractError('El PDF cambió después de validarlo; importa la versión correcta.')
+            source['identity_status'] = 'verified'
+            store.append('decision', {'actor': args.reviewer, 'kind': 'identity_confirmed', 'source_id': source_id, 'sha256': source['content_sha256']})
+        if args.retry:
+            source['acquisition_status'] = 'pending'
+    if args.confirm_identity and not ids:
+        raise ContractError('--confirm-identity requiere --source con uno o varios IDs.')
     state.update(sources_hash=digest(sources), answer={'status': 'unavailable'}, execution={'status': 'waiting_user'},
                  integrity={'status': 'pending'}, phase='acquire', blockers=[], legacy_signals=[],
                  next_action='Fuente registrada. Continúa la corrida para reconciliar NotebookLM y QA.')
     validate(sources, 'source-manifest')
     state = store.commit(state, {'sources.json': sources})
-    return state
+    return dict(state, import_folder=summary) if summary is not None else state
 
 
 def check_proposal(folder, args):
@@ -268,7 +309,7 @@ def main(argv=None):
     p = sub.add_parser('draft', help='Ver las afirmaciones verificadas para redactar o comprobar un borrador.'); p.add_argument('run'); p.add_argument('--check', type=Path, metavar='BORRADOR')
     p = sub.add_parser('verify', help='Revisar en persona afirmaciones entregadas.'); p.add_argument('run'); p.add_argument('--claim'); p.add_argument('--judgement', choices=['supported', 'partial', 'unsupported']); p.add_argument('--note')
     p = sub.add_parser('doctor', help='Diagnosticar problemas de una investigación.'); p.add_argument('run'); p.add_argument('--migration-preview', action='store_true'); p.add_argument('--migrate', metavar='PREVIEW_HASH'); p.add_argument('--remote', action='store_true'); p.add_argument('--metrics', action='store_true')
-    p = sub.add_parser('rescue', help='Ver documentos pendientes o incorporar un PDF.'); p.add_argument('run'); p.add_argument('--import', dest='import_pdf'); p.add_argument('--source'); p.add_argument('--confirm-identity', action='store_true'); p.add_argument('--retry', action='store_true')
+    p = sub.add_parser('rescue', help='Ver documentos pendientes o incorporar un PDF.'); p.add_argument('run'); p.add_argument('--import', dest='import_pdf'); p.add_argument('--import-folder'); p.add_argument('--source'); p.add_argument('--confirm-identity', action='store_true'); p.add_argument('--retry', action='store_true')
     p.add_argument('--origin'); p.add_argument('--origin-provider', choices=['repository', 'institution', 'publisher', 'user_import']); p.add_argument('--license'); p.add_argument('--source-version')
     p.add_argument('--reviewer', choices=['user', 'host_agent'], default='user')
     for command_parser in sub.choices.values():

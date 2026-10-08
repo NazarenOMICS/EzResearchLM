@@ -129,9 +129,12 @@ def ez_read(run: str, name: str):
 
 
 def ez_rescue(run: str, source: str | None = None, import_pdf: str | None = None, confirm_identity: bool = False,
-              retry: bool = False, origin: str | None = None, reviewer: str = 'host_agent'):
-    """Lista fuentes pendientes o importa el PDF del usuario, confirma su identidad o reintenta la descarga."""
+              retry: bool = False, origin: str | None = None, reviewer: str = 'host_agent', import_folder: str | None = None):
+    """Lista fuentes pendientes; importa un PDF o una carpeta de PDFs del usuario (import_folder, se asignan solos por
+    título e identificadores); confirma identidad (source admite varios IDs separados por comas) o reintenta la descarga."""
     arguments = ['rescue', str(run_folder(run))]
+    if import_folder:
+        arguments += ['--import-folder', import_folder]
     if source:
         arguments += ['--source', source]
     if import_pdf:
