@@ -118,6 +118,8 @@ Hecho y validado offline:
 6. Onboarding paso a paso (`onboarding` en `ez setup --check` y guion de primera conversación).
 7. Guía para escribir preguntas QA.
 8. Medidor `gold_set_benchmark/puntuar.py`.
+9. Pedido de artículos clave sin acceso abierto antes de descargar (`NEEDS_KEY_PDFS`, `key-pdfs.md` con enlaces al DOI).
+10. Carpetas por proyecto: bandeja de PDFs que EZ toma sola, informes con su `.bib` e índice `LEEME.md` (`docs/carpetas.md`).
 
 Ciclo de iteración desde ahora:
 
