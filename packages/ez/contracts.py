@@ -78,3 +78,18 @@ def require_ready(contract):
     scopes = {s['id'] for s in contract['scope']}
     if {s for q in plan['notebook_questions'] for s in q['scope_ids']} != scopes:
         raise ContractError('Todas las subpreguntas deben tener QA planificada.')
+
+
+def estimate(contract, reused=False):
+    """Expected NotebookLM questions and wall-clock minutes, from the live runs of October 2026.
+
+    Each NotebookLM question took about one minute; search, download and upload took 2 to 3
+    minutes from scratch and under one when the project's PDFs were already loaded.
+    """
+    questions = len(contract['plan']['notebook_questions'])
+    preparation = (0.5, 1.5) if reused or contract['plan'].get('discovery_mode') == 'reuse_only' else (2, 4)
+    low, high = preparation[0] + questions * 0.9, preparation[1] + questions * 1.4
+    return {'notebooklm_questions': questions, 'minutes': [round(low), round(high) + 1],
+            'verification': 'Verificar afirmaciones para redactar suma 1 consulta cada 6 y unos 3 minutos cada 10.',
+            'text': f'Unas {questions} consultas a NotebookLM y entre {round(low)} y {round(high) + 1} minutos. Cada '
+                    'pregunta tarda alrededor de un minuto, igual que en la web de NotebookLM.'}

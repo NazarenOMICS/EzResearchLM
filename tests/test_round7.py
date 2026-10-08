@@ -95,5 +95,16 @@ class ExportTests(unittest.TestCase):
         self.assertIn('Fuente de prueba', Path(result['path']).read_text(encoding='utf-8'))
 
 
+class EstimateTests(unittest.TestCase):
+    def test_estimate_follows_the_measured_minute_per_question(self):
+        from ez.contracts import estimate
+        contract = {'plan': {'notebook_questions': [{}] * 4}}
+        fresh, reused = estimate(contract), estimate(contract, reused=True)
+        self.assertEqual(fresh['notebooklm_questions'], 4)
+        self.assertEqual(fresh['minutes'], [6, 11])
+        self.assertLess(reused['minutes'][1], fresh['minutes'][1])
+        self.assertIn('alrededor de un minuto', fresh['text'])
+
+
 if __name__ == '__main__':
     unittest.main()

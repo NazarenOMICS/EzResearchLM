@@ -241,8 +241,11 @@ def check_proposal(folder, args):
             pending = None
         except ContractError as exc:
             pending = str(exc)
-        return {'kind': 'check', 'target': 'contract', 'valid': True, 'ready': pending is None,
-                'next_action': pending or 'La propuesta es válida y está lista. Impórtala con ez continue --contract.'}
+        from .contracts import estimate
+        guess = estimate(value, reused=bool(Store(folder).state().get('reused_from'))) if pending is None else None
+        return {'kind': 'check', 'target': 'contract', 'valid': True, 'ready': pending is None, 'estimate': guess,
+                'next_action': pending or ('La propuesta es válida y está lista. Antes de importarla, dile al usuario: '
+                                           + guess['text'] + ' Luego impórtala con ez continue --contract.')}
     from .audit import check_review_version, load_answers, review_claims
     state = Store(folder).state()
     contract = read_json(folder / 'research-contract.json')
