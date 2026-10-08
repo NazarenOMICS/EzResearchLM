@@ -93,7 +93,9 @@ def check_review_version(review, state):
                           'Prepárala de nuevo desde la plantilla vigente review-request.json.')
 
 
-def review_claims(review, state, contract, sources, answers):
+def review_claims(review, state, contract, sources, answers, adjustments=None):
+    """Validate the host review. Mechanical slips are corrected and recorded instead of rejected."""
+    adjustments = [] if adjustments is None else adjustments
     try:
         validate(review, 'qa-review')
     except ContractError as exc:
@@ -110,21 +112,35 @@ def review_claims(review, state, contract, sources, answers):
             raise ReviewError('review_invalid', 'Identificadores de afirmaciones duplicados.')
         ids.add(claim['id'])
         answer = answers.get(claim['question_id'])
-        if not answer or not set(claim['scope_ids']).issubset(answer['entry']['scope_ids']):
-            raise ReviewError('review_invalid', f'La afirmación {claim["id"]} no tiene QA para su alcance.')
-        # A draft may contain unsupported material that the host withholds.
-        # Every citation actually proposed for delivery still needs its passage.
-        try:
-            refs = references(answer['response'], sources, claim['citation_numbers'])
-        except MissingPassage as exc:
+        if not answer:
+            raise ReviewError('review_invalid', f'La afirmación {claim["id"]} cita una pregunta QA sin respuesta.')
+        asked = answer['entry']['scope_ids']
+        scope_ids = [s for s in claim['scope_ids'] if s in asked] or list(asked)
+        if scope_ids != claim['scope_ids']:
+            # A QA answer is evidence only for the scopes its question was planned for.
+            adjustments.append({'claim_id': claim['id'], 'field': 'scope_ids', 'from': claim['scope_ids'], 'to': scope_ids})
+        numbers = []
+        for number in claim['citation_numbers']:
+            try:
+                references(answer['response'], sources, [number])
+                numbers.append(number)
+            except MissingPassage:
+                continue
+        if not numbers:
             raise ReviewError('review_invalid', f'La afirmación {claim["id"]} usa citas sin marcador o sin pasaje en su QA; '
-                              'elige otras citas de esa respuesta.') from exc
-        enriched.append(dict(claim, references=[refs[n] for n in claim['citation_numbers']]))
+                              'elige otras citas de esa respuesta.')
+        if numbers != claim['citation_numbers']:
+            adjustments.append({'claim_id': claim['id'], 'field': 'citation_numbers', 'from': claim['citation_numbers'], 'to': numbers})
+        refs = references(answer['response'], sources, numbers)
+        enriched.append(dict(claim, scope_ids=scope_ids, citation_numbers=numbers, references=[refs[n] for n in numbers]))
     for row in rows:
         if row['status'] == 'sufficient' and not any(row['scope_id'] in c['scope_ids'] for c in enriched):
-            raise ReviewError('review_invalid', f'No se puede declarar suficiente el alcance {row["scope_id"]} sin afirmaciones citadas.')
+            adjustments.append({'scope_id': row['scope_id'], 'field': 'status', 'from': 'sufficient', 'to': 'insufficient'})
+            row['status'] = 'insufficient'
+            row['limitations'] = row['limitations'] or ['La revisión no propuso afirmaciones citadas para este alcance.']
         if row['status'] != 'sufficient' and not row['limitations']:
-            raise ReviewError('review_invalid', f'Declara qué falta en el alcance {row["scope_id"]}.')
+            adjustments.append({'scope_id': row['scope_id'], 'field': 'limitations', 'from': [], 'to': ['Sin detalle del revisor.']})
+            row['limitations'] = ['Sin detalle del revisor.']
     return enriched
 
 
@@ -219,13 +235,13 @@ def batch_verdicts(response, sources, claims):
         except ContractError:
             entry.update(verdict='unverified', reason='verification_unparsed')
             continue
-        allowed = {r['source_id'] for r in claim['references']}
+        # Any source of the verified corpus may back the claim, not only the one the QA cited.
         reason = None if markers else 'verification_without_citations'
         for number in sorted(markers):
             ref = refs.get(number)
             if not ref or not isinstance(ref.get('cited_text'), str) or not ref['cited_text'].strip():
                 reason = 'verification_citation_without_passage'
-            elif ref.get('source_id') not in allowed or ref.get('source_id') not in available:
+            elif ref.get('source_id') not in available:
                 reason = 'verification_foreign_source'
             else:
                 entry['passages'].append({k: ref[k] for k in ('source_id', 'citation_number', 'cited_text')})

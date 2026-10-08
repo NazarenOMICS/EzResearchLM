@@ -83,12 +83,13 @@ class Phase1Tests(unittest.TestCase):
                                              'cited_text': 'Pasaje de prueba, sin contenido académico real.'}]}), '', None)
             return self.service(args, **kwargs)
         with lock(self.folder), patch('ez.engine.executable', return_value='notebooklm'):
-            self.assertEqual(Engine(self.folder, runner=mixed).execute(review), 2)
+            self.assertEqual(Engine(self.folder, runner=mixed).execute(review), 0)
         self.assertEqual(sum(a[1] == 'ask' for a in calls), 1)
         report = read_json(self.folder / 'answer.json')
-        self.assertEqual(report['claims'], [])
-        self.assertEqual({c['id']: c['reason'] for c in report['withheld_claims']},
-                         {'c2': 'verdict_partial', 'c1': 'scope_not_sufficient'})
+        # The failed claim no longer drags down the verified one in the same scope.
+        self.assertEqual([c['id'] for c in report['claims']], ['c1'])
+        self.assertEqual({c['id']: c['reason'] for c in report['withheld_claims']}, {'c2': 'verdict_partial'})
+        self.assertEqual(report['answer'], {'status': 'partial', 'scope_ids': [], 'partial_scope_ids': ['sq1']})
         self.assertIn('No se pudo afirmar', render(report))
 
     def test_sources_left_out_of_the_corpus_are_reported_before_review(self):

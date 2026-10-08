@@ -655,7 +655,8 @@ class Engine:
         from .audit import SUPPORT_PROTOCOL, UNGROUNDED, check_review_version, load_answers, quote_grounding, review_claims
         check_review_version(review, self.state)
         answers = load_answers(self.folder, self.state, self.contract, self.sources)
-        claims = review_claims(review, self.state, self.contract, self.sources, answers)
+        adjustments = []
+        claims = review_claims(review, self.state, self.contract, self.sources, answers, adjustments)
         review_key = digest(review)
         self.store.append('decision', {'kind': 'qa_review_submitted', 'actor': review['reviewer'], 'review_hash': review_key})
         self.store.commit(self.state, {f'reviews/{review_key}.json': review})
@@ -701,20 +702,24 @@ class Engine:
                 withheld.append(dict(summary, reason=verdict.get('reason') or 'verdict_' + verdict['verdict'], verification=verdict))
                 for scope in claim['scope_ids']:
                     coverage[scope] = 'insufficient'
+        # Each claim stands on its own evidence. A failed claim marks its scopes as
+        # incomplete but never withholds other verified claims; only source policies
+        # (a missing hard_block source, a pending policy review) hold whole scopes.
         result = evaluate(self.contract, self.sources, coverage, 'pass')
-        allowed = set(result['answer']['scope_ids'])
-        delivered = [c for c in verified if set(c['scope_ids']).issubset(allowed)]
         held_by_policy = {s for b in result['blockers'] if b['reason'] == 'policy_review' or b.get('policy') == 'hard_block'
                           for s in b['scope_ids']}
+        delivered = [c for c in verified if not set(c['scope_ids']) & held_by_policy]
         withheld += [dict({k: c[k] for k in ('id', 'text', 'scope_ids', 'question_id', 'citation_numbers')},
-                          reason='scope_withheld_by_policy' if set(c['scope_ids']) & held_by_policy else 'scope_not_sufficient',
-                          verification=c['verification']) for c in verified if c not in delivered]
-        # Never label a scope answered if all of its claims were withheld jointly
-        # with a blocked scope. Claims may be split in a subsequent host review.
+                          reason='scope_withheld_by_policy', verification=c['verification']) for c in verified if c not in delivered]
         delivered_scope = {s for c in delivered for s in c['scope_ids']}
-        for scope in allowed - delivered_scope:
+        for scope in set(coverage) - delivered_scope:
             coverage[scope] = 'insufficient'
         result = evaluate(self.contract, self.sources, coverage, 'pass')
+        if delivered and result['answer']['status'] == 'unavailable':
+            result['answer']['status'] = 'partial'
+        partial = sorted(delivered_scope - set(result['answer']['scope_ids']))
+        if partial:
+            result['answer']['partial_scope_ids'] = partial
         answered = {a['entry']['question_id'] for a in answers.values()}
         skipped = []
         for question in self.contract['plan']['notebook_questions']:
@@ -731,6 +736,7 @@ class Engine:
                   'gaps': self.gaps(result, review, withheld),
                   'changes': self.changes(delivered),
                   'corpus_exclusions': self.state.get('corpus_exclusions', []),
+                  'review_adjustments': adjustments,
                   'coverage': [dict(r, status=coverage[r['scope_id']]) for r in review['coverage']],
                   'audit_kind': 'mechanical_traceability_and_notebooklm_support', 'support_protocol': SUPPORT_PROTOCOL,
                   'release_validation': False}

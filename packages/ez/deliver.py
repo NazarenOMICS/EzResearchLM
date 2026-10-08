@@ -92,6 +92,12 @@ def report_markdown(answer, contract, state):
         lines += ['## Qué no se pudo afirmar', '']
         lines += [f'- {c["text"]} — {REASON_LABELS.get(c["reason"], c["reason"])}.' for c in answer['withheld_claims']]
         lines.append('')
+    if answer.get('review_adjustments'):
+        lines += ['## Correcciones automáticas de la revisión', '']
+        for item in answer['review_adjustments']:
+            target = item.get('claim_id') or item.get('scope_id')
+            lines.append(f'- {target}: `{item["field"]}` pasó de {item["from"]} a {item["to"]}.')
+        lines.append('')
     if answer.get('skipped_questions'):
         lines += ['## Preguntas que no se consultaron', '']
         lines += [f'- {q["question_id"]}: {REASON_LABELS.get(q["reason"], q["reason"])}.' for q in answer['skipped_questions']]

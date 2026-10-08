@@ -324,8 +324,10 @@ class EngineTests(unittest.TestCase):
         review = self.review(); review['claims'] = []
         code, state = self.run_engine(review)
         self.assertEqual(code, 2)
-        self.assertEqual(state['legacy_signals'], ['review_invalid'])
-        self.assertEqual(state['integrity']['status'], 'pending')
+        self.assertEqual(state['answer']['status'], 'unavailable')
+        report = read_json(self.folder / 'answer.json')
+        self.assertEqual(report['coverage'][0]['status'], 'insufficient')
+        self.assertIn({'scope_id': 'sq1', 'field': 'status', 'from': 'sufficient', 'to': 'insufficient'}, report['review_adjustments'])
 
     def test_doctor_detects_changed_pdf_without_altering_the_run(self):
         self.run_engine()

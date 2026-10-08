@@ -14,7 +14,7 @@ REASON_LABELS = {
     'verification_ambiguous': 'la verificación devolvió citas ambiguas',
     'verification_without_citations': 'la verificación no citó ningún pasaje',
     'verification_citation_without_passage': 'la verificación citó sin pasaje verificable',
-    'verification_foreign_source': 'la verificación citó una fuente distinta de la propuesta',
+    'verification_foreign_source': 'la verificación citó una fuente que no está en el corpus verificado',
     'verification_passage_mismatch': 'el respaldo aparece en otro pasaje; requiere una nueva revisión',
     'verification_question_too_long': 'la afirmación es demasiado larga para verificarla; divídela',
     'scope_withheld_by_policy': 'su alcance espera una fuente obligatoria',
