@@ -105,9 +105,9 @@ def ez_submit(run: str, kind: str, document: dict, check: bool = False):
     return ez('continue', str(folder), '--' + kind, str(path), *(['--check'] if check else []))
 
 
-def ez_continue(run: str):
-    """Retoma la investigación desde su último punto guardado."""
-    return ez('continue', str(run_folder(run)))
+def ez_continue(run: str, verify: str | None = None):
+    """Retoma la investigación. Con verify ("" o IDs separados por comas) verifica afirmaciones de la entrega directa."""
+    return ez('continue', str(run_folder(run)), *(['--verify', verify] if verify else ['--verify'] if verify == '' else []))
 
 
 def ez_status(run: str, answer: bool = False):

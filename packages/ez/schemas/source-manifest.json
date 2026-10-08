@@ -9,7 +9,7 @@
       "acquisition_status": {"enum": ["pending", "downloaded", "manual_needed"]},
       "validation_status": {"enum": ["unknown", "valid", "invalid"]},
       "identity_status": {"enum": ["unknown", "needs_review", "verified"]},
-      "notebook_status": {"enum": ["pending", "processing", "ready"]},
+      "notebook_status": {"enum": ["pending", "processing", "processing_stuck", "ready"]},
       "notebook_source_id": {"type": ["string", "null"]},
       "content_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
       "pdf_path": {"type": ["string", "null"], "minLength": 1}

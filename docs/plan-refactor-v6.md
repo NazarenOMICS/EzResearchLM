@@ -104,10 +104,25 @@ que no depende de la corrida.
    2. M2 en modo directo y en modo verificado sobre el notebook del proyecto;
    3. tiempo de reloj por etapa.
 
+### Fase 6. Ajustes tras la corrida en vivo v6
+
+Base: `gold_set_benchmark/resultado_ezresearchlm_v6.md` (M2 directo: 102 afirmaciones
+en 7 min con 5 consultas; verificado: 9 de 10; un PDF atascado en `PREPARING`).
+
+1. PDF atascado: tras la espera, si faltan como máximo 1 de cada 5, EZ sigue sin ellos
+   (`processing_stuck`) y los vuelve a comprobar sin esperar en la próxima continuación.
+2. Entrega directa más legible: oraciones casi idénticas entre respuestas se unen y el
+   informe empieza por "Lo central" (las afirmaciones respaldadas por más fuentes).
+3. `ez continue --verify [IDS]`: verificación sin escribir JSON; la entrega directa
+   queda en `direct/`.
+4. Tiempos explicados al usuario: cada pregunta tarda alrededor de un minuto, como en la
+   web de NotebookLM; el estado indica cuántas preguntas quedan.
+
 ## 4. Estado
 
-Fases 1 a 5 implementadas y validadas offline (`scripts/validate.py`). Falta la
-validación en vivo indicada en la fase 5.
+Fases 1 a 6 implementadas y validadas offline (`scripts/validate.py`). La corrida en
+vivo v6 validó las fases 1 a 4; falta validar en vivo la fase 6, medir la precisión
+del modo directo y medir una investigación desde cero.
 
 ## 5. Fuera de alcance
 

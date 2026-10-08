@@ -37,6 +37,12 @@ El recorrido es:
    una, redacta solo con las que pasan y comprueba que cada una conserve su marca. Una
    búsqueda sin suficiente evidencia no se convierte en una respuesta inventada.
 
+**Cuánto tarda.** Cada pregunta a NotebookLM tarda alrededor de un minuto, lo mismo
+que si la escribieras en su web. Con 5 preguntas sobre PDFs ya cargados, la respuesta
+llega en unos 7 minutos. La primera investigación de un tema suma la búsqueda y la
+descarga de artículos; las siguientes del mismo proyecto reutilizan lo ya cargado.
+Verificar 10 afirmaciones para redactar agrega unos 3 minutos.
+
 No necesitas preparar archivos de configuración, búsquedas ni contratos a mano.
 Una carpeta nueva por sí sola no instala EZ ni conecta tu cuenta: el primer paso
 lo realiza el agente con las instrucciones de instalación.

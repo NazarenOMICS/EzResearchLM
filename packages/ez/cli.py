@@ -261,6 +261,8 @@ def main(argv=None):
     p = sub.add_parser('continue', help='Retomar una investigación guardada.'); p.add_argument('run'); p.add_argument('--contract', type=Path); p.add_argument('--accept-policy-change', action='store_true'); p.add_argument('--review', type=Path); p.add_argument('--require-complete', action='store_true')
     p.add_argument('--screening', type=Path, help='Decisiones del anfitrión sobre los candidatos de screening-request.json.')
     p.add_argument('--check', action='store_true', help='Validar la propuesta o la revisión sin modificar la corrida ni consultar servicios.')
+    p.add_argument('--verify', nargs='?', const='', metavar='IDS', help='Verificar afirmaciones de la entrega directa: '
+                   'sin IDS, las 10 respaldadas por más fuentes; o IDs separados por comas.')
     p = sub.add_parser('status', help='Ver el avance y el siguiente paso.'); p.add_argument('run'); p.add_argument('--answer', action='store_true')
     p = sub.add_parser('draft', help='Ver las afirmaciones verificadas para redactar o comprobar un borrador.'); p.add_argument('run'); p.add_argument('--check', type=Path, metavar='BORRADOR')
     p = sub.add_parser('verify', help='Revisar en persona afirmaciones entregadas.'); p.add_argument('run'); p.add_argument('--claim'); p.add_argument('--judgement', choices=['supported', 'partial', 'unsupported']); p.add_argument('--note')
@@ -418,6 +420,8 @@ def main(argv=None):
                 return 2
             engine = Engine(folder)
             review = read_json(args.review) if args.command == 'continue' and args.review else None
+            if args.command == 'continue' and args.verify is not None:
+                review = engine.review_from_direct([x.strip() for x in args.verify.split(',') if x.strip()] or None)
             screening = read_json(args.screening) if args.command == 'continue' and args.screening else None
             result = engine.execute(review, screening)
             emit(engine.state, args.json)

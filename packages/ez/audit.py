@@ -203,6 +203,28 @@ def direct_claims(question, response, sources, minimum=25):
     return claims, uncited[:10]
 
 
+def words(text):
+    import unicodedata
+    plain_text = unicodedata.normalize('NFKD', text.casefold())
+    return set(re.findall(r'[a-z0-9]+', ''.join(c for c in plain_text if not unicodedata.combining(c))))
+
+
+def merge_repeated(claims, threshold=0.8):
+    """Merge sentences that NotebookLM repeated across answers; the first keeps the union of scopes and passages."""
+    kept = []
+    for claim in claims:
+        tokens = words(claim['text'])
+        twin = next((k for k in kept if tokens and len(tokens & k['_words']) / len(tokens | k['_words']) >= threshold), None)
+        if twin is None:
+            kept.append(dict(claim, _words=tokens))
+            continue
+        twin['scope_ids'] = twin['scope_ids'] + [s for s in claim['scope_ids'] if s not in twin['scope_ids']]
+        seen = {(r['source_id'], r['cited_text']) for r in twin['references']}
+        twin['references'] = twin['references'] + [r for r in claim['references'] if (r['source_id'], r['cited_text']) not in seen]
+        twin.setdefault('merged_from', []).append({'question_id': claim['question_id'], 'citation_numbers': claim['citation_numbers']})
+    return [{k: v for k, v in c.items() if k != '_words'} for c in kept]
+
+
 def verification_prompt(claims):
     """Ask about the claims only; NotebookLM must find and cite the support in the sources itself.
 

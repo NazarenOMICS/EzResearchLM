@@ -404,6 +404,8 @@ class Engine:
         self.register_notebook(verified)
         self.checkpoint('readiness')
         expected = {s['notebook_source_id'] for s in verified}
+        # A source that already outlasted one full wait is checked again but never waited for.
+        stuck_before = {s['notebook_source_id'] for s in verified if s.get('notebook_status') == 'processing_stuck'}
         deadline = time.monotonic() + READINESS_WAIT_SECONDS
         while True:
             # Wait here for NotebookLM to process new PDFs instead of handing the wait back to the agent.
@@ -412,15 +414,22 @@ class Engine:
             if (not expected <= actual) if shared else actual != expected:
                 raise Pause('remote_corpus_drift', 'El corpus remoto incluye fuentes ausentes o no registradas. Revisa su composición.', 4)
             ready = {s['id'] for s in remote if str(s.get('status', '')).lower() in ('ready', 'completed', 'available')} & expected
-            if ready == expected or time.monotonic() + READINESS_POLL_SECONDS > deadline:
+            if expected - stuck_before <= ready or time.monotonic() + READINESS_POLL_SECONDS > deadline:
                 break
             time.sleep(READINESS_POLL_SECONDS)
-        for source in verified:
-            source['notebook_status'] = 'ready' if source['notebook_source_id'] in ready else 'processing'
-        self.save_sources()
-        if ready != expected:
+        waiting = expected - ready
+        # A few PDFs stuck in NotebookLM's processing must not hold the whole research:
+        # they leave the corpus with their reason and are checked again on the next continue.
+        if not ready or len(waiting) > max(1, len(expected) // 5):
+            for source in verified:
+                source['notebook_status'] = 'ready' if source['notebook_source_id'] in ready else 'processing'
+            self.save_sources()
             raise Pause('waiting_on_processing', 'NotebookLM todavía procesa fuentes. Ejecuta ez continue más adelante.', 3)
-        self.checkpoint(corpus_hash=digest(sorted((s['source_id'], s['content_sha256'], s['notebook_source_id']) for s in verified)),
+        for source in verified:
+            source['notebook_status'] = 'ready' if source['notebook_source_id'] in ready else 'processing_stuck'
+        self.save_sources()
+        corpus = [s for s in verified if s['notebook_status'] == 'ready']
+        self.checkpoint(corpus_hash=digest(sorted((s['source_id'], s['content_sha256'], s['notebook_source_id']) for s in corpus)),
                         corpus_exclusions=self.exclusions())
 
     def create_notebook(self):
@@ -486,10 +495,13 @@ class Engine:
         result = []
         for source in self.sources:
             screening = source.get('screening', 'include')
-            if screening == 'include' and source.get('validation_status') == 'valid' and source.get('identity_status') == 'verified':
+            if screening == 'include' and source.get('validation_status') == 'valid' and source.get('identity_status') == 'verified' \
+                    and source.get('notebook_status') != 'processing_stuck':
                 continue
             if screening != 'include':
                 reason = {'exclude': 'excluded_by_screening', 'uncertain': 'screening_uncertain'}.get(screening, 'not_screened')
+            elif source.get('notebook_status') == 'processing_stuck':
+                reason = 'processing_stuck'
             elif source.get('duplicate_of'):
                 reason = 'duplicate_content'
             elif source.get('validation_status') == 'valid':
@@ -557,6 +569,10 @@ class Engine:
                 continue
             if self.blocking_policies(question):
                 continue
+            pending = sum(1 for q in self.contract['plan']['notebook_questions']
+                          if not any(a['question_hash'] == digest(q) for a in manifest['answers']))
+            self.checkpoint(next_action=f'Consultando NotebookLM: quedan {pending} preguntas. Cada una tarda alrededor de un '
+                                        'minuto, lo mismo que en la web de NotebookLM.')
             args = ['ask', '--notebook', self.state['notebook_id'], '--new']
             for source_id in remote_ids:
                 args += ['--source', source_id]
@@ -777,7 +793,10 @@ class Engine:
         self.store.commit(self.state, {f'reviews/{review_key}.json': review})
         coverage = {r['scope_id']: r['status'] for r in review['coverage']}
         verdicts = {}
-        for batch in self.verification_batches(claims):
+        batches = self.verification_batches(claims)
+        self.checkpoint(next_action=f'Verificando {len(claims)} afirmaciones en {len(batches)} consultas a NotebookLM, '
+                                    'de alrededor de un minuto cada una.')
+        for batch in batches:
             verdicts.update(self.verify(batch))
         for claim in claims:
             verdict = verdicts[claim['id']]
@@ -875,9 +894,37 @@ class Engine:
                             'source_ids': [p['source_id'] for p in policies]})
         return skipped
 
+    def review_from_direct(self, claim_ids=None, limit=10):
+        """A verified-delivery review built from the direct answer, so nobody writes JSON by hand."""
+        from .deliver import key_claims
+        answer = read_json(self.folder / 'answer.json') if (self.folder / 'answer.json').exists() else {}
+        if answer.get('delivery') != 'direct' or answer.get('corpus_hash') != self.state.get('corpus_hash') \
+                or answer.get('contract_hash') != self.state.get('contract_hash'):
+            raise ContractError('No hay una entrega directa vigente para verificar; usa ez continue primero.')
+        by_id = {c['id']: c for c in answer['claims']}
+        unknown = [i for i in claim_ids or [] if i not in by_id]
+        if unknown:
+            raise ContractError('Afirmaciones inexistentes en la entrega directa: ' + ', '.join(unknown))
+        chosen = [by_id[i] for i in claim_ids] if claim_ids else key_claims(answer, limit)
+        planned = {q['id']: q['scope_ids'] for q in self.contract['plan']['notebook_questions']}
+        claims = [{'id': c['id'], 'text': c['text'], 'question_id': c['question_id'], 'citation_numbers': c['citation_numbers'],
+                   'scope_ids': [x for x in c['scope_ids'] if x in planned[c['question_id']]] or planned[c['question_id']]}
+                  for c in chosen]
+        covered = {x for c in claims for x in c['scope_ids']}
+        # Keep the direct delivery next to the run: the verified answer replaces answer.json and report.md.
+        atomic_json(self.folder / 'direct' / 'answer.json', answer)
+        shutil.copyfile(self.folder / 'report.md', self.folder / 'direct' / 'report.md')
+        return {'schema_version': '2.0', 'contract_hash': self.state['contract_hash'], 'corpus_hash': self.state['corpus_hash'],
+                'reviewer': {'kind': 'host_agent', 'name': 'EZ (selección de la entrega directa)'},
+                'coverage': [{'scope_id': s['id'], 'status': 'sufficient' if s['id'] in covered else 'insufficient',
+                              'rationale': 'Afirmaciones tomadas de la entrega directa para verificar.',
+                              'limitations': [] if s['id'] in covered else ['No se seleccionaron afirmaciones de este alcance.']}
+                             for s in self.contract['scope']],
+                'claims': claims}
+
     def finalize_direct(self):
         """Direct delivery: NotebookLM's own cited sentences, with their native passages, no second query."""
-        from .audit import DIRECT_PROTOCOL, direct_claims, load_answers
+        from .audit import DIRECT_PROTOCOL, direct_claims, load_answers, merge_repeated
         answers = load_answers(self.folder, self.state, self.contract, self.sources)
         claims, notes = [], []
         for question in self.contract['plan']['notebook_questions']:
@@ -885,6 +932,7 @@ class Engine:
                 found, uncited = direct_claims(question, answers[question['id']]['response'], self.sources)
                 claims += found
                 notes += [{'question_id': question['id'], 'text': text} for text in uncited]
+        claims = merge_repeated(claims)
         coverage = {s['id']: 'insufficient' for s in self.contract['scope']}
         delivered, withheld = [], []
         for claim in claims:

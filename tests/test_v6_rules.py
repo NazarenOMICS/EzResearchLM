@@ -180,6 +180,21 @@ class DirectDeliveryTests(unittest.TestCase):
         self.assertEqual(self.run_engine()[0], 0)
         self.assertEqual(read_json(self.folder / 'answer.json')['support_protocol'], 'ez-verdict-v5-grounded')
 
+    def test_continue_verify_builds_the_review_from_the_direct_answer(self):
+        self.run_engine()
+        with patch('ez.engine.Engine.__init__.__defaults__', (self.service,)), patch('ez.engine.executable', return_value='notebooklm'):
+            code, state = self.cli('continue', str(self.folder), '--verify')
+        self.assertEqual(code, 0)
+        report = read_json(self.folder / 'answer.json')
+        self.assertEqual((report['support_protocol'], [c['id'] for c in report['claims']]), ('ez-verdict-v5-grounded', ['qa1-1']))
+        self.assertEqual(read_json(self.folder / 'direct' / 'answer.json')['delivery'], 'direct')
+        self.assertTrue((self.folder / 'direct' / 'report.md').exists())
+        with patch('ez.engine.Engine.__init__.__defaults__', (self.service,)), patch('ez.engine.executable', return_value='notebooklm'):
+            self.assertEqual(self.cli('continue', str(self.folder), '--verify', 'nada')[0], 4)
+        # The verified answer stays; a later continue does not fall back to direct delivery.
+        self.assertEqual(self.run_engine()[0], 0)
+        self.assertEqual(read_json(self.folder / 'answer.json')['support_protocol'], 'ez-verdict-v5-grounded')
+
 
 class SpeedTests(unittest.TestCase):
     setUp = test_engine.EngineTests.setUp
@@ -230,6 +245,54 @@ class SpeedTests(unittest.TestCase):
             Engine(self.folder, runner=run).execute()
         sources = {s['source_id']: s for s in read_json(self.folder / 'sources.json')}
         self.assertEqual({sources['p%d' % i]['failure_code'] for i in range(4)}, {'routes_exhausted'})
+
+
+class StuckProcessingTests(unittest.TestCase):
+    setUp = test_engine.EngineTests.setUp
+    add_source = test_phase1.Phase1Tests.add_source
+
+    def test_a_pdf_stuck_in_processing_leaves_the_corpus_and_returns_when_ready(self):
+        for i in range(2, 6):
+            self.add_source('s%d' % i)
+        state = {'stuck': True}
+        def run(args, **kwargs):
+            result = self.service(args, **kwargs)
+            if args[1:3] == ['source', 'list'] and state['stuck']:
+                value = json.loads(result.stdout)
+                value['sources'] = [dict(x, status='processing' if x['id'] == 'remote2' else x['status']) for x in value['sources']]
+                return Result(0, json.dumps(value), '', None)
+            return result
+        with lock(self.folder), patch('ez.engine.executable', return_value='notebooklm'), \
+                patch('ez.engine.READINESS_WAIT_SECONDS', 0):
+            self.assertEqual(Engine(self.folder, runner=run).execute(), 2)
+        first = read_json(self.folder / 'run-state.json')
+        stuck = [s for s in read_json(self.folder / 'sources.json') if s['notebook_status'] == 'processing_stuck']
+        self.assertEqual(len(stuck), 1)
+        self.assertIn('processing_stuck', [e['reason'] for e in first['corpus_exclusions']])
+        state['stuck'] = False
+        with lock(self.folder), patch('ez.engine.executable', return_value='notebooklm'), patch('ez.engine.time.sleep') as sleep:
+            self.assertEqual(Engine(self.folder, runner=run).execute(), 2)
+        self.assertEqual(sleep.call_count, 0)
+        second = read_json(self.folder / 'run-state.json')
+        self.assertNotEqual(first['corpus_hash'], second['corpus_hash'])
+        self.assertEqual(second['corpus_exclusions'], [])
+
+
+class DirectQualityTests(unittest.TestCase):
+    def test_repeated_sentences_merge_and_the_report_leads_with_key_claims(self):
+        from ez.audit import merge_repeated
+        from ez.deliver import key_claims
+        ref = lambda source, text: {'source_id': source, 'cited_text': text}
+        merged = merge_repeated([
+            {'id': 'a1', 'text': 'El etambutol inhibe EmbC en C. glutamicum.', 'scope_ids': ['sq1'], 'question_id': 'qa1',
+             'citation_numbers': [1], 'references': [ref('r1', 'p1')]},
+            {'id': 'b1', 'text': 'El etambutol inhibe a EmbC en C. glutamicum', 'scope_ids': ['sq2'], 'question_id': 'qa2',
+             'citation_numbers': [3], 'references': [ref('r2', 'p2')]},
+            {'id': 'b2', 'text': 'Otra cosa distinta sobre la pared celular.', 'scope_ids': ['sq2'], 'question_id': 'qa2',
+             'citation_numbers': [4], 'references': [ref('r3', 'p3')]}])
+        self.assertEqual([c['id'] for c in merged], ['a1', 'b2'])
+        self.assertEqual((merged[0]['scope_ids'], len(merged[0]['references'])), (['sq1', 'sq2'], 2))
+        self.assertEqual([c['id'] for c in key_claims({'claims': merged}, 1)], ['a1'])
 
 
 class SentenceTests(unittest.TestCase):

@@ -29,6 +29,15 @@ def bibliography(answer):
     return order
 
 
+def key_claims(answer, limit=8):
+    """The claims backed by the most distinct sources, in delivery order on ties."""
+    def sources(claim):
+        return len({(r.get('source') or {}).get('source_id') or r['source_id'] for r in claim['references']})
+    claims = answer.get('claims', [])
+    ranked = sorted(range(len(claims)), key=lambda i: (-sources(claims[i]), i))[:limit]
+    return [claims[i] for i in sorted(ranked)]
+
+
 def entry(source, remote_id):
     if not source:
         return f'Fuente de NotebookLM {remote_id} (sin metadatos locales).'
@@ -58,6 +67,12 @@ def report_markdown(answer, contract, state):
              f'**Pregunta:** {contract["question"]["original"]}', '',
              f'**Estado:** {STATUS.get(answer["answer"]["status"], answer["answer"]["status"])}', '',
              METHOD.get(answer.get('delivery'), METHOD['verified']), '']
+    if len(answer.get('claims', [])) > 8:
+        lines += ['## Lo central', '', f'{len(answer["claims"])} afirmaciones en total; estas son las respaldadas por más fuentes.', '']
+        for claim in key_claims(answer):
+            cited = sorted({number[(r.get('source') or {}).get('source_id') or r['source_id']] for r in claim['references']})
+            lines.append(f'- {claim["text"]} [{", ".join(map(str, cited))}] `[EZ:{claim["id"]}]`')
+        lines.append('')
     lines += ['## Respuesta por subpregunta', '']
     gaps = {g['scope_id']: g for g in answer.get('gaps', [])}
     for scope in contract['scope']:

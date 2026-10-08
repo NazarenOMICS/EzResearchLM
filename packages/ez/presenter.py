@@ -33,6 +33,7 @@ REASON_LABELS = {
     'screening_uncertain': 'dudosa en el cribado; falta decidir',
     'not_screened': 'todavía no se decidió si incluirla',
     'duplicate_content': 'el PDF es idéntico al de otra fuente; revisar cuál corresponde',
+    'processing_stuck': 'NotebookLM no terminó de procesar el PDF; se reintenta en la próxima continuación',
 }
 GAP_LABELS = {
     'no_access': 'falta una fuente obligatoria sin acceso abierto; puedes importar tu PDF',

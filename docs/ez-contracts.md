@@ -76,7 +76,10 @@ al menos una cita con pasaje en una afirmación con esos pasajes nativos (protoc
 `uncited_statements` y no son evidencia. Las abreviaturas de especie (*C. glutamicum*),
 *et al.* y similares no cortan oraciones. Un contrato sin el campo se trata como
 `verified`. En una corrida directa, una revisión enviada después activa la entrega
-verificada y la reemplaza.
+verificada y la reemplaza; `ez continue --verify [IDS]` arma esa revisión con las 10
+afirmaciones respaldadas por más fuentes o con las indicadas, y guarda la entrega
+directa en `direct/`. Las oraciones casi idénticas entre respuestas (Jaccard de
+palabras ≥ 0,8) se unen en la primera, con la unión de alcances y pasajes.
 
 En modo `verified`, el anfitrión presenta `qa-review.json` con hashes del contrato y corpus, revisor,
 cobertura por subpregunta y afirmaciones con IDs de preguntas y números de cita.
