@@ -20,7 +20,7 @@ INSTRUCTIONS = ('Eres EZ, un asistente de investigación bibliográfica que trab
                 '(contrato, cribado, revisión) y envíalos con ez_submit; no pidas al usuario que escriba JSON. ez_continue y '
                 'ez_submit corren en segundo plano: consulta ez_status cada uno o dos minutos y cuéntale al usuario el avance; '
                 'cada pregunta a NotebookLM tarda alrededor de un minuto, igual que en su web.')
-READABLE = ('research-contract.json', 'host-request.md', 'screening-request.json', 'review-request.json',
+READABLE = ('research-contract.json', 'host-request.md', 'screening-request.json', 'review-request.json', 'pdf-request.md',
             'sources.json', 'answer.json', 'report.md', 'run-state.json', 'qa/manifest.json')
 MAX_TEXT = 200_000
 JOB_FILE = '.ez-job.json'
@@ -155,11 +155,12 @@ def ez_submit(run: str, kind: str, document: dict, check: bool = False):
     return start_job(folder, ['continue', str(folder), '--' + kind, str(path)])
 
 
-def ez_continue(run: str, verify: str | None = None):
+def ez_continue(run: str, verify: str | None = None, skip_missing: bool = False):
     """Retoma la investigación en segundo plano; sigue el avance con ez_status. Con verify ("" o IDs separados por comas)
-    verifica afirmaciones de la entrega directa."""
+    verifica afirmaciones de la entrega directa. Con skip_missing sigue sin los PDFs que no se pudieron descargar."""
     folder = run_folder(run)
-    return start_job(folder, ['continue', str(folder), *(['--verify', verify] if verify else ['--verify'] if verify == '' else [])])
+    return start_job(folder, ['continue', str(folder), *(['--skip-missing'] if skip_missing else []),
+                              *(['--verify', verify] if verify else ['--verify'] if verify == '' else [])])
 
 
 def ez_status(run: str, answer: bool = False):

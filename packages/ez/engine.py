@@ -366,6 +366,27 @@ class Engine:
                 source.update(acquisition_status='manual_needed', failure_code=result.reason or 'acquisition_failed')
             self.save_sources()
 
+    def request_pdfs(self):
+        """Ask once, before anything is uploaded, for the included works EZ could not download."""
+        missing = [s for s in self.sources if s.get('screening', 'include') == 'include' and s.get('acquisition_status') == 'manual_needed'
+                   and s.get('validation_status') != 'valid']
+        if not missing or self.state.get('missing_pdfs_acknowledged'):
+            return
+        rows = [{k: v for k, v in (('source_id', s['source_id']), ('title', s.get('title')), ('year', s.get('year')),
+                                   ('doi', s.get('doi')), ('reason', s.get('failure_code'))) if v} for s in missing]
+        lines = ['# PDFs que EZ no pudo descargar', '',
+                 'Estos artículos entraron en la investigación pero no tienen una copia de acceso abierto que EZ pueda '
+                 'bajar. Si tienes alguno (de tu biblioteca, tu institución o pedido a los autores), guárdalos en una '
+                 'carpeta y dile a EZ cuál es. Si no, EZ sigue sin ellos y lo dice en el informe.', '']
+        for row in rows:
+            link = f' https://doi.org/{row["doi"]}' if row.get('doi') else ''
+            lines.append(f'- {row.get("title") or row["source_id"]}' + (f' ({row["year"]})' if row.get('year') else '') + link)
+        atomic_json(self.folder / 'pdf-request.json', {'schema_version': '1.0', 'missing': rows})
+        (self.folder / 'pdf-request.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+        raise Pause('NEEDS_USER_PDFS', f'{len(missing)} artículos incluidos no tienen PDF de acceso abierto; la lista está en '
+                    'pdf-request.md. Si el usuario los tiene, importa la carpeta con ez rescue --import-folder y continúa; si '
+                    'no, continúa con ez continue --skip-missing.', 2)
+
     def upload(self):
         verified = [s for s in self.sources if s.get('validation_status') == 'valid' and s.get('identity_status') == 'verified'
                     and s.get('screening', 'include') == 'include']
@@ -1012,6 +1033,7 @@ class Engine:
             self.discover()
             self.screen(screening)
             self.acquire()
+            self.request_pdfs()
             self.upload()
             return self.qa(review)
         except ReviewError as exc:

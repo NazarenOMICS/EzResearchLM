@@ -329,6 +329,7 @@ def main(argv=None):
     p = sub.add_parser('continue', help='Retomar una investigación guardada.'); p.add_argument('run'); p.add_argument('--contract', type=Path); p.add_argument('--accept-policy-change', action='store_true'); p.add_argument('--review', type=Path); p.add_argument('--require-complete', action='store_true')
     p.add_argument('--screening', type=Path, help='Decisiones del anfitrión sobre los candidatos de screening-request.json.')
     p.add_argument('--check', action='store_true', help='Validar la propuesta o la revisión sin modificar la corrida ni consultar servicios.')
+    p.add_argument('--skip-missing', action='store_true', help='Seguir sin los PDFs que no se pudieron descargar.')
     p.add_argument('--verify', nargs='?', const='', metavar='IDS', help='Verificar afirmaciones de la entrega directa: '
                    'sin IDS, las 10 respaldadas por más fuentes; o IDs separados por comas.')
     p = sub.add_parser('status', help='Ver el avance y el siguiente paso.'); p.add_argument('run'); p.add_argument('--answer', action='store_true')
@@ -471,6 +472,11 @@ def main(argv=None):
                 return 0
         with lock(folder):
             Store(folder).recover(repair=True)
+            if args.command == 'continue' and args.skip_missing:
+                store = Store(folder); state = store.state()
+                store.append('decision', {'kind': 'continue_without_missing_pdfs', 'actor': 'user'})
+                state['missing_pdfs_acknowledged'] = True
+                store.update(state)
             if args.command == 'continue' and args.require_complete:
                 state = Store(folder).state()
                 state['require_complete'] = True

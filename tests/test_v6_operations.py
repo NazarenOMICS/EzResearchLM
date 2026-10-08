@@ -40,7 +40,17 @@ class DownloadDiagnosticsTests(unittest.TestCase):
                 return Result(0, '', '', None)
             return self.service(args, **kwargs)
         with lock(self.folder), patch('ez.engine.executable', return_value='notebooklm'):
-            Engine(self.folder, runner=run).execute()
+            self.assertEqual(Engine(self.folder, runner=run).execute(), 2)
+        # EZ first asks for the PDFs it could not download, before uploading anything.
+        state = read_json(self.folder / 'run-state.json')
+        self.assertEqual(state['legacy_signals'], ['NEEDS_USER_PDFS'])
+        self.assertIn('https://doi.org/10.1/paid', (self.folder / 'pdf-request.md').read_text(encoding='utf-8'))
+        self.assertEqual(self.service.upload_count, 0)
+        output = StringIO()
+        with redirect_stdout(output), patch('ez.cli.load_environment'), \
+                patch('ez.engine.Engine.__init__.__defaults__', (run,)), patch('ez.engine.executable', return_value='notebooklm'):
+            main(['--root', self.temp.name, 'continue', str(self.folder), '--skip-missing', '--json'])
+        self.assertEqual(self.service.upload_count, 1)
         exclusion = next(e for e in read_json(self.folder / 'run-state.json')['corpus_exclusions'] if e['source_id'] == 'paid')
         self.assertEqual(exclusion['routes'], [{'provider': 'doi', 'failure_code': 'http_403'},
                                                {'provider': 'unpaywall', 'failure_code': 'missing_email'},
