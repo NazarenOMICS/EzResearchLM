@@ -91,7 +91,8 @@ def report_markdown(answer, contract, state):
             for ref in claim['references']:
                 key = (ref.get('source') or {}).get('source_id') or ref['source_id']
                 warning = ' (no se encontró literal en el texto indexado; revísalo en el PDF)' if ref.get('found_in_fulltext') is False else ''
-                lines.append(f'  - {ROLE.get(ref.get("role", "qa"), "Pasaje")} [{number[key]}]{warning}: «{ref["cited_text"]}»')
+                page = f', p. {ref["page"]}' if ref.get('page') else ''
+                lines.append(f'  - {ROLE.get(ref.get("role", "qa"), "Pasaje")} [{number[key]}{page}]{warning}: «{ref["cited_text"]}»')
             for item in claim.get('warnings', []):
                 if item['code'] == 'numbers_not_in_passages':
                     lines.append(f'  - Aviso: los números {", ".join(item["values"])} no aparecen en los pasajes citados; verifícalos en el PDF.')
@@ -158,7 +159,8 @@ def report_markdown(answer, contract, state):
             lines.append(f'- ({scope["id"]}) {claim["text"]} [{", ".join(map(str, cited))}] `[EZ:{claim["id"]}]`')
             for ref in claim['references']:
                 key = (ref.get('source') or {}).get('source_id') or ref['source_id']
-                lines.append(f'  - {ROLE.get(ref.get("role", "qa"), "Pasaje")} [{number[key]}]: «{ref["cited_text"]}»')
+                page = f', p. {ref["page"]}' if ref.get('page') else ''
+                lines.append(f'  - {ROLE.get(ref.get("role", "qa"), "Pasaje")} [{number[key]}{page}]: «{ref["cited_text"]}»')
         lines.append('')
     lines += ['## Trazabilidad', '',
               f'- Corrida: `{state["run_id"]}`',

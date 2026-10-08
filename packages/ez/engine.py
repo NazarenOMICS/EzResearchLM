@@ -574,6 +574,16 @@ class Engine:
                 (p.get('effective_policy') or p['policy']) in ('hard_block', 'contextual') and
                 not any(s['source_id'] == p['source_id'] and s.get('notebook_status') == 'ready' for s in self.sources)]
 
+    def page_of(self, source, passage):
+        from .pages import find_page, page_texts
+        path = source.get('pdf_path')
+        if not path or not Path(path).is_file():
+            return None
+        cache = self.__dict__.setdefault('_pages', {})
+        if path not in cache:
+            cache[path] = page_texts(path)
+        return find_page(passage, cache[path])
+
     def bibliography(self, refs):
         by_remote = {s.get('notebook_source_id'): s for s in self.sources if s.get('notebook_source_id')}
         result = []
@@ -589,7 +599,8 @@ class Engine:
                       'pdf_path': source.get('pdf_path'), 'pdf_source': source.get('pdf_source'),
                       'origin_url': provenance.get('final_url') or provenance.get('origin'),
                       'source_version': provenance.get('source_version')}
-            result.append(dict(ref, source={k: v for k, v in fields.items() if v not in (None, '', [])}))
+            page = self.page_of(source, ref.get('cited_text') or '')
+            result.append(dict(ref, source={k: v for k, v in fields.items() if v not in (None, '', [])}, **({'page': page} if page else {})))
         return result
 
     def qa(self, review=None):

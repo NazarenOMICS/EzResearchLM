@@ -46,5 +46,26 @@ class OpenAccessTests(unittest.TestCase):
         self.assertEqual(len(session.urls), 1)
 
 
+class PageTests(unittest.TestCase):
+    def test_a_passage_is_found_on_its_page_despite_hyphenation_and_spacing(self):
+        from ez.pages import find_page, page_text
+        pages = [page_text(text) for text in (
+            'Introduction. Corynebacterium glutamicum is a model organism.',
+            'Results. Ethambutol treatment led to an increased L-gluta-\nmate efflux in CGXII medium after 2 h.')]
+        self.assertEqual(find_page('Ethambutol treatment led to an increased L-glutamate efflux in CGXII medium', pages), 2)
+        self.assertEqual(find_page('increased L-glutamate efflux in CGXII medium after', pages), 2)
+        self.assertIsNone(find_page('Nothing like this appears anywhere in the document text', pages))
+        self.assertIsNone(find_page('demasiado corto', pages))
+
+    def test_the_report_shows_the_page_next_to_the_source_number(self):
+        from ez.deliver import report_markdown
+        claim = {'id': 'qa1-1', 'text': 'Afirmación.', 'scope_ids': ['sq1'],
+                 'references': [{'source_id': 'r1', 'cited_text': 'pasaje', 'role': 'qa', 'page': 7}]}
+        text = report_markdown({'answer': {'status': 'complete'}, 'claims': [claim], 'contract_hash': 'c', 'corpus_hash': 'k',
+                                'delivery': 'direct'}, {'question': {'original': 'P'}, 'scope': [{'id': 'sq1', 'question': 'P'}]},
+                               {'run_id': 'r'})
+        self.assertIn('[1, p. 7]: «pasaje»', text)
+
+
 if __name__ == '__main__':
     unittest.main()
