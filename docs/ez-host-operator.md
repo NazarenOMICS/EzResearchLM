@@ -197,4 +197,4 @@ inspeccionan sin modificarlas y sus wrappers siguen disponibles.
 
 La salida final queda en `answer.json`. La prueba con servicios simulados verifica
 comportamiento del programa; el lanzamiento exige las corridas reales y la beta
-definidas en `ez-refurbish-implementation-plan.md`.
+definidas en `history/ez-refurbish-implementation-plan.md`.

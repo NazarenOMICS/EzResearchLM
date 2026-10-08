@@ -5,7 +5,7 @@
 EZ usa el agente anfitrión que ya tienes abierto para planificar. NotebookLM
 aporta la evidencia. No necesitas otra API de modelos ni escribir archivos JSON.
 La aceptación de este candidato con usuarios nuevos y Windows limpio sigue
-pendiente. Las pruebas internas y CI se registran en `docs/refurbish-progress.md`.
+pendiente. Las pruebas internas y CI se registran en `docs/history/refurbish-progress.md`.
 
 Pide al agente: «EZ, prepara el entorno y ayúdame a investigar esta pregunta».
 Para ver el recorrido completo, empieza por la [guía de primer uso](docs/ez-user-guide.md).

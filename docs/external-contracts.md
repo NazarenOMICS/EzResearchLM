@@ -2,7 +2,7 @@
 
 Fecha de inspección: 2026-09-17. Estos contratos describen adaptadores, consultas de
 metadatos y las descargas reales indicadas. El recorrido autenticado interno se
-documenta por separado en `refurbish-progress.md`; no equivale a aprobación de release.
+documenta por separado en `history/refurbish-progress.md`; no equivale a aprobación de release.
 
 - **NotebookLM:** se inspeccionó el paquete local `notebooklm-py 0.8.0`, incluyendo
   el serializador de `ask --json` y los tipos `AskResult`/`ChatReference`. El adaptador

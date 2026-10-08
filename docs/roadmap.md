@@ -2,8 +2,8 @@
 
 Actualizada: 2026-10-08. Este es el **único plan vigente**. Reemplaza a la
 auditoría P1–P14, al plan v2 por fases (0–7), a la lista de mejoras pendientes y a
-`docs/plan-refactor-v6.md`. Esos documentos quedan como registro del porqué de cada
-cambio. `docs/ez-refurbish-implementation-plan.md` y `docs/refurbish-progress.md` son
+`docs/history/plan-refactor-v6.md`. Esos documentos quedan como registro del porqué de cada
+cambio. `docs/history/ez-refurbish-implementation-plan.md` y `docs/history/refurbish-progress.md` son
 anteriores a todo esto y solo tienen valor histórico.
 
 Cada ítem tiene un dueño: **código** (se hace en el repositorio y se valida offline)
@@ -115,18 +115,18 @@ Corrida v6b (`gold_set_benchmark/resultado_ezresearchlm_v6b.md`):
 |---|---|---|
 | B1 | Corregir lo que muestren A1 a A3 (lentitud de la corrida desde cero, oraciones mal cortadas, falsos positivos) | código |
 | B2 | Corpus inicial más chico: `budgets.max_sources` de 40 a 15, con ampliación cuando una subpregunta queda sin respaldo; priorizar rutas con identidad segura (PMC, Unpaywall) | código |
-| B3 | Confirmar la identidad de varios PDFs importados en una sola operación | código |
+| B3 | **Hecho:** `ez rescue --import-folder` asigna cada PDF de una carpeta a su fuente por título e identificadores impresos; `--confirm-identity` acepta varios IDs | código |
 | B4 | Decidir la verificación por cita textual: mantenerla, exigir revisión humana o quitarla, según cuántas veces aparezca `verification_quote` en A1 a A3 | decisión |
-| B5 | Modo directo: separar las oraciones que unen con punto y coma una parte citada y otra sin cita | código |
-| B6 | Un tercio de las descargas falló (5 de 15, `routes_exhausted`): registrar qué rutas se probaron por fuente y sumar rutas de acceso abierto que falten | código |
-| B7 | Volumen del modo directo: entre 84 y 103 afirmaciones por corrida y ninguna unida. Revisar el umbral de unión con una muestra real y agrupar en el informe las afirmaciones por fuente | código |
+| B5 | **Hecho:** la cláusula que sigue a la última cita, tras un punto y coma, pasa a «sin cita» | código |
+| B6 | **Hecho en código, falta medir:** cada descarga fallida informa las rutas probadas y su motivo. Unpaywall se salteaba sin un correo de contacto; ahora se guarda con `ez setup --unpaywall-email`. Hipótesis sin confirmar: esa era la causa de buena parte de las fallas | código |
+| B7 | **Hecho en código, falta medir:** se unen también las oraciones contenidas en otra que cita una fuente común, salvo que solo una niegue. Cada subpregunta muestra sus 10 afirmaciones más respaldadas y el resto va a un anexo | código |
 
 ### Fase C. Lanzamiento en GitHub
 
 | ID | Tarea | Dueño | Puerta |
 |---|---|---|---|
 | C1 | Instalación en un Windows limpio siguiendo solo el README | usuario | Lista de pasos que fallaron, o ninguno |
-| C2 | Archivar en `docs/history/` los informes viejos de la raíz y los planes superados | código | Raíz con README, AGENTS, CLAUDE y SETUP |
+| C2 | **Hecho:** informes viejos y planes superados en `docs/history/`. `Rules_Of_Writing.md` sigue en la raíz porque AGENTS.md lo usa | código | Raíz con README, AGENTS, CLAUDE y SETUP |
 | C3 | Publicar en el README los resultados de A1 a A3 y los tiempos reales | código | Números con fecha y versión |
 | C4 | Mergear `NazarenOMICS/EzResearchLM#1` a `main` y etiquetar la versión | usuario | Etiqueta `v0.x` |
 
@@ -134,7 +134,7 @@ Corrida v6b (`gold_set_benchmark/resultado_ezresearchlm_v6b.md`):
 
 | ID | Tarea | Dueño |
 |---|---|---|
-| D1 | `ez_continue` en segundo plano dentro de la extensión, con avance consultable por `ez_status`; hoy una llamada larga puede superar el tiempo de la herramienta | código |
+| D1 | **Hecho:** `ez_continue` y `ez_submit` corren en segundo plano y `ez_status` informa la operación | código |
 | D2 | Prueba real de la extensión en Claude Desktop, incluido el login | usuario |
 | D3 | Migrar a `mcp` 2.x cuando su API se estabilice | código |
 

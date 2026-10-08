@@ -23,7 +23,7 @@ técnica de instalación está en [SETUP](../SETUP.md), y el anfitrión sigue
 | Publicación aislada del candidato anterior | Rama `codex/ez-refurbish-ci`, commit `257cb28`; trabajo original conservado |
 | CI del candidato anterior | [Cuatro trabajos aprobados](https://github.com/NazarenOMICS/EzResearchLM/actions/runs/35390317770); Windows/Linux, Python 3.10/3.12 |
 | NotebookLM real | Dos investigaciones internas con citas y una recuperación con interrupciones; revisión del anfitrión, anteriores a esta revisión de UX |
-| Bienvenida y guía de esta revisión | Candidato `0.2.0a2`, commit `efcf257`; [cuatro trabajos de CI aprobados](https://github.com/NazarenOMICS/EzResearchLM/actions/runs/35392124066) en Windows/Ubuntu con Python 3.10/3.12, 101 pruebas reportadas por trabajo; bienvenida y guía verificadas en instalación aislada. Detalle y hash en `refurbish-progress.md` |
+| Bienvenida y guía de esta revisión | Candidato `0.2.0a2`, commit `efcf257`; [cuatro trabajos de CI aprobados](https://github.com/NazarenOMICS/EzResearchLM/actions/runs/35392124066) en Windows/Ubuntu con Python 3.10/3.12, 101 pruebas reportadas por trabajo; bienvenida y guía verificadas en instalación aislada. Detalle y hash en `history/refurbish-progress.md` |
 | Primer uso en Windows limpio | Pendiente de una máquina/perfil adecuado y del login de su titular |
 | Facilidad de uso | Pendiente de evaluación con personas nuevas; no inferirla de pruebas automáticas |
 | Recuperación representativa | Pendiente del [benchmark curado](recovery-benchmark.md); el piloto de cinco obras y las rutas probadas para una sola obra no acreditan el umbral de lanzamiento ≥90% |
@@ -36,7 +36,7 @@ internas anteriores pertenecen a otro candidato; no se reasignan al wheel actual
 La revisión `0.2.0a3` incorpora correcciones de obligaciones por alcance y de
 correspondencia entre la cita entregada y el pasaje verificado. Su aceptación
 requiere evidencia nueva: el CI de `0.2.0a2` y sus recorridos históricos no certifican
-esas correcciones. La [bitácora](refurbish-progress.md) explica los hallazgos.
+esas correcciones. La [bitácora](history/refurbish-progress.md) explica los hallazgos.
 
 Al actualizar, las respuestas anteriores al protocolo `ez-verdict-v3-passages`
 conservan sus archivos, pero EZ solicita nueva revisión antes de entregarlas.
@@ -70,7 +70,7 @@ y «¿Cómo continuarías mañana?». Guardar las respuestas literales solo con 
 consentimiento del participante; el informe público usa conteos y motivos saneados.
 
 Registrar cada tarea como aprobada, fallida u omitida con motivo. La prueba de
-entorno limpio requiere el E2E real de `ez-refurbish-implementation-plan.md`, incluida
+entorno limpio requiere el E2E real de `history/ez-refurbish-implementation-plan.md`, incluida
 interrupción y rescate; este ensayo de comprensión no lo sustituye. La beta mide
 los umbrales definidos previamente, incluidos abandonos y fallos.
 

@@ -1,7 +1,7 @@
 # Protocolo de beta cerrada y evidencia de lanzamiento
 
 Estado: **candidato interno; validación de lanzamiento pendiente**. Las corridas
-autenticadas internas se documentan en `refurbish-progress.md`. La instalación en un
+autenticadas internas se documentan en `history/refurbish-progress.md`. La instalación en un
 entorno Python vacío se probó en el equipo de desarrollo; eso no constituye una
 prueba sobre una instalación limpia de Windows ni una beta independiente.
 
