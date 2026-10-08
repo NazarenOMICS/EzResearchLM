@@ -106,6 +106,28 @@ Unpaywall configurado:
 
 ## 4. Pendiente, en orden
 
+### Ronda 7 (2026-10-08): mejoras iterativas antes de la comparación
+
+Hecho y validado offline:
+
+1. Acceso abierto en el cribado, consultado a OpenAlex.
+2. Pedido temprano de PDFs (`NEEDS_USER_PDFS`, `pdf-request.md`, `--skip-missing`).
+3. Páginas por pasaje.
+4. `ez export`.
+5. Estimación de tiempo.
+6. Onboarding paso a paso (`onboarding` en `ez setup --check` y guion de primera conversación).
+7. Guía para escribir preguntas QA.
+8. Medidor `gold_set_benchmark/puntuar.py`.
+
+Ciclo de iteración desde ahora:
+
+1. Correr M1, M2 y M3 sin abrir el gold set.
+2. Puntuar con `puntuar.py`.
+3. Corregir.
+4. Repetir hasta que el puntaje deje de mejorar.
+
+Recién entonces sigue A3.
+
 ### Fase A. Medir (bloquea todo lo demás)
 
 | ID | Tarea | Dueño | Puerta |
@@ -152,9 +174,9 @@ Unpaywall configurado:
 
 | ID | Tarea | Dueño |
 |---|---|---|
-| E1 | Número de página por pasaje, ubicándolo en el PDF local | código |
-| E2 | Exportar la bibliografía citada a BibTeX y RIS para Zotero o Mendeley | código |
-| E3 | Estimar consultas y minutos antes de correr (≈1 min por pregunta, 1 consulta cada 6 afirmaciones verificadas) | código |
+| E1 | **Hecho (ronda 7):** número de página por pasaje, ubicándolo en el PDF local | código |
+| E2 | **Hecho (ronda 7):** `ez export` a BibTeX y RIS | código |
+| E3 | **Hecho (ronda 7):** estimación de consultas y minutos al validar el contrato | código |
 | E4 | Benchmark ampliado a 8 misiones | usuario |
 
 ### Fase F. Condicional
