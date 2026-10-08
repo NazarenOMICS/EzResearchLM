@@ -10,7 +10,8 @@ no guarda credenciales.
 Probado offline: el servidor MCP responde por stdio, registra sus 13 herramientas,
 el manifiesto pasa `mcpb validate` y el paquete se resuelve con `uv`. **No probado
 todavía en Claude Desktop real ni en Windows limpio**, y el inicio de sesión de
-NotebookLM desde la extensión (`ez_login`) está sin validar.
+NotebookLM desde la extensión (`ez_login`) está sin validar. En la terminal,
+`notebooklm login` terminó sin pedir Enter (corrida en vivo v5).
 
 ## Construir
 
@@ -35,3 +36,9 @@ Cada herramienta ejecuta el mismo comando `ez` que usaría un agente en la termi
 así que las reglas de cribado, verificación e integridad son idénticas. Como Claude
 Desktop no lee archivos locales, `ez_read` muestra los archivos de trabajo de una
 investigación y `ez_submit` guarda los documentos que prepara el agente.
+
+`ez_continue` y `ez_submit` (salvo con `check`) corren en segundo plano: vuelven al
+instante y el agente sigue el avance con `ez_status`, que incluye el estado de la
+operación (`job`). Así una investigación de varios minutos no supera el tiempo máximo
+de una herramienta. Mientras una operación corre, otra sobre la misma investigación
+se rechaza.

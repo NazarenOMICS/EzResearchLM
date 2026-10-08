@@ -17,10 +17,14 @@ from .paths import contained, data_root, load_environment, runtime_root
 INSTRUCTIONS = ('Eres EZ, un asistente de investigación bibliográfica que trabaja con NotebookLM. Antes de investigar, '
                 'llama a ez_guide y sigue esa guía completa. Nunca afirmes nada de la literatura desde tu memoria: solo '
                 'entrega afirmaciones verificadas por EZ, con su pasaje y su fuente. Prepara tú los documentos JSON '
-                '(contrato, cribado, revisión) y envíalos con ez_submit; no pidas al usuario que escriba JSON.')
+                '(contrato, cribado, revisión) y envíalos con ez_submit; no pidas al usuario que escriba JSON. ez_continue y '
+                'ez_submit corren en segundo plano: consulta ez_status cada uno o dos minutos y cuéntale al usuario el avance; '
+                'cada pregunta a NotebookLM tarda alrededor de un minuto, igual que en su web.')
 READABLE = ('research-contract.json', 'host-request.md', 'screening-request.json', 'review-request.json',
             'sources.json', 'answer.json', 'report.md', 'run-state.json', 'qa/manifest.json')
 MAX_TEXT = 200_000
+JOB_FILE = '.ez-job.json'
+JOB_SECONDS = 7200
 
 
 def root():
@@ -42,6 +46,50 @@ def ez(*arguments, seconds=3500):
     except ValueError:
         value = {'error': 'unreadable_output', 'stderr': result.stderr[-2000:]}
     return dict(value if isinstance(value, dict) else {'result': value}, exit_code=result.returncode)
+
+
+def job_path(folder):
+    return Path(folder) / JOB_FILE
+
+
+def job_state(folder):
+    """The background operation of a run, if any: running, finished with its result, or abandoned."""
+    from datetime import datetime, timezone
+    path = job_path(folder)
+    if not path.exists():
+        return None
+    job = json.loads(path.read_text(encoding='utf-8'))
+    if not job.get('finished_at'):
+        started = datetime.fromisoformat(job['started_at'])
+        job['running'] = (datetime.now(timezone.utc) - started).total_seconds() < JOB_SECONDS + 60
+    return job
+
+
+def start_job(folder, arguments):
+    """Long operations run detached: the tool returns at once and the agent follows progress with ez_status."""
+    from datetime import datetime, timezone
+    current = job_state(folder)
+    if current and current.get('running'):
+        return {'started': False, 'running': True, 'command': current['command'],
+                'next_action': 'Ya hay una operación en curso en esta corrida. Consulta ez_status hasta que termine.'}
+    job = {'command': list(arguments), 'started_at': datetime.now(timezone.utc).isoformat(), 'finished_at': None}
+    job_path(folder).write_text(json.dumps(job, ensure_ascii=False), encoding='utf-8')
+    options = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS} if os.name == 'nt' else \
+        {'start_new_session': True}
+    subprocess.Popen([sys.executable, '-m', 'ez.mcp_server', '--job', str(folder), *map(str, arguments)],
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **options)
+    return {'started': True, 'command': job['command'],
+            'next_action': 'EZ trabaja en segundo plano. Cada pregunta a NotebookLM tarda alrededor de un minuto; consulta '
+                           'ez_status cada uno o dos minutos y avisa al usuario qué está haciendo.'}
+
+
+def run_job(folder, arguments):
+    from datetime import datetime, timezone
+    result = ez(*arguments, seconds=JOB_SECONDS)
+    job = json.loads(job_path(folder).read_text(encoding='utf-8'))
+    job.update(finished_at=datetime.now(timezone.utc).isoformat(), exit_code=result.get('exit_code'),
+               next_action=result.get('next_action'), error=result.get('error'))
+    job_path(folder).write_text(json.dumps(job, ensure_ascii=False), encoding='utf-8')
 
 
 def run_folder(run):
@@ -102,17 +150,27 @@ def ez_submit(run: str, kind: str, document: dict, check: bool = False):
     path = contained(folder, f'proposals/{kind}-{sha256(text.encode()).hexdigest()[:16]}.json')
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding='utf-8')
-    return ez('continue', str(folder), '--' + kind, str(path), *(['--check'] if check else []))
+    if check:
+        return ez('continue', str(folder), '--' + kind, str(path), '--check')
+    return start_job(folder, ['continue', str(folder), '--' + kind, str(path)])
 
 
 def ez_continue(run: str, verify: str | None = None):
-    """Retoma la investigación. Con verify ("" o IDs separados por comas) verifica afirmaciones de la entrega directa."""
-    return ez('continue', str(run_folder(run)), *(['--verify', verify] if verify else ['--verify'] if verify == '' else []))
+    """Retoma la investigación en segundo plano; sigue el avance con ez_status. Con verify ("" o IDs separados por comas)
+    verifica afirmaciones de la entrega directa."""
+    folder = run_folder(run)
+    return start_job(folder, ['continue', str(folder), *(['--verify', verify] if verify else ['--verify'] if verify == '' else [])])
 
 
 def ez_status(run: str, answer: bool = False):
-    """Estado y siguiente paso; con answer devuelve la respuesta verificada y la ruta del informe."""
-    return ez('status', str(run_folder(run)), *(['--answer'] if answer else []), seconds=120)
+    """Estado, avance y siguiente paso; con answer devuelve la respuesta y la ruta del informe."""
+    folder = run_folder(run)
+    job = job_state(folder)
+    if job and job.get('running') and answer:
+        return {'job': job, 'next_action': 'La operación sigue en curso; pide la respuesta cuando termine.'}
+    # A running job holds the run's lock; the plain status is a snapshot that never waits for it.
+    result = ez('status', str(folder), *(['--answer'] if answer else []), seconds=120)
+    return dict(result, job=job) if job else result
 
 
 def ez_read(run: str, name: str):
@@ -189,4 +247,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    if sys.argv[1:2] == ['--job']:
+        run_job(sys.argv[2], sys.argv[3:])
+    else:
+        main()

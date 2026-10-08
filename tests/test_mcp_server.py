@@ -1,5 +1,7 @@
 """Phase 6: the Claude Desktop adapter runs the same ez commands and exposes only run files."""
 import importlib.util
+import json
+import subprocess
 import os
 from pathlib import Path
 import tempfile
@@ -39,6 +41,30 @@ class McpServerTests(unittest.TestCase):
             self.assertIn('error', mcp_server.ez_read(run, name), name)
         self.assertEqual(mcp_server.ez_submit(run, 'other', {})['error'], 'kind_invalid')
         self.assertEqual(mcp_server.ez_verify(run, claim='c1')['error'], 'judgement_required')
+
+    def test_long_operations_run_in_the_background_and_report_through_status(self):
+        run = mcp_server.ez_research('Pregunta', 'demo')['run_id']
+        folder = Path(self.temp.name) / run
+        launched = []
+        real = subprocess.Popen
+        def detached(command, **kwargs):
+            if '--job' not in command:
+                return real(command, **kwargs)
+            launched.append(command)
+            index = command.index('--job')
+            mcp_server.run_job(command[index + 1], command[index + 2:])
+        with patch('ez.mcp_server.subprocess.Popen', detached):
+            started = mcp_server.ez_continue(run)
+        self.assertTrue(started['started'])
+        self.assertEqual(launched[0][1:4], ['-m', 'ez.mcp_server', '--job'])
+        job = mcp_server.ez_status(run)['job']
+        self.assertEqual((job['command'][0], job['exit_code'], bool(job['finished_at'])), ('continue', 2, True))
+        # While a job is running, a second one is refused instead of fighting for the run's lock.
+        job_file = folder / mcp_server.JOB_FILE
+        job_file.write_text(json.dumps(dict(job, finished_at=None)), encoding='utf-8')
+        with patch('ez.mcp_server.subprocess.Popen') as popen:
+            self.assertEqual(mcp_server.ez_continue(run)['running'], True)
+        popen.assert_not_called()
 
     def test_guide_is_available_to_the_agent(self):
         self.assertIn('Primera conversación', mcp_server.ez_guide())
