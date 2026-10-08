@@ -34,6 +34,16 @@ Corrida v6b (`gold_set_benchmark/resultado_ezresearchlm_v6b.md`):
    2 parciales y 0 no respaldadas (90 %). Con n = 20, el intervalo de confianza al
    95 % va de 70 % a 97 % (Wilson).
 
+Corrida v6c (`gold_set_benchmark/resultado_ezresearchlm_v6c.md`), desde cero con
+Unpaywall configurado:
+
+1. 5,3 minutos hasta la entrega directa.
+2. 8 de 15 descargas fallaron; 2 se rescataron con PDFs del usuario. Las rutas
+   registradas fueron sobre todo `access_denied`, `tls_downgrade` y `rate_limited`.
+   Unpaywall configurado no cambió el resultado: la hipótesis de B6 queda descartada.
+3. 87 afirmaciones: 20 en el cuerpo y 67 en el anexo; ninguna unida.
+4. `--import-folder` no asignó ninguno de los 2 PDFs.
+
 **Qué no sabemos todavía:**
 
 1. cómo se compara EZ con ChatGPT con búsqueda y con NotebookLM manual;
@@ -115,11 +125,11 @@ Corrida v6b (`gold_set_benchmark/resultado_ezresearchlm_v6b.md`):
 |---|---|---|
 | B1 | Corregir lo que muestren A1 a A3 (lentitud de la corrida desde cero, oraciones mal cortadas, falsos positivos) | código |
 | B2 | Corpus inicial más chico: `budgets.max_sources` de 40 a 15, con ampliación cuando una subpregunta queda sin respaldo; priorizar rutas con identidad segura (PMC, Unpaywall) | código |
-| B3 | **Hecho:** `ez rescue --import-folder` asigna cada PDF de una carpeta a su fuente por título e identificadores impresos; `--confirm-identity` acepta varios IDs | código |
+| B3 | **Hecho:** `ez rescue --import-folder` asigna cada PDF de una carpeta a su fuente por título e identificadores impresos; `--confirm-identity` acepta varios IDs. Tras v6c, que no asignó ninguno, también se asigna por título completo, DOI en el texto o DOI en el nombre del archivo, con la identidad pendiente de confirmar | código |
 | B4 | Decidir la verificación por cita textual: mantenerla, exigir revisión humana o quitarla, según cuántas veces aparezca `verification_quote` en A1 a A3 | decisión |
 | B5 | **Hecho:** la cláusula que sigue a la última cita, tras un punto y coma, pasa a «sin cita» | código |
-| B6 | **Hecho en código, falta medir:** cada descarga fallida informa las rutas probadas y su motivo. Unpaywall se salteaba sin un correo de contacto; ahora se guarda con `ez setup --unpaywall-email`. Hipótesis sin confirmar: esa era la causa de buena parte de las fallas | código |
-| B7 | **Hecho en código, falta medir:** se unen también las oraciones contenidas en otra que cita una fuente común, salvo que solo una niegue. Cada subpregunta muestra sus 10 afirmaciones más respaldadas y el resto va a un anexo | código |
+| B6 | **Hecho en código, falta medir:** cada descarga fallida informa las rutas probadas y su motivo. Unpaywall se salteaba sin un correo de contacto; ahora se guarda con `ez setup --unpaywall-email`. v6c descartó que esa fuera la causa. Tras v6c: las redirecciones a http se reintentan por https y las fuentes que ningún índice ofrece se informan como `no_open_access_location`. Lo que queda son artículos pagos | código |
+| B7 | **Hecho en código, falta medir:** se unen también las oraciones contenidas en otra que cita una fuente común, salvo que solo una niegue. Cada subpregunta muestra sus 10 afirmaciones más respaldadas y el resto va a un anexo. En v6c el anexo funcionó (20 de 87 en el cuerpo) y la unión no actuó: NotebookLM no repite oraciones casi iguales | código |
 
 ### Fase C. Lanzamiento en GitHub
 
