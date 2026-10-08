@@ -19,6 +19,7 @@ REASON_LABELS = {
     'verification_question_too_long': 'la afirmación es demasiado larga para verificarla; divídela',
     'scope_withheld_by_policy': 'su alcance espera una fuente obligatoria',
     'scope_not_sufficient': 'otra afirmación del mismo alcance no pasó la verificación; revisa ese alcance',
+    'human_rejected': 'una persona la revisó y el pasaje no la respalda',
     'required_source_missing': 'falta una fuente obligatoria para ese alcance',
     'policy_review_pending': 'hay una decisión pendiente sobre una fuente',
     'not_asked': 'no se consultó',
@@ -89,6 +90,15 @@ def render(value):
                           'Guía completa: ez --guide', 'Comprobar el entorno: ez setup --check'])
     if value.get('kind') == 'user_guide':
         return value['text']
+    if value.get('kind') == 'verify_sample':
+        lines = [f'Revisión humana: {value["checked"]} afirmaciones ya revisadas. Para revisar ahora:']
+        for claim in value['claims']:
+            lines.append(f'\n{claim["id"]}: {claim["text"]}')
+            for reference in claim.get('references', []):
+                source = reference.get('source', {})
+                lines.append('  ' + cite(reference) + (f' — {source["pdf_path"]}' if source.get('pdf_path') else ''))
+                lines.append('  Pasaje: ' + reference['cited_text'])
+        return '\n'.join(lines + ['Siguiente paso: ' + value['next_action']])
     if value.get('kind') == 'draft_material':
         return '\n'.join(['Afirmaciones verificadas para redactar (informe: ' + value['report_path'] + '):',
                           *[f'- {c["marker"]} {c["text"]}' for c in value['claims']], 'Siguiente paso: ' + value['next_action']])
@@ -181,6 +191,20 @@ def render(value):
             lines.append('  Pasaje: ' + reference['cited_text'])
             if reference.get('found_in_fulltext') is False:
                 lines.append('  Aviso: el pasaje no se encontró literal en el texto indexado de la fuente; revísalo en el PDF.')
+        for warning in claim.get('warnings', []):
+            if warning['code'] == 'numbers_not_in_passages':
+                lines.append('  Aviso: estos números no aparecen en los pasajes citados: ' + ', '.join(warning['values'])
+                             + '. Verifícalos en el PDF.')
+        if claim.get('human_check'):
+            lines.append('  Revisión humana: ' + {'supported': 'respaldada', 'partial': 'respaldo parcial'}.get(
+                claim['human_check']['judgement'], claim['human_check']['judgement']))
+    if value.get('changes'):
+        changes = value['changes']
+        lines.append(f'\nCambios respecto de {changes.get("previous_run")}: {len(changes["new"])} afirmaciones nuevas, '
+                     f'{len(changes["kept"])} se mantienen, {len(changes["dropped"])} ya no se sostienen.')
+        lines += ['- Ya no se sostiene: ' + c['text'] for c in changes['dropped']]
+        if changes.get('new_sources'):
+            lines.append('Fuentes nuevas: ' + '; '.join(changes['new_sources'][:10]))
     if value.get('withheld_claims'):
         lines.append('\nNo se pudo afirmar:')
         for claim in value['withheld_claims']:

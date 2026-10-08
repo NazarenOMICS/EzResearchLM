@@ -115,7 +115,20 @@ correcto comprueba archivos; no certifica una conclusión científica.
    `ez draft <corrida> --check <archivo>`: rechaza marcadores inexistentes o de
    afirmaciones retenidas y lista las oraciones sin marcador. Una oración sin marcador
    que afirme algo de la literatura se elimina o se apoya en una afirmación verificada;
-   no completar desde memoria. Decir claramente
+   no completar desde memoria.
+12. Para que el usuario revise en persona, `ez verify <corrida>` muestra hasta cinco
+   afirmaciones pendientes con su pasaje y su PDF. Registrar lo que el usuario leyó con
+   `ez verify <corrida> --claim <id> --judgement supported|partial|unsupported --note ...`.
+   `unsupported` retira la afirmación de la respuesta y del informe, y la decisión se
+   mantiene aunque la corrida se vuelva a verificar. No registrar juicios que el usuario
+   no hizo.
+13. Para actualizar una investigación meses después, `ez research "<misma pregunta>"
+   --update <corrida>` crea una corrida nueva con el mismo plan, los PDFs verificados y
+   las decisiones de cribado anteriores. La búsqueda vuelve a correr y solo se criban los
+   candidatos nuevos. El informe agrega qué afirmaciones son nuevas, cuáles se
+   mantienen y cuáles ya no se sostienen. Si una afirmación trae el aviso
+   `numbers_not_in_passages`, señalarlo: un número de la afirmación no aparece en sus
+   pasajes. Decir claramente
    cuándo la respuesta es parcial y qué falta para ampliarla. No completar huecos
    desde memoria ni usar resultados QMD como evidencia académica.
 

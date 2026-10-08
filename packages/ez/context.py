@@ -41,7 +41,16 @@ def reuse_sources(origin, destination):
         old_state = Store(origin).state()
         old_sources = read_json(origin / 'sources.json') if (origin / 'sources.json').exists() else []
         sources = []
+        decisions = []
         for old in old_sources:
+            if old.get('screening') in ('exclude', 'uncertain'):
+                # Keep screening decisions as provenance so an update does not ask about them again.
+                kept = {k: old[k] for k in ('source_id', 'title', 'authors', 'year', 'journal', 'doi', 'pmid', 'pmcid',
+                                            'screening', 'screening_reason') if old.get(k)}
+                kept.update(acquisition_status='pending', validation_status='unknown', identity_status='unknown',
+                            notebook_status='pending', reused_from={'run_id': old_state['run_id'], 'sources_hash': old_state['sources_hash']})
+                decisions.append(kept)
+                continue
             if old.get('validation_status') != 'valid' or old.get('identity_status') != 'verified':
                 continue
             source = deepcopy(old)
@@ -60,6 +69,7 @@ def reuse_sources(origin, destination):
             sources.append(source)
     if not sources:
         raise ContractError('La corrida anterior no tiene PDFs con identidad verificada para reutilizar.')
+    sources += decisions
     with lock(destination):
         store = Store(destination); state = store.state()
         if state.get('sources_hash') or state.get('notebook_id'):

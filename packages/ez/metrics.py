@@ -6,6 +6,13 @@ from .doctor import diagnose
 from .state import Store, read_json
 
 
+def human_review(state):
+    checks = state.get('human_checks', {})
+    if not checks:
+        return None
+    return dict(Counter(c['judgement'] for c in checks.values()), checked=len(checks))
+
+
 def collect(folder):
     store = Store(folder)
     state = store.state()
@@ -32,4 +39,4 @@ def collect(folder):
             'external_calls': sum(e['kind'] == 'external_result' for e in events), 'external_failures': dict(failures),
             'notebooklm_questions': sum(e['kind'] == 'external_result' and e['payload'].get('command') == 'ask' for e in events),
             'local_integrity_verified': diagnosis['healthy'], 'unjustified_block': None,
-            'human_citation_review': None, 'authenticated_e2e_verified': None, 'sent_remotely': False}
+            'human_citation_review': human_review(state), 'authenticated_e2e_verified': None, 'sent_remotely': False}

@@ -100,7 +100,12 @@ autores, año, DOI/PMID/PMCID, hash y ruta del PDF y origen. También registra
 (preguntas QA no consultadas por una política) y `corpus_exclusions` (fuentes que
 quedaron fuera del corpus) y `gaps`, que explica por cada alcance sin respuesta si
 falta acceso a una fuente, falló su descarga, espera identidad, no pasó la
-verificación o el corpus no alcanza. Las respuestas de protocolos anteriores se muestran como
+verificación o el corpus no alcanza. Una afirmación puede llevar `warnings`
+(`numbers_not_in_passages`: un número que no aparece en sus pasajes) y `human_check`
+(el juicio registrado con `ez verify`; `unsupported` la retira con motivo
+`human_rejected`). Una corrida creada con `ez research --update` agrega `changes`:
+afirmaciones nuevas, mantenidas y que ya no se sostienen respecto de la anterior, y
+las fuentes nuevas. Las respuestas de protocolos anteriores se muestran como
 pendientes de una nueva verificación.
 
 Los marcadores individuales, agrupados y por rango (`[1]`, `[1, 2]`, `[3–5]`)

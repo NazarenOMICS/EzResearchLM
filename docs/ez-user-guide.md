@@ -54,6 +54,9 @@ NotebookLM ni modificar investigaciones. `ez --help` enumera las acciones.
 | «Muéstrame lo que ya se puede responder» | Entrega la parte revisada si existe y señala lo pendiente |
 | «Usa esas fuentes para otra pregunta» | Crea una nueva investigación con el material verificado |
 | «Algo falló, ayúdame» | Diagnostica lo ocurrido y conserva el trabajo guardado |
+| «Quiero revisar yo algunas citas» | Te muestra afirmaciones con su pasaje y su PDF y registra lo que concluyas |
+| «Actualiza mi investigación» | Repite la búsqueda conservando lo ya verificado y te dice qué cambió |
+| «Redacta esta sección con lo que encontraste» | Escribe solo con afirmaciones verificadas y comprueba cada marca |
 
 Si vuelves en una conversación nueva, indica el proyecto o la carpeta de la
 investigación. EZ consulta el historial; si hay varias candidatas, te pide elegir.

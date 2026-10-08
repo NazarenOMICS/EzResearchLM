@@ -187,6 +187,41 @@ def check_proposal(folder, args):
             'next_action': 'La revisión es válida. Impórtala con ez continue --review; EZ verificará cada afirmación con NotebookLM.'}
 
 
+def update_proposal(previous, question, context):
+    """A new contract that keeps the previous plan, scope and source policies for the same question."""
+    from copy import deepcopy
+    old = read_json(previous / 'research-contract.json')
+    if old['question']['original'] != question:
+        raise ContractError('--update conserva la pregunta. Para otra pregunta usa ez research --reuse.')
+    value = deepcopy(old)
+    value.update(contract_id=str(uuid4()), revision=1, created_at=now(), context=context)
+    value.pop('parent_contract_hash', None)
+    return value
+
+
+def verify_command(folder, args):
+    """A person reads delivered claims against their passages; EZ records the judgement."""
+    from .contracts import digest as hash_value
+    state = Store(folder).state()
+    answer = read_json(folder / 'answer.json') if (folder / 'answer.json').exists() else {}
+    if not answer.get('claims'):
+        raise ContractError('No hay afirmaciones entregadas para revisar.')
+    if args.claim:
+        if not args.judgement:
+            raise ContractError('Indica --judgement supported, partial o unsupported.')
+        with lock(folder):
+            code = Engine(folder).apply_human_check(args.claim, args.judgement, args.note)
+            emit(dict(Store(folder).state(), next_action='Revisión registrada. ' + ('La afirmación se retiró de la respuesta.'
+                      if args.judgement == 'unsupported' else 'La afirmación conserva su lugar con tu revisión.')), args.json)
+        return 0 if code in (0, 2) else code
+    checked = state.get('human_checks', {})
+    pending = sorted((c for c in answer['claims'] if c['id'] not in checked), key=lambda c: hash_value(c['id']))[:5]
+    emit({'kind': 'verify_sample', 'checked': len(checked), 'claims': pending,
+          'next_action': 'Lee cada pasaje en su PDF y registra: ez verify <corrida> --claim <id> --judgement supported|partial|unsupported.'},
+         args.json)
+    return 0
+
+
 def draft_command(folder, args):
     """Read-only: the verified claims to write from, or a check of a draft that cites them as [EZ:<id>]."""
     from .deliver import check_draft
@@ -222,11 +257,13 @@ def main(argv=None):
     p = sub.add_parser('setup', help='Preparar el entorno y comprobar el acceso.'); p.add_argument('--check', action='store_true'); p.add_argument('--install-notebooklm', action='store_true')
     p = sub.add_parser('context', help='Guardar preferencias y consultar investigaciones anteriores.'); p.add_argument('--project', default='general'); p.add_argument('--set', nargs=2, action='append', metavar=('FIELD', 'VALUE'))
     p = sub.add_parser('research', help='Iniciar una investigación con una pregunta.'); p.add_argument('question'); p.add_argument('--project', default='general'); p.add_argument('--plan-only', action='store_true'); p.add_argument('--contract', type=Path); p.add_argument('--reuse'); p.add_argument('--require-complete', action='store_true')
+    p.add_argument('--update', metavar='CORRIDA', help='Actualizar una investigación anterior: reutiliza sus PDFs verificados, su plan y sus decisiones.')
     p = sub.add_parser('continue', help='Retomar una investigación guardada.'); p.add_argument('run'); p.add_argument('--contract', type=Path); p.add_argument('--accept-policy-change', action='store_true'); p.add_argument('--review', type=Path); p.add_argument('--require-complete', action='store_true')
     p.add_argument('--screening', type=Path, help='Decisiones del anfitrión sobre los candidatos de screening-request.json.')
     p.add_argument('--check', action='store_true', help='Validar la propuesta o la revisión sin modificar la corrida ni consultar servicios.')
     p = sub.add_parser('status', help='Ver el avance y el siguiente paso.'); p.add_argument('run'); p.add_argument('--answer', action='store_true')
     p = sub.add_parser('draft', help='Ver las afirmaciones verificadas para redactar o comprobar un borrador.'); p.add_argument('run'); p.add_argument('--check', type=Path, metavar='BORRADOR')
+    p = sub.add_parser('verify', help='Revisar en persona afirmaciones entregadas.'); p.add_argument('run'); p.add_argument('--claim'); p.add_argument('--judgement', choices=['supported', 'partial', 'unsupported']); p.add_argument('--note')
     p = sub.add_parser('doctor', help='Diagnosticar problemas de una investigación.'); p.add_argument('run'); p.add_argument('--migration-preview', action='store_true'); p.add_argument('--migrate', metavar='PREVIEW_HASH'); p.add_argument('--remote', action='store_true'); p.add_argument('--metrics', action='store_true')
     p = sub.add_parser('rescue', help='Ver documentos pendientes o incorporar un PDF.'); p.add_argument('run'); p.add_argument('--import', dest='import_pdf'); p.add_argument('--source'); p.add_argument('--confirm-identity', action='store_true'); p.add_argument('--retry', action='store_true')
     p.add_argument('--origin'); p.add_argument('--origin-provider', choices=['repository', 'institution', 'publisher', 'user_import']); p.add_argument('--license'); p.add_argument('--source-version')
@@ -268,6 +305,12 @@ def main(argv=None):
             cpath = context_path(root, args.project)
             context = read_json(cpath) if cpath.exists() else {'language': 'es', 'project': args.project}
             proposal = read_json(args.contract) if args.contract else None
+            previous = None
+            if args.update:
+                if args.contract or args.reuse:
+                    raise ContractError('--update ya reutiliza el plan y las fuentes; no lo combines con --contract ni --reuse.')
+                previous = Path(args.update).resolve() if Path(args.update).is_dir() else contained(root, args.update)
+                proposal = update_proposal(previous, args.question, context)
             if proposal and proposal['question']['original'] != args.question:
                 raise ContractError('La pregunta del contrato debe coincidir con la solicitada.')
             folder, state = create_run(root, args.question, context, proposal)
@@ -275,11 +318,23 @@ def main(argv=None):
                 with lock(folder):
                     state['require_complete'] = True
                     state = Store(folder).update(state)
-            if args.reuse:
+            if args.reuse or previous:
                 from .context import reuse_sources
-                origin = Path(args.reuse).resolve() if Path(args.reuse).is_dir() else contained(root, args.reuse)
+                origin = previous or (Path(args.reuse).resolve() if Path(args.reuse).is_dir() else contained(root, args.reuse))
                 reuse_sources(origin, folder)
                 state = Store(folder).state()
+            if previous:
+                with lock(folder):
+                    store = Store(folder); state = store.state()
+                    old_state = Store(previous).state()
+                    state['previous_run'] = {'run_id': old_state['run_id'], 'path': str(previous)}
+                    documents = {}
+                    if (previous / 'answer.json').exists():
+                        documents['previous-answer.json'] = read_json(previous / 'answer.json')
+                    state = store.commit(state, documents)
+                emit(dict(state, path=str(folder), next_action='Actualización creada con el plan y las fuentes verificadas de '
+                          + old_state['run_id'] + '. Ajusta el plan con ez continue --contract si hace falta, o continúa.'), args.json)
+                return 0
             if args.plan_only or not proposal:
                 emit(dict(state, path=str(folder)), args.json)
                 return 0 if args.plan_only else 2
@@ -295,6 +350,8 @@ def main(argv=None):
                 return 0 if args.command in ('status', 'doctor') else 2
         if args.command == 'draft':
             return draft_command(folder, args)
+        if args.command == 'verify':
+            return verify_command(folder, args)
         if args.command in ('status', 'doctor'):
             if args.command == 'status' and not args.answer:
                 state = Store(folder).state()

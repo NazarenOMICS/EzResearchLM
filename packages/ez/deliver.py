@@ -66,12 +66,27 @@ def report_markdown(answer, contract, state):
                 key = (ref.get('source') or {}).get('source_id') or ref['source_id']
                 warning = ' (no se encontró literal en el texto indexado; revísalo en el PDF)' if ref.get('found_in_fulltext') is False else ''
                 lines.append(f'  - {ROLE.get(ref.get("role", "qa"), "Pasaje")} [{number[key]}]{warning}: «{ref["cited_text"]}»')
+            for item in claim.get('warnings', []):
+                if item['code'] == 'numbers_not_in_passages':
+                    lines.append(f'  - Aviso: los números {", ".join(item["values"])} no aparecen en los pasajes citados; verifícalos en el PDF.')
+            if claim.get('human_check'):
+                judgement = {'supported': 'respaldada', 'partial': 'respaldo parcial'}.get(claim['human_check']['judgement'],
+                                                                                           claim['human_check']['judgement'])
+                lines.append(f'  - Revisión humana: {judgement}.')
         if not claims:
             lines.append('- Sin afirmaciones verificadas.')
         if scope['id'] in gaps:
             for cause in gaps[scope['id']]['causes']:
                 detail = f' ({cause["title"]})' if cause.get('title') else ''
                 lines.append(f'- Pendiente: {GAP_LABELS.get(cause["cause"], cause["cause"])}{detail}.')
+        lines.append('')
+    if answer.get('changes'):
+        changes = answer['changes']
+        lines += ['## Cambios respecto de la versión anterior', '',
+                  f'Versión anterior: `{changes.get("previous_run")}`. Afirmaciones nuevas: {len(changes["new"])}; '
+                  f'se mantienen: {len(changes["kept"])}; ya no se sostienen: {len(changes["dropped"])}.', '']
+        lines += [f'- Ya no se sostiene: {c["text"]}' for c in changes['dropped']]
+        lines += [f'- Fuente nueva: {title}' for title in changes.get('new_sources', [])]
         lines.append('')
     if answer.get('withheld_claims'):
         lines += ['## Qué no se pudo afirmar', '']

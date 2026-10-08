@@ -17,6 +17,14 @@ from .notebook_format import valid_response
 from .state import Store, atomic_json, read_json
 
 
+def numbers_missing(text, passages):
+    """Numbers stated in a claim that appear in none of its passages (decimal comma or point)."""
+    def numbers(value):
+        return {n.replace(',', '.') for n in re.findall(r'(?<![\w.])\d+(?:[.,]\d+)?(?![\w])', value)}
+    found = set().union(*(numbers(p) for p in passages)) if passages else set()
+    return sorted(numbers(text) - found)
+
+
 class Pause(Exception):
     def __init__(self, reason, message, code=2):
         self.reason, self.message, self.code = reason, message, code
@@ -567,6 +575,42 @@ class Engine:
             ref['found_in_fulltext'] = found_in(ref['cited_text'], snapshot['content']) if snapshot else None
         return self.bibliography(refs)
 
+    def human_check(self, claim):
+        """A person's judgement binds the claim only while its text is unchanged."""
+        check = self.state.get('human_checks', {}).get(claim['id'])
+        return check if check and check.get('claim_hash') == digest(claim['text']) else None
+
+    def changes(self, delivered):
+        """What an update added, kept or dropped compared with the previous run's delivered claims."""
+        path = self.folder / 'previous-answer.json'
+        if not path.exists():
+            return None
+        from .audit import normalize_text
+        previous = read_json(path)
+        key = lambda claim: normalize_text(claim['text']).casefold()
+        before = {key(c): c for c in previous.get('claims', [])}
+        now = {key(c): c for c in delivered}
+        new_sources = sorted({s.get('title') or s['source_id'] for s in self.sources if s.get('notebook_status') == 'ready'
+                              and not s.get('reused_from')})
+        return {'previous_run': self.state.get('previous_run', {}).get('run_id'),
+                'new': [c['id'] for k, c in now.items() if k not in before],
+                'kept': [c['id'] for k, c in now.items() if k in before],
+                'dropped': [{'id': c['id'], 'text': c['text']} for k, c in before.items() if k not in now],
+                'new_sources': new_sources}
+
+    def apply_human_check(self, claim_id, judgement, note=None):
+        """Record a person's reading of a delivered claim; an unsupported judgement withdraws it."""
+        answer = read_json(self.folder / 'answer.json')
+        claim = next((c for c in answer.get('claims', []) if c['id'] == claim_id), None)
+        if claim is None:
+            raise ContractError('Solo se pueden revisar afirmaciones entregadas en la respuesta vigente.')
+        check = {'judgement': judgement, 'note': note or '', 'actor': 'user', 'at': now(), 'claim_hash': digest(claim['text'])}
+        checks = dict(self.state.get('human_checks', {}), **{claim_id: check})
+        self.store.append('decision', {'kind': 'human_check', 'actor': 'user', 'claim_id': claim_id, 'judgement': judgement})
+        self.state['human_checks'] = checks
+        review = read_json(self.folder / 'reviews' / (self.state['review_hash'] + '.json'))
+        return self.finalize(review)
+
     NO_ACCESS = {'paywall', 'access_denied', 'auth_required', 'captcha_or_challenge'}
 
     def gaps(self, result, review, withheld):
@@ -641,8 +685,18 @@ class Engine:
         for claim in claims:
             verdict = verdicts[claim['id']]
             summary = {k: claim[k] for k in ('id', 'text', 'scope_ids', 'question_id', 'citation_numbers')}
-            if verdict['verdict'] == 'supported' and not verdict.get('reason'):
-                verified.append(dict(claim, references=self.evidence(claim, verdict), verification=verdict))
+            human = self.human_check(claim)
+            if human and human['judgement'] == 'unsupported':
+                withheld.append(dict(summary, reason='human_rejected', verification=verdict, human_check=human))
+                for scope in claim['scope_ids']:
+                    coverage[scope] = 'insufficient'
+            elif verdict['verdict'] == 'supported' and not verdict.get('reason'):
+                references = self.evidence(claim, verdict)
+                extra = {'human_check': human} if human else {}
+                missing = numbers_missing(claim['text'], [r['cited_text'] for r in references])
+                if missing:
+                    extra['warnings'] = [{'code': 'numbers_not_in_passages', 'values': missing}]
+                verified.append(dict(claim, references=references, verification=verdict, **extra))
             else:
                 withheld.append(dict(summary, reason=verdict.get('reason') or 'verdict_' + verdict['verdict'], verification=verdict))
                 for scope in claim['scope_ids']:
@@ -675,6 +729,7 @@ class Engine:
                   'review_hash': review_key, 'reviewer': review['reviewer'], **result, 'claims': delivered,
                   'withheld_claims': withheld, 'skipped_questions': skipped,
                   'gaps': self.gaps(result, review, withheld),
+                  'changes': self.changes(delivered),
                   'corpus_exclusions': self.state.get('corpus_exclusions', []),
                   'coverage': [dict(r, status=coverage[r['scope_id']]) for r in review['coverage']],
                   'audit_kind': 'mechanical_traceability_and_notebooklm_support', 'support_protocol': SUPPORT_PROTOCOL,
