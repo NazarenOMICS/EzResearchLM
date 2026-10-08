@@ -123,5 +123,31 @@ class OnboardingTests(unittest.TestCase):
         self.assertIn('1. [pendiente]', render(value))
 
 
+class ScorerTests(unittest.TestCase):
+    def test_the_gold_set_scorer_reads_a_run_and_reports_only_ids_and_counts(self):
+        import importlib.util
+        path = Path(__file__).resolve().parents[1] / 'gold_set_benchmark' / 'puntuar.py'
+        spec = importlib.util.spec_from_file_location('puntuar', path)
+        puntuar = importlib.util.module_from_spec(spec); spec.loader.exec_module(puntuar)
+        case = test_engine.EngineTests('run_engine')
+        case.setUp()
+        self.addCleanup(case.temp.cleanup)
+        case.run_engine(); case.run_engine(case.review())
+        with lock(case.folder):
+            store = Store(case.folder); state = store.state()
+            sources = read_json(case.folder / 'sources.json')
+            sources[0]['doi'] = '10.1099/mic.0.27804-0'
+            from ez.contracts import digest
+            state['sources_hash'] = digest(sources)
+            store.commit(state, {'sources.json': sources})
+        result = puntuar.score(case.folder, 'M2')
+        radmacher = next(a for a in result['articles'] if a[0] == '10.1099/mic.0.27804-0')
+        self.assertEqual(radmacher[2], 'en el corpus, no citado')
+        self.assertEqual(len(result['articles']), 10)
+        self.assertEqual(result['operation']['afirmaciones entregadas'], 1)
+        text = puntuar.markdown(result, 'M2', 'r')
+        self.assertNotIn('Afirmación de prueba', text)
+
+
 if __name__ == '__main__':
     unittest.main()
