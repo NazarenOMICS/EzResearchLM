@@ -61,7 +61,8 @@ def draft(question, context):
         'schema_version': '2.0', 'contract_id': str(uuid4()), 'revision': 1,
         'created_at': now(), 'question': {'original': question, 'language': context.get('language', 'es')},
         'context': context, 'scope': [{'id': 'sq1', 'question': question, 'central': True}],
-        'plan': {'status': 'needs_host_plan', 'queries': [], 'notebook_questions': [], 'stop_rule': ''},
+        # direct: NotebookLM's cited sentences; verified: host review plus a support query per claim.
+        'plan': {'status': 'needs_host_plan', 'delivery': 'direct', 'queries': [], 'notebook_questions': [], 'stop_rule': ''},
         'source_policies': [], 'acquisition': {'anna_enabled': False, 'consent_id': None},
         'budgets': {'run_seconds': 3600, 'source_seconds': 600, 'attempts_per_route': 3, 'max_sources': DEFAULT_MAX_SOURCES},
         'operator': {'name': 'EZ', 'backend': 'host_agent', 'model': 'unknown'},

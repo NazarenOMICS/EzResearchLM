@@ -35,7 +35,9 @@ def collect(folder):
             'verified_identity_count': sum(s.get('identity_status') == 'verified' for s in sources),
             'remote_ready_count': sum(s.get('notebook_status') == 'ready' for s in sources),
             'delivered_claim_count': len(claims),
-            'claims_with_traceability': sum(bool(c.get('references') and c.get('verification', {}).get('sha256')) for c in claims),
+            'claims_with_traceability': sum(bool(c.get('references') and (c.get('verification', {}).get('sha256') or
+                                                                          c.get('verification', {}).get('mode') == 'direct'))
+                                            for c in claims),
             'external_calls': sum(e['kind'] == 'external_result' for e in events), 'external_failures': dict(failures),
             'notebooklm_questions': sum(e['kind'] == 'external_result' and e['payload'].get('command') == 'ask' for e in events),
             'local_integrity_verified': diagnosis['healthy'], 'unjustified_block': None,

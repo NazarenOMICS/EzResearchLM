@@ -1,12 +1,16 @@
 """Refactor v6: verified claims stand on their own, review slips are corrected, project notebooks are reused."""
+from contextlib import redirect_stdout
+from io import StringIO
 import json
 from pathlib import Path
 import unittest
 from unittest.mock import patch
 
+from ez.cli import main
+from ez.contracts import digest
 from ez.engine import NOTEBOOK_SOURCE_LIMIT, Engine
 from ez.process import Result
-from ez.state import lock, read_json
+from ez.state import Store, lock, read_json
 import test_engine
 import test_phase1
 
@@ -97,6 +101,94 @@ class NotebookReuseTests(unittest.TestCase):
                 self.assertEqual(self.service.create_count, 1)
                 library = read_json(Path(self.temp.name) / 'projects' / 'general' / 'notebooks.json')
                 self.assertEqual([n['notebook_id'] for n in library['notebooks']], ['old', 'nb1'])
+
+
+ANSWER = ('**Resultado:** la fuente describe un resultado experimental concreto [1].\n'
+          '* Esta oración no tiene cita y señala un límite del corpus disponible.')
+
+
+class DirectDeliveryTests(unittest.TestCase):
+    run_engine = test_engine.EngineTests.run_engine
+
+    def setUp(self):
+        test_engine.EngineTests.setUp(self)
+        with lock(self.folder):
+            store = Store(self.folder); state = store.state()
+            contract = read_json(self.folder / 'research-contract.json')
+            contract['plan']['delivery'] = 'direct'
+            state['contract_hash'] = digest(contract)
+            store.commit(state, {'research-contract.json': contract})
+        service = self.service
+        def answering(args, **kwargs):
+            result = service(args, **kwargs)
+            if args[1] == 'ask' and 'Evalúa si las fuentes' not in args[-2]:
+                value = json.loads(result.stdout); value['answer'] = ANSWER
+                return Result(0, json.dumps(value), '', None)
+            return result
+        answering.calls = service.calls
+        self.service = answering
+
+    def cli(self, *arguments):
+        output = StringIO()
+        with redirect_stdout(output), patch('ez.cli.load_environment'):
+            code = main(['--root', self.temp.name, *arguments, '--json'])
+        return code, json.loads(output.getvalue())
+
+    def test_direct_delivery_needs_no_review_and_no_second_query(self):
+        code, state = self.run_engine()
+        self.assertEqual(code, 0)
+        self.assertEqual(state['answer'], {'status': 'partial', 'scope_ids': ['sq1']})
+        report = read_json(self.folder / 'answer.json')
+        self.assertEqual((report['delivery'], report['support_protocol']), ('direct', 'ez-direct-v1'))
+        claim = report['claims'][0]
+        self.assertEqual((claim['id'], claim['text'], claim['citation_numbers']),
+                         ('qa1-1', 'Resultado: la fuente describe un resultado experimental concreto.', [1]))
+        self.assertEqual([(r['role'], r['source']['source_id']) for r in claim['references']], [('qa', 's1')])
+        self.assertEqual([n['text'] for n in report['uncited_statements']],
+                         ['Esta oración no tiene cita y señala un límite del corpus disponible.'])
+        self.assertEqual(sum(a[1] == 'ask' for a in self.service.calls), 1)
+        text = (self.folder / 'report.md').read_text(encoding='utf-8')
+        self.assertIn('Cómo se obtuvo', text)
+        self.assertIn('Lo que NotebookLM dijo sin citar', text)
+        from ez.metrics import collect
+        from ez.presenter import render
+        self.assertIn('describe un resultado experimental', render(report))
+        self.assertEqual(collect(self.folder)['claims_with_traceability'], 1)
+        self.assertTrue((self.folder / 'review-request.json').exists())
+        self.assertEqual(self.cli('draft', str(self.folder))[1]['claims'][0]['marker'], '[EZ:qa1-1]')
+        self.assertEqual(self.run_engine()[0], 0)
+        self.assertEqual(sum(a[1] == 'ask' for a in self.service.calls), 1)
+
+    def test_a_person_can_withdraw_a_direct_claim(self):
+        self.run_engine()
+        with patch('ez.engine.Engine.__init__.__defaults__', (self.service,)), patch('ez.engine.executable', return_value='notebooklm'):
+            code, _ = self.cli('verify', str(self.folder), '--claim', 'qa1-1', '--judgement', 'unsupported')
+        self.assertEqual(code, 0)
+        answer = read_json(self.folder / 'answer.json')
+        self.assertEqual((answer['claims'], answer['withheld_claims'][0]['reason']), ([], 'human_rejected'))
+
+    def test_a_review_switches_the_run_to_verified_delivery(self):
+        self.run_engine()
+        review = test_engine.EngineTests.review(self)
+        review['claims'][0]['text'] = 'La fuente describe un resultado experimental concreto.'
+        code, _ = self.run_engine(review)
+        self.assertEqual(code, 0)
+        report = read_json(self.folder / 'answer.json')
+        self.assertEqual((report.get('delivery'), report['support_protocol']), (None, 'ez-verdict-v5-grounded'))
+        self.assertEqual(sum('Evalúa si las fuentes' in a[-2] for a in self.service.calls if a[1] == 'ask'), 1)
+        # A later continue keeps the reviewed answer instead of returning to direct delivery.
+        self.assertEqual(self.run_engine()[0], 0)
+        self.assertEqual(read_json(self.folder / 'answer.json')['support_protocol'], 'ez-verdict-v5-grounded')
+
+
+class SentenceTests(unittest.TestCase):
+    def test_species_abbreviations_and_trailing_markers_stay_in_their_sentence(self):
+        from ez.audit import plain, sentences
+        text = ('* **Blanco:** en *C. glutamicum* el etambutol inhibe EmbC (Radmacher et al. 2005) [1, 2]. '
+                'Se observó hinchazón polar. [3]\n1. Ver Fig. 2 para M. tuberculosis [4].')
+        self.assertEqual([plain(s) for s in sentences(text)],
+                         ['Blanco: en C. glutamicum el etambutol inhibe EmbC (Radmacher et al. 2005).',
+                          'Se observó hinchazón polar.', 'Ver Fig. 2 para M. tuberculosis.'])
 
 
 if __name__ == '__main__':

@@ -12,6 +12,7 @@
     "plan": {"type": "object", "required": ["status", "queries", "notebook_questions", "stop_rule"], "properties": {
       "status": {"enum": ["needs_host_plan", "ready"]},
       "discovery_mode": {"enum": ["search", "reuse_only"]},
+      "delivery": {"enum": ["direct", "verified"]},
       "queries": {"type": "array", "items": {"$ref": "#/$defs/query"}},
       "notebook_questions": {"type": "array", "items": {"$ref": "#/$defs/question"}},
       "stop_rule": {"type": "string"}

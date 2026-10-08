@@ -9,7 +9,7 @@ import sys
 from uuid import uuid4
 
 from .contracts import ContractError, draft, validate, digest, now
-from .audit import SUPPORT_PROTOCOL
+from .audit import CURRENT_PROTOCOLS
 from .engine import Engine
 from .doctor import diagnose
 from .legacy import inspect_run, preview, migrate
@@ -230,7 +230,7 @@ def draft_command(folder, args):
         raise ContractError('Todavía no hay afirmaciones verificadas para redactar.')
     answer = read_json(folder / 'answer.json')
     if answer.get('contract_hash') != state['contract_hash'] or answer.get('corpus_hash') != state.get('corpus_hash') \
-            or answer.get('support_protocol') != SUPPORT_PROTOCOL:
+            or answer.get('support_protocol') not in CURRENT_PROTOCOLS:
         raise ContractError('La respuesta guardada no corresponde a la versión vigente; usa ez continue.')
     if args.check:
         result = check_draft(answer, Path(args.check).read_text(encoding='utf-8-sig'))
@@ -359,7 +359,7 @@ def main(argv=None):
                 if state.get('answer', {}).get('status') in ('complete', 'partial'):
                     answer_path = folder / 'answer.json'
                     report = read_json(answer_path) if answer_path.exists() else {}
-                    if report.get('support_protocol') != SUPPORT_PROTOCOL:
+                    if report.get('support_protocol') not in CURRENT_PROTOCOLS:
                         emit(dict(pending_passage_review(state), snapshot_only=True), args.json)
                         return 2
                 emit(dict(state, snapshot_only=True), args.json)
@@ -391,7 +391,7 @@ def main(argv=None):
                     report = read_json(folder / 'answer.json')
                     if report['contract_hash'] != state['contract_hash'] or report['corpus_hash'] != state['corpus_hash']:
                         raise ContractError('La respuesta guardada pertenece a otra versión.')
-                    if report.get('support_protocol') != SUPPORT_PROTOCOL:
+                    if report.get('support_protocol') not in CURRENT_PROTOCOLS:
                         emit(pending_passage_review(state), args.json)
                         return 2
                     emit(dict(report, report_path=str(folder / 'report.md')) if (folder / 'report.md').exists() else report, args.json)

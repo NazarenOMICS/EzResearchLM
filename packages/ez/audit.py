@@ -9,6 +9,9 @@ from .state import read_json
 
 
 SUPPORT_PROTOCOL = 'ez-verdict-v5-grounded'
+# Direct delivery: NotebookLM's cited sentences with their native passages, without a second query.
+DIRECT_PROTOCOL = 'ez-direct-v1'
+CURRENT_PROTOCOLS = {SUPPORT_PROTOCOL, DIRECT_PROTOCOL}
 VERIFICATION_BATCH_SIZE = 6
 VERIFICATION_PROMPT_LIMIT = 4000
 # A verdict without native citations is retried alone and may then be grounded by a literal quote.
@@ -142,6 +145,62 @@ def review_claims(review, state, contract, sources, answers, adjustments=None):
             adjustments.append({'scope_id': row['scope_id'], 'field': 'limitations', 'from': [], 'to': ['Sin detalle del revisor.']})
             row['limitations'] = ['Sin detalle del revisor.']
     return enriched
+
+
+MARKERS = re.compile(r'\s*\[[0-9][0-9,\s\-\u2013\u2014]*\]')
+
+
+ABBREVIATION = re.compile(r'(?:(?<![A-Za-z])[A-Z]|\bet al|\be\.g|\bi\.e|\bp\.\s?ej|\b[Ff]igs?|\bvs|\bca|\bcf|\bapprox|\baprox|'
+                          r'\b[Nn]o|\bsp|\bspp|\bsubsp|\bvar|\bref|\bDr|\bSr)\.(?=\s)')
+
+
+def sentences(answer):
+    """Sentences of a NotebookLM answer; citation markers after the period stay with their sentence.
+
+    Species abbreviations (C. glutamicum), et al., e.g. and similar never end a sentence.
+    """
+    for line in answer.splitlines():
+        line = re.sub(r'^\s*(?:#+|[-*\u2022]|\d+[.)])\s+', '', line).strip()
+        if not line:
+            continue
+        protected = ABBREVIATION.sub(lambda m: m[0][:-1] + '\u2024', line)
+        for part in re.split(r'(?<=[.!?])\s+(?=[^\[\s])', protected):
+            if part.strip():
+                yield part.strip().replace('\u2024', '.')
+
+
+def plain(sentence):
+    """Claim text: no citation markers and no Markdown emphasis."""
+    text = MARKERS.sub('', sentence).replace('**', '')
+    return re.sub(r'(?<![\w*])\*(?=\S)([^*]+?)(?<=\S)\*(?![\w*])', r'\1', text).strip(' :;')
+
+
+def direct_claims(question, response, sources, minimum=25):
+    """NotebookLM's own cited sentences as claims, each with the native passages of its markers."""
+    claims, uncited = [], []
+    for sentence in sentences(response.get('answer') or ''):
+        text = plain(sentence)
+        if len(text) < minimum:
+            continue
+        try:
+            markers = sorted(citation_markers(sentence))
+        except ContractError:
+            continue
+        numbers = []
+        for number in markers:
+            try:
+                references(response, sources, [number])
+                numbers.append(number)
+            except MissingPassage:
+                continue
+        if not numbers:
+            uncited.append(text)
+            continue
+        refs = references(response, sources, numbers)
+        claim_id = re.sub(r'[^A-Za-z0-9_-]', '-', question['id'])[:56] + '-' + str(len(claims) + 1)
+        claims.append({'id': claim_id, 'text': text, 'scope_ids': question['scope_ids'], 'question_id': question['id'],
+                       'citation_numbers': numbers, 'references': [refs[n] for n in numbers]})
+    return claims, uncited[:10]
 
 
 def verification_prompt(claims):

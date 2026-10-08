@@ -554,6 +554,8 @@ class Engine:
             current = None
         if current is None:
             atomic_json(request_path, template)
+        if self.contract['plan'].get('delivery') == 'direct':
+            return self.finalize_direct()
         excluded = len(self.state.get('corpus_exclusions', []))
         note = f' {excluded} fuentes quedaron fuera del corpus; ez rescue muestra cuáles y por qué.' if excluded else ''
         self.checkpoint('audit', execution={'status': 'waiting_user'}, legacy_signals=['NEEDS_QA_REVIEW'],
@@ -680,6 +682,8 @@ class Engine:
         checks = dict(self.state.get('human_checks', {}), **{claim_id: check})
         self.store.append('decision', {'kind': 'human_check', 'actor': 'user', 'claim_id': claim_id, 'judgement': judgement})
         self.state['human_checks'] = checks
+        if answer.get('delivery') == 'direct':
+            return self.finalize_direct()
         review = read_json(self.folder / 'reviews' / (self.state['review_hash'] + '.json'))
         return self.finalize(review)
 
@@ -792,16 +796,7 @@ class Engine:
         partial = sorted(delivered_scope - set(result['answer']['scope_ids']))
         if partial:
             result['answer']['partial_scope_ids'] = partial
-        answered = {a['entry']['question_id'] for a in answers.values()}
-        skipped = []
-        for question in self.contract['plan']['notebook_questions']:
-            if question['id'] in answered:
-                continue
-            policies = self.blocking_policies(question)
-            skipped.append({'question_id': question['id'], 'scope_ids': question['scope_ids'],
-                            'reason': 'policy_review_pending' if policies and all(p['policy'] == 'contextual' and not p.get('effective_policy')
-                                                                                for p in policies) else 'required_source_missing' if policies else 'not_asked',
-                            'source_ids': [p['source_id'] for p in policies]})
+        skipped = self.skipped_questions(answers)
         report = {'schema_version': '2.1', 'contract_hash': self.state['contract_hash'], 'corpus_hash': self.state['corpus_hash'],
                   'review_hash': review_key, 'reviewer': review['reviewer'], **result, 'claims': delivered,
                   'withheld_claims': withheld, 'skipped_questions': skipped,
@@ -812,9 +807,13 @@ class Engine:
                   'coverage': [dict(r, status=coverage[r['scope_id']]) for r in review['coverage']],
                   'audit_kind': 'mechanical_traceability_and_notebooklm_support', 'support_protocol': SUPPORT_PROTOCOL,
                   'release_validation': False}
+        return self.publish(report, delivered, result, review_key,
+                            'Respuesta y límites guardados en answer.json.' if delivered else
+                            'El corpus todavía no respalda una respuesta entregable. Revisa QA y fuentes.')
+
+    def publish(self, report, delivered, result, review_key, next_action):
         self.state.update(result, review_hash=review_key, phase='done' if delivered else 'audit',
-                          execution={'status': 'completed' if delivered else 'waiting_user'},
-                          next_action='Respuesta y límites guardados en answer.json.' if delivered else 'El corpus todavía no respalda una respuesta entregable. Revisa QA y fuentes.')
+                          execution={'status': 'completed' if delivered else 'waiting_user'}, next_action=next_action)
         self.store.commit(self.state, {'answer.json': report})
         from .deliver import report_markdown
         report_path = self.folder / 'report.md'
@@ -823,6 +822,65 @@ class Engine:
         os.replace(temporary, report_path)
         self.checkpoint(report_sha256=sha256(report_path.read_bytes()).hexdigest())
         return 0 if delivered and not (self.state.get('require_complete') and result['answer']['status'] != 'complete') else 2
+
+    def skipped_questions(self, answers):
+        skipped = []
+        answered = {a['entry']['question_id'] for a in answers.values()}
+        for question in self.contract['plan']['notebook_questions']:
+            if question['id'] in answered:
+                continue
+            policies = self.blocking_policies(question)
+            skipped.append({'question_id': question['id'], 'scope_ids': question['scope_ids'],
+                            'reason': 'policy_review_pending' if policies and all(p['policy'] == 'contextual' and not p.get('effective_policy')
+                                                                                for p in policies) else 'required_source_missing' if policies else 'not_asked',
+                            'source_ids': [p['source_id'] for p in policies]})
+        return skipped
+
+    def finalize_direct(self):
+        """Direct delivery: NotebookLM's own cited sentences, with their native passages, no second query."""
+        from .audit import DIRECT_PROTOCOL, direct_claims, load_answers
+        answers = load_answers(self.folder, self.state, self.contract, self.sources)
+        claims, notes = [], []
+        for question in self.contract['plan']['notebook_questions']:
+            if question['id'] in answers:
+                found, uncited = direct_claims(question, answers[question['id']]['response'], self.sources)
+                claims += found
+                notes += [{'question_id': question['id'], 'text': text} for text in uncited]
+        coverage = {s['id']: 'insufficient' for s in self.contract['scope']}
+        delivered, withheld = [], []
+        for claim in claims:
+            summary = {k: claim[k] for k in ('id', 'text', 'scope_ids', 'question_id', 'citation_numbers')}
+            human = self.human_check(claim)
+            if human and human['judgement'] == 'unsupported':
+                withheld.append(dict(summary, reason='human_rejected', human_check=human))
+                continue
+            references = self.bibliography([dict(r, role='qa') for r in claim['references']])
+            extra = {'human_check': human} if human else {}
+            missing = numbers_missing(claim['text'], [r['cited_text'] for r in references])
+            if missing:
+                extra['warnings'] = [{'code': 'numbers_not_in_passages', 'values': missing}]
+            delivered.append(dict(claim, references=references, verification={'mode': 'direct', 'grounding': 'notebooklm_qa_citations'}, **extra))
+            for scope in claim['scope_ids']:
+                coverage[scope] = 'sufficient'
+        result = evaluate(self.contract, self.sources, coverage, 'pass')
+        held = {s for s, v in coverage.items() if v == 'sufficient'} - set(result['answer']['scope_ids'])
+        withheld += [dict({k: c[k] for k in ('id', 'text', 'scope_ids', 'question_id', 'citation_numbers')}, reason='scope_withheld_by_policy')
+                     for c in delivered if set(c['scope_ids']) & held]
+        delivered = [c for c in delivered if not set(c['scope_ids']) & held]
+        rows = [{'scope_id': s['id'], 'status': coverage[s['id']] if s['id'] in result['answer']['scope_ids'] else 'insufficient',
+                 'rationale': 'Entrega directa de las citas de NotebookLM.', 'limitations': []} for s in self.contract['scope']]
+        report = {'schema_version': '2.1', 'delivery': 'direct', 'contract_hash': self.state['contract_hash'],
+                  'corpus_hash': self.state['corpus_hash'], 'review_hash': None, 'reviewer': {'kind': 'ez', 'name': 'EZ'},
+                  **result, 'claims': delivered, 'withheld_claims': withheld,
+                  'skipped_questions': self.skipped_questions(answers), 'gaps': self.gaps(result, {'coverage': rows}, withheld),
+                  'uncited_statements': notes, 'changes': self.changes(delivered),
+                  'corpus_exclusions': self.state.get('corpus_exclusions', []), 'review_adjustments': [], 'coverage': rows,
+                  'audit_kind': 'notebooklm_native_citations', 'support_protocol': DIRECT_PROTOCOL, 'release_validation': False}
+        return self.publish(report, delivered, result, None,
+                            'Respuesta directa guardada en report.md: oraciones de NotebookLM con sus pasajes citados. Para '
+                            'verificar cada afirmación por separado antes de redactar, completa review-request.json y usa '
+                            'ez continue --review.' if delivered else
+                            'NotebookLM no respondió con citas verificables. Revisa las preguntas QA o el corpus.')
 
     def execute(self, review=None, screening=None):
         try:

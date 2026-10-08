@@ -8,6 +8,12 @@ STATUS = {'complete': 'Respuesta completa para el alcance acordado.',
           'unavailable': 'Sin respuesta verificada todavía.'}
 ROLE = {'qa': 'Pasaje citado por NotebookLM', 'verification': 'Pasaje citado en la verificación',
         'verification_quote': 'Cita textual de la verificación, encontrada en la fuente'}
+METHOD = {'verified': '**Cómo se verificó:** cada afirmación proviene de una respuesta de NotebookLM sobre los PDFs del corpus y '
+                      'pasó una segunda consulta de respaldo a NotebookLM. Es una verificación automática: no reemplaza la lectura '
+                      'del pasaje en el PDF original.',
+          'direct': '**Cómo se obtuvo:** cada afirmación es una oración de NotebookLM respondiendo sobre los PDFs del corpus, '
+                    'con los pasajes que NotebookLM citó para ella. No pasó una segunda verificación por afirmación: lee el '
+                    'pasaje antes de usarla en tu texto.'}
 MARKER = re.compile(r'\[EZ:\s*([A-Za-z0-9_,\s-]+)\]')
 
 
@@ -51,9 +57,7 @@ def report_markdown(answer, contract, state):
     lines = ['# Informe de evidencia', '',
              f'**Pregunta:** {contract["question"]["original"]}', '',
              f'**Estado:** {STATUS.get(answer["answer"]["status"], answer["answer"]["status"])}', '',
-             '**Cómo se verificó:** cada afirmación proviene de una respuesta de NotebookLM sobre los PDFs del corpus y '
-             'pasó una segunda consulta de respaldo a NotebookLM. Es una verificación automática: no reemplaza la lectura '
-             'del pasaje en el PDF original.', '']
+             METHOD.get(answer.get('delivery'), METHOD['verified']), '']
     lines += ['## Respuesta por subpregunta', '']
     gaps = {g['scope_id']: g for g in answer.get('gaps', [])}
     for scope in contract['scope']:
@@ -92,6 +96,11 @@ def report_markdown(answer, contract, state):
         lines += ['## Qué no se pudo afirmar', '']
         lines += [f'- {c["text"]} — {REASON_LABELS.get(c["reason"], c["reason"])}.' for c in answer['withheld_claims']]
         lines.append('')
+    if answer.get('uncited_statements'):
+        lines += ['## Lo que NotebookLM dijo sin citar', '',
+                  'No es evidencia: NotebookLM no citó pasajes para estas oraciones. Suelen señalar límites del corpus.', '']
+        lines += [f'- {n["question_id"]}: {n["text"]}' for n in answer['uncited_statements']]
+        lines.append('')
     if answer.get('review_adjustments'):
         lines += ['## Correcciones automáticas de la revisión', '']
         for item in answer['review_adjustments']:
@@ -119,7 +128,7 @@ def report_markdown(answer, contract, state):
               f'- Corrida: `{state["run_id"]}`',
               f'- Contrato: `{answer["contract_hash"]}`',
               f'- Corpus: `{answer["corpus_hash"]}`',
-              f'- Revisión: `{answer["review_hash"]}`',
+              f'- Revisión: `{answer.get("review_hash") or "sin revisión (entrega directa)"}`',
               f'- Protocolo de verificación: `{answer.get("support_protocol")}`',
               '- Para redactar con estas afirmaciones, cita cada una con su marcador `[EZ:<id>]` y comprueba el borrador con '
               '`ez draft <corrida> --check <archivo>`.', '']
