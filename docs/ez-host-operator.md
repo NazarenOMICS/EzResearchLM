@@ -93,7 +93,13 @@ correcto comprueba archivos; no certifica una conclusión científica.
    cotejar título, identificadores y versión. La validación estructural no prueba
    identidad ni suficiencia. Una versión ya subida no se reemplaza silenciosamente.
    Si el agente realizó el cotejo, registrar `--confirm-identity --reviewer host_agent`;
-   no atribuir al usuario una revisión que hizo el agente.
+   no atribuir al usuario una revisión que hizo el agente. `--source` acepta varios IDs
+   separados por comas para confirmar en lote. Si el usuario tiene los PDFs en una
+   carpeta, `ez rescue <corrida> --import-folder <carpeta>` asigna cada uno a su fuente
+   cuando el PDF imprime su título y sus identificadores, y lista los que no pudo
+   asignar. Cada descarga fallida informa en `corpus_exclusions[].routes` qué rutas se
+   probaron; si aparece `unpaywall (missing_email)`, pedir al usuario un correo de
+   contacto y guardarlo con `ez setup --unpaywall-email <correo>`.
 8. Con `plan.delivery: "direct"`, EZ entrega al terminar la QA: cada oración de
    NotebookLM con al menos una cita con pasaje es una afirmación (`qa1-1`, `qa1-2`, …)
    con esos pasajes; las oraciones sin cita quedan aparte en `uncited_statements`, que
