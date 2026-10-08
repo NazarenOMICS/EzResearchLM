@@ -28,6 +28,20 @@ REASON_LABELS = {
     'routes_exhausted': 'ninguna ruta de acceso abierto funcionó',
     'source_budget_exhausted': 'se agotó el tiempo asignado a la fuente',
     'not_acquired': 'todavía no se intentó descargar',
+    'excluded_by_screening': 'excluida en el cribado',
+    'screening_uncertain': 'dudosa en el cribado; falta decidir',
+    'not_screened': 'todavía no se decidió si incluirla',
+    'duplicate_content': 'el PDF es idéntico al de otra fuente; revisar cuál corresponde',
+}
+GAP_LABELS = {
+    'no_access': 'falta una fuente obligatoria sin acceso abierto; puedes importar tu PDF',
+    'acquisition_failed': 'falta una fuente obligatoria sin PDF descargable; importa tu PDF o reintenta la descarga',
+    'identity_unconfirmed': 'una fuente obligatoria espera confirmar su identidad',
+    'excluded_by_screening': 'una fuente obligatoria fue excluida en el cribado',
+    'required_source_not_found': 'una fuente obligatoria no se encontró',
+    'policy_review_pending': 'hay una decisión pendiente sobre una fuente',
+    'claims_not_verified': 'las afirmaciones propuestas no pasaron la verificación',
+    'insufficient_evidence_in_corpus': 'el corpus no tiene evidencia suficiente para responderlo',
 }
 PHASE_LABELS = {
     'plan': 'Preparando la investigación', 'discover': 'Buscando fuentes',
@@ -76,7 +90,8 @@ def render(value):
     if value.get('kind') == 'user_guide':
         return value['text']
     if value.get('kind') == 'check':
-        return ('Comprobación sin cambios: ' + ('la propuesta' if value['target'] == 'contract' else 'la revisión') + ' es válida.\n'
+        return ('Comprobación sin cambios: ' + {'contract': 'la propuesta es válida', 'review': 'la revisión es válida',
+                                                'screening': 'el cribado es válido'}[value['target']] + '.\n'
                 'Siguiente paso: ' + value['next_action'])
     if 'can_notebook_qa' in value:
         lines.append('Preparación de EZ')
@@ -155,6 +170,12 @@ def render(value):
         lines.append('\nNo se pudo afirmar:')
         for claim in value['withheld_claims']:
             lines.append(f'- {claim["text"]} ({REASON_LABELS.get(claim["reason"], claim["reason"])})')
+    if value.get('gaps'):
+        lines.append('Qué falta y por qué:')
+        for gap in value['gaps']:
+            causes = '; '.join(GAP_LABELS.get(c['cause'], c['cause']) + (f' ({c["title"]})' if c.get('title') else '')
+                               for c in gap['causes'])
+            lines.append(f'- {gap["question"]}: {causes}')
     if value.get('skipped_questions'):
         lines.append('Preguntas no consultadas:')
         for question in value['skipped_questions']:
@@ -165,7 +186,8 @@ def render(value):
     if value.get('corpus_exclusions'):
         lines.append(f'Fuentes fuera del corpus: {len(value["corpus_exclusions"])}.')
         for source in value['corpus_exclusions'][:20]:
-            lines.append(f'- {source.get("title") or source["source_id"]}: {REASON_LABELS.get(source["reason"], source["reason"])}')
+            detail = f' ({source["detail"]})' if source.get('detail') else ''
+            lines.append(f'- {source.get("title") or source["source_id"]}: {REASON_LABELS.get(source["reason"], source["reason"])}{detail}')
     for row in value.get('coverage', []):
         if row['status'] != 'sufficient':
             lines.append('Pendiente (' + row['scope_id'] + '): ' + row['rationale'])
@@ -176,6 +198,8 @@ def render(value):
             action = 'Pídele a EZ que prepare el plan de esta investigación y continúe.'
         elif 'review-request.json' in action:
             action = 'EZ debe revisar las respuestas y citas de NotebookLM antes de entregarte el resultado.'
+        elif 'screening-request.json' in action:
+            action = 'EZ debe decidir qué candidatos son relevantes antes de descargarlos.'
         lines.append('Siguiente paso: ' + action)
     if value.get('login_command') and not value.get('can_notebook_qa'):
         lines.append('Acceso (tu agente puede abrirlo): ' + ' '.join('"' + x + '"' if ' ' in x else x for x in value['login_command']))

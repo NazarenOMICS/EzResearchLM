@@ -30,5 +30,6 @@ def collect(folder):
             'delivered_claim_count': len(claims),
             'claims_with_traceability': sum(bool(c.get('references') and c.get('verification', {}).get('sha256')) for c in claims),
             'external_calls': sum(e['kind'] == 'external_result' for e in events), 'external_failures': dict(failures),
+            'notebooklm_questions': sum(e['kind'] == 'external_result' and e['payload'].get('command') == 'ask' for e in events),
             'local_integrity_verified': diagnosis['healthy'], 'unjustified_block': None,
             'human_citation_review': None, 'authenticated_e2e_verified': None, 'sent_remotely': False}

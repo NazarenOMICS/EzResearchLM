@@ -371,29 +371,52 @@ def merge_records(best: dict[str, Any], candidate: dict[str, Any]) -> dict[str, 
     return primary
 
 
+def identifier_value(row: dict[str, Any], key: str) -> str:
+    value = str(row.get(key) or "").strip()
+    if key == "doi":
+        return normalize_doi(value)
+    if key == "pmid":
+        return re.sub(r"^pmid:?\s*", "", value.lower())
+    if key == "pmcid":
+        value = value.upper()
+        return ("PMC" + value) if value.isdigit() else value
+    return value.lower()
+
+
 def dedupe_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Deterministic and transitive: a DOI-only and a PMID-only record merge through a record with both."""
+    def order(row: dict[str, Any]) -> tuple:
+        return (identifier_value(row, "doi"), identifier_value(row, "pmid"), identifier_value(row, "pmcid"),
+                normalize_title(str(row.get("title") or "")), str(row.get("source") or ""), json.dumps(row, sort_keys=True, default=str))
     grouped: list[dict[str, Any]] = []
-    for record in records:
-        record['doi'] = normalize_doi(record.get('doi'))
+    for record in sorted(records, key=order):
+        record["doi"] = normalize_doi(record.get("doi"))
         match = next((i for i, previous in enumerate(grouped) if same_identity(previous, record)), None)
         if match is None:
             grouped.append(record)
         else:
             grouped[match] = merge_records(grouped[match], record)
+    changed = True
+    while changed:
+        changed = False
+        for i in range(len(grouped)):
+            j = next((j for j in range(i + 1, len(grouped)) if same_identity(grouped[i], grouped[j])), None)
+            if j is not None:
+                grouped[i] = merge_records(grouped[i], grouped.pop(j))
+                changed = True
+                break
     return grouped
 
 
 def same_identity(left: dict[str, Any], right: dict[str, Any]) -> bool:
     """Exact stable identifiers, never contradictory IDs or title-only similarity."""
-    ids = ('doi', 'pmid', 'pmcid')
-    def value(row, key):
-        return normalize_doi(row.get(key)) if key == 'doi' else str(row.get(key) or '').lower().strip()
-    shared = [key for key in ids if value(left, key) and value(right, key)]
+    ids = ("doi", "pmid", "pmcid")
+    shared = [key for key in ids if identifier_value(left, key) and identifier_value(right, key)]
     if shared:
-        return all(value(left, key) == value(right, key) for key in shared)
-    if any(value(row, key) for row in (left, right) for key in ids):
+        return all(identifier_value(left, key) == identifier_value(right, key) for key in shared)
+    if any(identifier_value(row, key) for row in (left, right) for key in ids):
         return False
-    fields = ('title', 'year', 'authors')
+    fields = ("title", "year", "authors")
     return all(left.get(key) and right.get(key) and normalize_title(str(left[key])) == normalize_title(str(right[key])) for key in fields)
 
 

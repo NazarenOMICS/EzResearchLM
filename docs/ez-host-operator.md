@@ -64,21 +64,30 @@ correcto comprueba archivos; no certifica una conclusión científica.
    El estado informa en `corpus_exclusions` qué fuentes quedaron fuera del corpus y
    por qué; explicarlo antes de revisar QA. Con `quota_exhausted`, NotebookLM llegó
    al límite de la cuenta: avisar y continuar más tarde, sin repetir el trabajo.
-6. Ante PDFs no disponibles, explicar qué alcance depende de ellos. Usar
+6. Después de la búsqueda, EZ se detiene con `NEEDS_SCREENING` y deja
+   `screening-request.json` con los candidatos (título, año, identificadores,
+   resumen). Decidir cada uno: `include` si es relevante para el alcance, `exclude`
+   si no lo es, `uncertain` si hace falta el criterio del usuario; siempre con una
+   razón breve. Consultar al usuario solo por los dudosos y por las fuentes
+   obligatorias. Validar con `ez continue <corrida> --screening <copia> --check --json`
+   e importar sin `--check`. Solo se descargan los incluidos, hasta
+   `budgets.max_sources` (40 por defecto; el plan gratuito de NotebookLM admite 50).
+   Las excluidas quedan registradas con su razón en `corpus_exclusions`.
+7. Ante PDFs no disponibles, explicar qué alcance depende de ellos. Usar
    `ez rescue <corrida> --json`, importar el archivo obtenido por el usuario con
    `--source <id> --import <pdf>` y confirmar identidad solamente después de
    cotejar título, identificadores y versión. La validación estructural no prueba
    identidad ni suficiencia. Una versión ya subida no se reemplaza silenciosamente.
    Si el agente realizó el cotejo, registrar `--confirm-identity --reviewer host_agent`;
    no atribuir al usuario una revisión que hizo el agente.
-7. Cuando QA termine, leer **completos** `qa/manifest.json` y sus respuestas. Revisar
+8. Cuando QA termine, leer **completos** `qa/manifest.json` y sus respuestas. Revisar
    pasajes, alcance y límites. `review-request.json` corresponde siempre al corpus
    vigente; si el corpus cambió, la plantilla anterior queda archivada como
    `review-request-<hash>.json` y no debe usarse. Preparar una copia según
    `packages/ez/schemas/qa-review.json`. Cada afirmación lleva pregunta QA,
    subpreguntas y números de cita presentes en NotebookLM. Marcar insuficiencia
    donde corresponda, aunque se hayan encontrado muchas fuentes.
-8. Validar la revisión con `ez continue <corrida> --review <revisión> --check --json`
+9. Validar la revisión con `ez continue <corrida> --review <revisión> --check --json`
    y luego importarla sin `--check`. EZ pregunta a NotebookLM, por lotes que respetan
    el límite de tamaño de la pregunta, si las fuentes de cada afirmación la respaldan;
    la pregunta no incluye los pasajes, para que NotebookLM los busque y los cite. Si un
@@ -93,11 +102,11 @@ correcto comprueba archivos; no certifica una conclusión científica.
    tiene errores (`review_invalid`) o corresponde a otro corpus (`review_outdated`),
    la corrida espera una revisión corregida; no es un fallo de integridad. El
    respaldo automatizado no equivale a revisión científica humana.
-9. Leer `ez status <corrida> --answer --json`. Entregar solamente el contenido
+10. Leer `ez status <corrida> --answer --json`. Entregar solamente el contenido
    habilitado, conservando referencias, omisiones y límites. Cada referencia trae en
    `source` el título, los identificadores, el archivo y su hash: citarlos desde ahí,
-   no desde memoria. Informar también `withheld_claims`, `skipped_questions` y
-   `corpus_exclusions`. Decir claramente
+   no desde memoria. Informar también `gaps` (qué falta y por qué), `withheld_claims`,
+   `skipped_questions` y `corpus_exclusions`. Decir claramente
    cuándo la respuesta es parcial y qué falta para ampliarla. No completar huecos
    desde memoria ni usar resultados QMD como evidencia académica.
 

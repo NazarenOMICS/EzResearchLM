@@ -8,6 +8,10 @@ from uuid import uuid4
 from jsonschema import Draft202012Validator
 
 
+# NotebookLM's free plan accepts 50 sources per notebook; keep room for rescued PDFs.
+DEFAULT_MAX_SOURCES = 40
+
+
 class ContractError(ValueError):
     pass
 
@@ -59,7 +63,7 @@ def draft(question, context):
         'context': context, 'scope': [{'id': 'sq1', 'question': question, 'central': True}],
         'plan': {'status': 'needs_host_plan', 'queries': [], 'notebook_questions': [], 'stop_rule': ''},
         'source_policies': [], 'acquisition': {'anna_enabled': False, 'consent_id': None},
-        'budgets': {'run_seconds': 3600, 'source_seconds': 600, 'attempts_per_route': 3},
+        'budgets': {'run_seconds': 3600, 'source_seconds': 600, 'attempts_per_route': 3, 'max_sources': DEFAULT_MAX_SOURCES},
         'operator': {'name': 'EZ', 'backend': 'host_agent', 'model': 'unknown'},
     }
 

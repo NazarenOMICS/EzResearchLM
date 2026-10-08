@@ -87,11 +87,20 @@ las corridas reales del 2026-10-07 NotebookLM respondió sin citas nativas y no 
 entregó ninguna afirmación. Por eso v5 vuelve a la pregunta sin pasajes, el formato con
 el que se entregaron afirmaciones en la primera prueba real.
 
+Antes de adquirir, el anfitrión decide cada candidato en una copia de
+`screening-request.json` (`include`, `exclude` o `uncertain`, con razón) y la importa
+con `ez continue --screening`. El cribado debe corresponder al `sources_hash` vigente
+y no puede superar `budgets.max_sources` (40 por defecto). Una fuente ya subida a
+NotebookLM no se excluye en la misma corrida. Las fuentes obligatorias del contrato
+entran incluidas.
+
 `answer.json` (esquema 2.1) agrega a cada referencia el objeto `source` con título,
 autores, año, DOI/PMID/PMCID, hash y ruta del PDF y origen. También registra
 `withheld_claims` (afirmaciones retenidas y su motivo), `skipped_questions`
 (preguntas QA no consultadas por una política) y `corpus_exclusions` (fuentes que
-quedaron fuera del corpus). Las respuestas de protocolos anteriores se muestran como
+quedaron fuera del corpus) y `gaps`, que explica por cada alcance sin respuesta si
+falta acceso a una fuente, falló su descarga, espera identidad, no pasó la
+verificación o el corpus no alcanza. Las respuestas de protocolos anteriores se muestran como
 pendientes de una nueva verificación.
 
 Los marcadores individuales, agrupados y por rango (`[1]`, `[1, 2]`, `[3–5]`)

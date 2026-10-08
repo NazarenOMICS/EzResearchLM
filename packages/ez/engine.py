@@ -53,7 +53,8 @@ class Engine:
         if remaining <= 0:
             raise Pause('budget_exhausted', 'Se agotó el presupuesto de tiempo de la corrida.', 3)
         result = self.runner(argv, timeout=min(seconds, remaining), cwd=self.folder)
-        self.store.append('external_result', {'operation': str(argv[0]), 'exit_code': result.returncode, 'reason': result.reason})
+        self.store.append('external_result', {'operation': str(argv[0]), 'command': str(argv[1]) if len(argv) > 1 else None,
+                                              'exit_code': result.returncode, 'reason': result.reason})
         return result
 
     def notebook(self, args, seconds=60):
@@ -176,7 +177,8 @@ class Engine:
                     if not existing.get(key) and record.get(key):
                         existing[key] = record[key]
                 continue
-            self.sources.append(dict(record, source_id=source_id, acquisition_status='pending', identity_status='unknown', validation_status='unknown', notebook_status='pending'))
+            self.sources.append(dict(record, source_id=source_id, acquisition_status='pending', identity_status='unknown',
+                                     validation_status='unknown', notebook_status='pending', screening='pending'))
         # Explicitly identified obligations remain acquisition candidates even
         # when the discovery provider returned no match for the broad queries.
         for policy in self.contract['source_policies']:
@@ -186,15 +188,70 @@ class Engine:
                 continue
             source = {k: policy[k] for k in ('source_id', 'title', 'doi', 'pmid', 'pmcid', 'pmc_version') if policy.get(k)}
             source.update(acquisition_status='pending', identity_status='unknown', validation_status='unknown', notebook_status='pending',
-                          discovery_origin='explicit_contract_requirement')
+                          discovery_origin='explicit_contract_requirement', screening='include',
+                          screening_reason='Fuente obligatoria del contrato.')
             self.sources.append(source)
         self.save_sources()
         self.checkpoint(discovery_complete=True)
 
+    def max_sources(self):
+        from .contracts import DEFAULT_MAX_SOURCES
+        return self.contract['budgets'].get('max_sources', DEFAULT_MAX_SOURCES)
+
+    def screen(self, screening=None):
+        """Only candidates the host includes are acquired; every decision keeps its reason as provenance."""
+        if screening is not None:
+            self.apply_screening(screening)
+        pending = [s for s in self.sources if s.get('screening') == 'pending']
+        if not pending:
+            return
+        request = {'schema_version': '2.0', 'sources_hash': self.state['sources_hash'], 'max_sources': self.max_sources(),
+                   'already_included': sum(s.get('screening', 'include') == 'include' for s in self.sources),
+                   'candidates': [{k: s.get(k) for k in ('source_id', 'title', 'authors', 'year', 'journal', 'doi', 'pmid',
+                                                         'pmcid', 'sources', 'queries') if s.get(k)}
+                                  | ({'abstract': s['abstract'][:800]} if s.get('abstract') else {}) for s in pending],
+                   'decisions': []}
+        atomic_json(self.folder / 'screening-request.json', request)
+        raise Pause('NEEDS_SCREENING', f'Hay {len(pending)} candidatos por decidir. El agente anfitrión debe completar una copia de '
+                    'screening-request.json con include, exclude o uncertain y una razón por candidato; luego usar '
+                    'ez continue --screening.', 2)
+
+    def apply_screening(self, screening, dry_run=False):
+        from .audit import ReviewError
+        if not isinstance(screening, dict) or screening.get('schema_version') != '2.0' or not isinstance(screening.get('decisions'), list):
+            raise ReviewError('screening_invalid', 'El cribado debe tener schema_version 2.0 y una lista decisions.')
+        if screening.get('sources_hash') != self.state.get('sources_hash'):
+            raise ReviewError('screening_outdated', 'El cribado corresponde a otra versión de las fuentes. Usa el screening-request.json vigente.')
+        by_id = {s['source_id']: s for s in self.sources}
+        decided = {}
+        for row in screening['decisions']:
+            if not isinstance(row, dict) or row.get('source_id') not in by_id or row['source_id'] in decided:
+                raise ReviewError('screening_invalid', f'Decisión inválida o repetida: {row!r:.120}')
+            if row.get('decision') not in ('include', 'exclude', 'uncertain') or not str(row.get('reason') or '').strip():
+                raise ReviewError('screening_invalid', f'La fuente {row["source_id"]} necesita decision include, exclude o uncertain y una razón.')
+            source = by_id[row['source_id']]
+            if source.get('notebook_source_id') and row['decision'] != 'include':
+                raise ReviewError('screening_invalid', f'{row["source_id"]} ya está en NotebookLM; excluirla requiere una corrida nueva.')
+            decided[row['source_id']] = row
+        included = {s['source_id'] for s in self.sources if s.get('screening', 'include') == 'include'}
+        included = (included - {i for i, r in decided.items() if r['decision'] != 'include'}) | \
+            {i for i, r in decided.items() if r['decision'] == 'include'}
+        if len(included) > self.max_sources():
+            raise ReviewError('screening_invalid', f'Se incluirían {len(included)} fuentes y el límite es {self.max_sources()}. '
+                              'Excluye las menos relevantes o sube budgets.max_sources si tu plan de NotebookLM lo permite.')
+        if dry_run:
+            return {'decisions': len(decided), 'included': len(included)}
+        for source_id, row in decided.items():
+            by_id[source_id].update(screening=row['decision'], screening_reason=row['reason'].strip())
+        self.store.append('decision', {'kind': 'screening', 'actor': 'host_agent', 'screening_hash': digest(screening),
+                                       'decisions': len(decided)})
+        self.save_sources()
+
     def acquire(self):
         self.checkpoint('acquire')
         for index, source in enumerate(self.sources):
-            if source.get('validation_status') == 'valid' or source.get('acquisition_status') == 'manual_needed':
+            if source.get('validation_status') == 'valid' or source.get('acquisition_status') == 'manual_needed' \
+                    or source.get('screening', 'include') != 'include':
                 continue
             dest = contained(self.folder, 'acquisition/' + source['source_id'])
             dest.mkdir(parents=True, exist_ok=True)
@@ -206,13 +263,22 @@ class Engine:
                 acquired = read_json(result_path)
                 if acquired.get('source_id') != source['source_id'] or acquired.get('acquisition_input_hash') != digest(source):
                     raise ContractError('El resultado de adquisición no pertenece al intento actual.')
+                twin = next((s for s in self.sources if s['source_id'] != acquired['source_id'] and acquired.get('content_sha256')
+                             and s.get('content_sha256') == acquired['content_sha256']), None)
+                if twin:
+                    # The same bytes for two records usually means a landing page served another work's PDF.
+                    acquired.update(identity_status='needs_review', duplicate_of=twin['source_id'])
                 self.sources[index] = acquired
             else:
                 source.update(acquisition_status='manual_needed', failure_code=result.reason or 'acquisition_failed')
             self.save_sources()
 
     def upload(self):
-        verified = [s for s in self.sources if s.get('validation_status') == 'valid' and s.get('identity_status') == 'verified']
+        verified = [s for s in self.sources if s.get('validation_status') == 'valid' and s.get('identity_status') == 'verified'
+                    and s.get('screening', 'include') == 'include']
+        if len(verified) > self.max_sources():
+            raise Pause('corpus_limit', f'El corpus tendría {len(verified)} fuentes y el límite es {self.max_sources()}. '
+                        'Excluye fuentes con ez continue --screening antes de subirlas.', 2)
         if not verified:
             raise Pause('NEEDS_SOURCE_REVIEW' if any(s.get('validation_status') == 'valid' for s in self.sources) else 'NEEDS_CORPUS',
                         'Faltan PDFs validados y con identidad verificada. Usa ez rescue para revisar o importar fuentes.')
@@ -298,16 +364,22 @@ class Engine:
         """Sources that stayed outside the corpus, with the reason the user can act on."""
         result = []
         for source in self.sources:
-            if source.get('validation_status') == 'valid' and source.get('identity_status') == 'verified':
+            screening = source.get('screening', 'include')
+            if screening == 'include' and source.get('validation_status') == 'valid' and source.get('identity_status') == 'verified':
                 continue
-            if source.get('validation_status') == 'valid':
+            if screening != 'include':
+                reason = {'exclude': 'excluded_by_screening', 'uncertain': 'screening_uncertain'}.get(screening, 'not_screened')
+            elif source.get('duplicate_of'):
+                reason = 'duplicate_content'
+            elif source.get('validation_status') == 'valid':
                 reason = 'identity_unconfirmed'
             elif source.get('acquisition_status') == 'manual_needed':
                 reason = source.get('failure_code') or 'acquisition_failed'
             else:
                 reason = 'not_acquired'
             result.append({k: v for k, v in (('source_id', source['source_id']), ('title', source.get('title')),
-                                              ('doi', source.get('doi')), ('reason', reason)) if v})
+                                              ('doi', source.get('doi')), ('reason', reason),
+                                              ('detail', source.get('screening_reason') if screening != 'include' else None)) if v})
         return result
 
     def blocking_policies(self, question):
@@ -493,6 +565,46 @@ class Engine:
             ref['found_in_fulltext'] = found_in(ref['cited_text'], snapshot['content']) if snapshot else None
         return self.bibliography(refs)
 
+    NO_ACCESS = {'paywall', 'access_denied', 'auth_required', 'captcha_or_challenge'}
+
+    def gaps(self, result, review, withheld):
+        """Why each unanswered scope is unanswered: no access, failed download, unverified claims or thin evidence."""
+        by_id = {s['source_id']: s for s in self.sources}
+        rows = {r['scope_id']: r for r in review['coverage']}
+        answered = set(result['answer']['scope_ids'])
+        report = []
+        for scope in self.contract['scope']:
+            if scope['id'] in answered:
+                continue
+            causes = []
+            for blocker in result['blockers']:
+                if scope['id'] not in blocker['scope_ids']:
+                    continue
+                source = by_id.get(blocker['source_id'], {})
+                if blocker['reason'] == 'policy_review':
+                    cause = 'policy_review_pending'
+                elif not source:
+                    cause = 'required_source_not_found'
+                elif source.get('screening', 'include') != 'include':
+                    cause = 'excluded_by_screening'
+                elif source.get('validation_status') == 'valid':
+                    cause = 'identity_unconfirmed'
+                elif source.get('failure_code') in self.NO_ACCESS:
+                    cause = 'no_access'
+                else:
+                    cause = 'acquisition_failed'
+                causes.append({'cause': cause, 'source_id': blocker['source_id'], 'title': source.get('title'),
+                               'failure_code': source.get('failure_code')})
+            unverified = [c['id'] for c in withheld if scope['id'] in c['scope_ids'] and c['reason'] != 'scope_withheld_by_policy']
+            if unverified:
+                causes.append({'cause': 'claims_not_verified', 'claim_ids': unverified})
+            if not causes:
+                causes.append({'cause': 'insufficient_evidence_in_corpus',
+                               'limitations': rows.get(scope['id'], {}).get('limitations', [])})
+            report.append({'scope_id': scope['id'], 'question': scope['question'],
+                           'causes': [{k: v for k, v in c.items() if v not in (None, '', [])} for c in causes]})
+        return report
+
     def finalize(self, review):
         from .audit import SUPPORT_PROTOCOL, UNGROUNDED, check_review_version, load_answers, quote_grounding, review_claims
         check_review_version(review, self.state)
@@ -560,6 +672,7 @@ class Engine:
         report = {'schema_version': '2.1', 'contract_hash': self.state['contract_hash'], 'corpus_hash': self.state['corpus_hash'],
                   'review_hash': review_key, 'reviewer': review['reviewer'], **result, 'claims': delivered,
                   'withheld_claims': withheld, 'skipped_questions': skipped,
+                  'gaps': self.gaps(result, review, withheld),
                   'corpus_exclusions': self.state.get('corpus_exclusions', []),
                   'coverage': [dict(r, status=coverage[r['scope_id']]) for r in review['coverage']],
                   'audit_kind': 'mechanical_traceability_and_notebooklm_support', 'support_protocol': SUPPORT_PROTOCOL,
@@ -570,7 +683,7 @@ class Engine:
         self.store.commit(self.state, {'answer.json': report})
         return 0 if delivered and not (self.state.get('require_complete') and result['answer']['status'] != 'complete') else 2
 
-    def execute(self, review=None):
+    def execute(self, review=None, screening=None):
         try:
             if self.state.get('sources_hash') and digest(self.sources) != self.state['sources_hash']:
                 raise Pause('NEEDS_TRACEABILITY_REPAIR', 'El manifiesto de fuentes cambió fuera del registro.', 4)
@@ -578,6 +691,7 @@ class Engine:
                             blockers=[],
                             next_action='La investigación está en curso; el estado muestra el último punto guardado.')
             self.discover()
+            self.screen(screening)
             self.acquire()
             self.upload()
             return self.qa(review)

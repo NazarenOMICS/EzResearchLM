@@ -24,7 +24,7 @@
       "scope_ids": {"$ref": "#/$defs/scopes"}, "rationale": {"type": "string", "minLength": 1}, "locked_by_user": {"type": "boolean"}
     }}},
     "acquisition": {"type": "object", "required": ["anna_enabled", "consent_id"], "properties": {"anna_enabled": {"type": "boolean"}, "consent_id": {"type": ["string", "null"]}}},
-    "budgets": {"type": "object", "required": ["run_seconds", "source_seconds", "attempts_per_route"], "properties": {"run_seconds": {"type": "integer", "minimum": 1, "maximum": 86400}, "source_seconds": {"type": "integer", "minimum": 1, "maximum": 3600}, "attempts_per_route": {"type": "integer", "minimum": 1, "maximum": 3}}},
+    "budgets": {"type": "object", "required": ["run_seconds", "source_seconds", "attempts_per_route"], "properties": {"run_seconds": {"type": "integer", "minimum": 1, "maximum": 86400}, "source_seconds": {"type": "integer", "minimum": 1, "maximum": 3600}, "attempts_per_route": {"type": "integer", "minimum": 1, "maximum": 3}, "max_sources": {"type": "integer", "minimum": 1, "maximum": 300}}},
     "operator": {"type": "object", "required": ["name", "backend", "model"], "properties": {"name": {"const": "EZ"}, "backend": {"const": "host_agent"}, "model": {"type": "string"}}}
   },
   "$defs": {

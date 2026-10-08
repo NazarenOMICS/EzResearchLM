@@ -160,8 +160,12 @@ def rescue(folder, args):
 
 def check_proposal(folder, args):
     """Dry run: report what an import would reject, without writing or calling services."""
-    if bool(args.contract) == bool(args.review):
-        raise ContractError('Usa --check con --contract o con --review.')
+    if sum(bool(x) for x in (args.contract, args.review, args.screening)) != 1:
+        raise ContractError('Usa --check con --contract, --review o --screening.')
+    if args.screening:
+        result = Engine(folder).apply_screening(read_json(args.screening), dry_run=True)
+        return {'kind': 'check', 'target': 'screening', 'valid': True, **result,
+                'next_action': 'El cribado es válido. Impórtalo con ez continue --screening.'}
     if args.contract:
         value = import_contract(folder, args.contract, args.accept_policy_change, dry_run=True)
         try:
@@ -197,6 +201,7 @@ def main(argv=None):
     p = sub.add_parser('context', help='Guardar preferencias y consultar investigaciones anteriores.'); p.add_argument('--project', default='general'); p.add_argument('--set', nargs=2, action='append', metavar=('FIELD', 'VALUE'))
     p = sub.add_parser('research', help='Iniciar una investigación con una pregunta.'); p.add_argument('question'); p.add_argument('--project', default='general'); p.add_argument('--plan-only', action='store_true'); p.add_argument('--contract', type=Path); p.add_argument('--reuse'); p.add_argument('--require-complete', action='store_true')
     p = sub.add_parser('continue', help='Retomar una investigación guardada.'); p.add_argument('run'); p.add_argument('--contract', type=Path); p.add_argument('--accept-policy-change', action='store_true'); p.add_argument('--review', type=Path); p.add_argument('--require-complete', action='store_true')
+    p.add_argument('--screening', type=Path, help='Decisiones del anfitrión sobre los candidatos de screening-request.json.')
     p.add_argument('--check', action='store_true', help='Validar la propuesta o la revisión sin modificar la corrida ni consultar servicios.')
     p = sub.add_parser('status', help='Ver el avance y el siguiente paso.'); p.add_argument('run'); p.add_argument('--answer', action='store_true')
     p = sub.add_parser('doctor', help='Diagnosticar problemas de una investigación.'); p.add_argument('run'); p.add_argument('--migration-preview', action='store_true'); p.add_argument('--migrate', metavar='PREVIEW_HASH'); p.add_argument('--remote', action='store_true'); p.add_argument('--metrics', action='store_true')
@@ -331,7 +336,8 @@ def main(argv=None):
                 return 2
             engine = Engine(folder)
             review = read_json(args.review) if args.command == 'continue' and args.review else None
-            result = engine.execute(review)
+            screening = read_json(args.screening) if args.command == 'continue' and args.screening else None
+            result = engine.execute(review, screening)
             emit(engine.state, args.json)
             return result
     except (ContractError, ValueError, OSError, KeyError) as exc:
