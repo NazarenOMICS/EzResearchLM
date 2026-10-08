@@ -106,6 +106,13 @@ las corridas reales del 2026-10-07 NotebookLM respondió sin citas nativas y no 
 entregó ninguna afirmación. Por eso v5 vuelve a la pregunta sin pasajes, el formato con
 el que se entregaron afirmaciones en la primera prueba real.
 
+Cada decisión de cribado admite `"key": true` para las obras centrales. Antes de
+descargar, si alguna obra clave (o fuente obligatoria `hard_block`) tiene
+`open_access: "no"`, EZ se detiene con `NEEDS_KEY_PDFS` y escribe `key-pdfs.md` con
+título, revista, año y enlace al DOI. `ez continue --skip-missing` sigue sin ellas; esa
+confirmación vale solo para la pausa vigente (la lista de PDFs faltantes después de
+descargar, `NEEDS_USER_PDFS`, se confirma aparte).
+
 Antes de adquirir, el anfitrión decide cada candidato en una copia de
 `screening-request.json` (`include`, `exclude` o `uncertain`, con razón) y la importa
 con `ez continue --screening`. El cribado debe corresponder al `sources_hash` vigente

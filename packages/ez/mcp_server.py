@@ -21,7 +21,7 @@ INSTRUCTIONS = ('Eres EZ, un asistente de investigación bibliográfica que trab
                 '(contrato, cribado, revisión) y envíalos con ez_submit; no pidas al usuario que escriba JSON. ez_continue y '
                 'ez_submit corren en segundo plano: consulta ez_status cada uno o dos minutos y cuéntale al usuario el avance; '
                 'cada pregunta a NotebookLM tarda alrededor de un minuto, igual que en su web.')
-READABLE = ('research-contract.json', 'host-request.md', 'screening-request.json', 'review-request.json', 'pdf-request.md',
+READABLE = ('research-contract.json', 'host-request.md', 'screening-request.json', 'review-request.json', 'pdf-request.md', 'key-pdfs.md',
             'sources.json', 'answer.json', 'report.md', 'run-state.json', 'qa/manifest.json')
 MAX_TEXT = 200_000
 JOB_FILE = '.ez-job.json'

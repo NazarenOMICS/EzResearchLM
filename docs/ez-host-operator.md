@@ -31,7 +31,11 @@ qué pasó. Una pregunta por mensaje.
    dónde se va a buscar y la estimación que devuelve `ez continue --contract … --check`
    (consultas y minutos). Pide un «dale» explícito.
 5. **Durante la corrida**, avisa en una línea cada vez que EZ cambia de etapa y cuando la
-   persona tiene que actuar. En `NEEDS_USER_PDFS`, muéstrale `pdf-request.md` como lista
+   persona tiene que actuar. En `NEEDS_KEY_PDFS`, antes de descargar nada, muéstrale
+   `key-pdfs.md` tal cual: título en negrita, revista, año y enlace al DOI de cada artículo
+   clave sin acceso abierto, con las vías honestas para conseguirlo (acceso institucional,
+   préstamo interbibliotecario, pedido a los autores). Espera su respuesta: si los consigue,
+   importa la carpeta; si no, sigue con `--skip-missing`. En `NEEDS_USER_PDFS`, muéstrale `pdf-request.md` como lista
    (título, año y enlace) y pregúntale si tiene alguno; si no, sigue con `--skip-missing`.
 6. **Entrega.** Resume en 5 líneas lo central, di dónde está `report.md` y ofrece, como
    opciones numeradas: (1) verificar afirmaciones para redactar (`--verify`), (2) exportar
@@ -109,7 +113,9 @@ Las preguntas QA definen la respuesta. Plantea entre 3 y 5, una por subpregunta:
    `screening-request.json` con los candidatos (título, año, identificadores,
    resumen). Decidir cada uno: `include` si es relevante para el alcance, `exclude`
    si no lo es, `uncertain` si hace falta el criterio del usuario; siempre con una
-   razón breve. Consultar al usuario solo por los dudosos y por las fuentes
+   razón breve. Marca `"key": true` en los incluidos que son centrales para responder
+   (pocos: los que una persona del área citaría sí o sí). Cada candidato trae
+   `open_access` (`yes`, `no`, `unknown`); entre dos equivalentes, prefiere el abierto. Consultar al usuario solo por los dudosos y por las fuentes
    obligatorias. Validar con `ez continue <corrida> --screening <copia> --check --json`
    e importar sin `--check`. Solo se descargan los incluidos, hasta
    `budgets.max_sources` (40 por defecto; el plan gratuito de NotebookLM admite 50).

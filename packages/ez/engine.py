@@ -285,8 +285,8 @@ class Engine:
                    'decisions': []}
         atomic_json(self.folder / 'screening-request.json', request)
         raise Pause('NEEDS_SCREENING', f'Hay {len(pending)} candidatos por decidir. El agente anfitrión debe completar una copia de '
-                    'screening-request.json con include, exclude o uncertain y una razón por candidato; luego usar '
-                    'ez continue --screening.', 2)
+                    'screening-request.json con include, exclude o uncertain y una razón por candidato, y "key": true en los '
+                    'que son centrales para responder; luego usar ez continue --screening.', 2)
 
     def open_access(self, pending):
         """Mark each candidate as open access or not, so screening can prefer PDFs EZ will be able to download."""
@@ -317,6 +317,8 @@ class Engine:
         for row in screening['decisions']:
             if not isinstance(row, dict) or row.get('source_id') not in by_id or row['source_id'] in decided:
                 raise ReviewError('screening_invalid', f'Decisión inválida o repetida: {row!r:.120}')
+            if row.get('key') not in (None, True, False):
+                raise ReviewError('screening_invalid', f'key debe ser true o false en {row["source_id"]}.')
             if row.get('decision') not in ('include', 'exclude', 'uncertain') or not str(row.get('reason') or '').strip():
                 raise ReviewError('screening_invalid', f'La fuente {row["source_id"]} necesita decision include, exclude o uncertain y una razón.')
             source = by_id[row['source_id']]
@@ -333,6 +335,8 @@ class Engine:
             return {'decisions': len(decided), 'included': len(included)}
         for source_id, row in decided.items():
             by_id[source_id].update(screening=row['decision'], screening_reason=row['reason'].strip())
+            if row['decision'] == 'include' and row.get('key') is True:
+                by_id[source_id]['key'] = True
         self.store.append('decision', {'kind': 'screening', 'actor': 'host_agent', 'screening_hash': digest(screening),
                                        'decisions': len(decided)})
         self.save_sources()
@@ -365,6 +369,34 @@ class Engine:
             else:
                 source.update(acquisition_status='manual_needed', failure_code=result.reason or 'acquisition_failed')
             self.save_sources()
+
+    def request_key_pdfs(self):
+        """Before downloading anything, name the key works with no open-access copy so the user can obtain them."""
+        if self.state.get('key_pdfs_acknowledged'):
+            return
+        required = {p['source_id'] for p in self.contract['source_policies'] if (p.get('effective_policy') or p['policy']) == 'hard_block'}
+        closed = [s for s in self.sources if (s.get('key') or s['source_id'] in required) and s.get('screening', 'include') == 'include'
+                  and s.get('open_access') == 'no' and s.get('validation_status') != 'valid']
+        if not closed:
+            return
+        rows = [{k: v for k, v in (('source_id', s['source_id']), ('title', s.get('title')), ('year', s.get('year')),
+                                   ('journal', s.get('journal')), ('doi', s.get('doi'))) if v} for s in closed]
+        lines = ['# Artículos clave sin acceso abierto', '',
+                 'Estos artículos son centrales para tu pregunta y no tienen una copia gratuita legal que EZ pueda descargar. '
+                 'Conviene conseguirlos antes de seguir: sin ellos, la respuesta puede quedar incompleta.', '',
+                 'Vías honestas para obtenerlos: el acceso de tu universidad o institución (entrando desde su red o su '
+                 'proxy), el préstamo interbibliotecario de tu biblioteca, o pedírselo por correo a los autores, que '
+                 'suelen enviarlo.', '']
+        for row in rows:
+            link = f'[https://doi.org/{row["doi"]}](https://doi.org/{row["doi"]})' if row.get('doi') else 'sin DOI registrado'
+            detail = ', '.join(str(row[k]) for k in ('journal', 'year') if row.get(k))
+            lines.append(f'- **{row.get("title") or row["source_id"]}**' + (f' ({detail})' if detail else '') + f' — {link}')
+        lines += ['', 'Guarda los PDFs en una carpeta y dile a EZ cuál es. Si no puedes conseguirlos, dile que siga sin ellos.']
+        atomic_json(self.folder / 'key-pdfs.json', {'schema_version': '1.0', 'closed_access': rows})
+        (self.folder / 'key-pdfs.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+        raise Pause('NEEDS_KEY_PDFS', f'{len(closed)} artículos clave no tienen acceso abierto; la lista con título y enlace al DOI está '
+                    'en key-pdfs.md. Muéstrasela al usuario antes de seguir. Si los consigue, impórtalos con ez rescue '
+                    '--import-folder y continúa; si no, continúa con ez continue --skip-missing.', 2)
 
     def request_pdfs(self):
         """Ask once, before anything is uploaded, for the included works EZ could not download."""
@@ -1044,6 +1076,7 @@ class Engine:
                             next_action='La investigación está en curso; el estado muestra el último punto guardado.')
             self.discover()
             self.screen(screening)
+            self.request_key_pdfs()
             self.acquire()
             self.request_pdfs()
             self.upload()

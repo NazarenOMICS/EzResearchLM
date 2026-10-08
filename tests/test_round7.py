@@ -46,6 +46,48 @@ class OpenAccessTests(unittest.TestCase):
         self.assertEqual(len(session.urls), 1)
 
 
+class KeyPdfTests(unittest.TestCase):
+    setUp = test_screening.ScreeningTests.setUp
+    setUp_base = test_engine.EngineTests.setUp
+    runner = test_screening.ScreeningTests.runner
+
+    def screen(self, key_doi):
+        self.service.discovery_records = [{'title': 'Artículo abierto', 'doi': '10.1/aoa'},
+                                          {'title': 'Artículo central pago', 'doi': '10.1/paid', 'year': 2005}]
+        with lock(self.folder), patch('ez.engine.executable', return_value='notebooklm'):
+            Engine(self.folder, runner=self.runner).execute()
+        request = read_json(self.folder / 'screening-request.json')
+        decisions = [{'source_id': c['source_id'], 'decision': 'include', 'reason': 'Pertinente', 'key': c['doi'] == key_doi}
+                     for c in request['candidates']]
+        screening = {'schema_version': '2.0', 'sources_hash': request['sources_hash'], 'decisions': decisions}
+        with lock(self.folder), patch('ez.engine.executable', return_value='notebooklm'):
+            return Engine(self.folder, runner=self.runner).execute(screening=screening)
+
+    def test_a_closed_key_work_is_requested_before_any_download(self):
+        self.assertEqual(self.screen('10.1/paid'), 2)
+        state = read_json(self.folder / 'run-state.json')
+        self.assertEqual(state['legacy_signals'], ['NEEDS_KEY_PDFS'])
+        text = (self.folder / 'key-pdfs.md').read_text(encoding='utf-8')
+        self.assertIn('**Artículo central pago**', text)
+        self.assertIn('[https://doi.org/10.1/paid](https://doi.org/10.1/paid)', text)
+        self.assertIn('préstamo interbibliotecario', text)
+        self.assertEqual(self.acquired, [])
+        output = StringIO()
+        with redirect_stdout(output), patch('ez.cli.load_environment'), \
+                patch('ez.engine.Engine.__init__.__defaults__', (self.runner,)), patch('ez.engine.executable', return_value='notebooklm'):
+            main(['--root', self.temp.name, 'continue', str(self.folder), '--skip-missing', '--json'])
+        state = read_json(self.folder / 'run-state.json')
+        self.assertTrue(state['key_pdfs_acknowledged'])
+        self.assertFalse(state.get('missing_pdfs_acknowledged'))
+        self.assertEqual(len(self.acquired), 2)
+
+    def test_open_key_works_do_not_stop_the_run(self):
+        self.screen('10.1/aoa')
+        self.assertNotIn('NEEDS_KEY_PDFS', read_json(self.folder / 'run-state.json')['legacy_signals'])
+        self.assertFalse((self.folder / 'key-pdfs.md').exists())
+        self.assertEqual(len(self.acquired), 2)
+
+
 class PageTests(unittest.TestCase):
     def test_a_passage_is_found_on_its_page_despite_hyphenation_and_spacing(self):
         from ez.pages import find_page, page_text

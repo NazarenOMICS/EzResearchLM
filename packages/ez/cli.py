@@ -501,8 +501,11 @@ def main(argv=None):
             Store(folder).recover(repair=True)
             if args.command == 'continue' and args.skip_missing:
                 store = Store(folder); state = store.state()
-                store.append('decision', {'kind': 'continue_without_missing_pdfs', 'actor': 'user'})
-                state['missing_pdfs_acknowledged'] = True
+                # Acknowledges the pause in force: the key-work request before downloads, or the missing-PDF list after.
+                key_stage = 'NEEDS_KEY_PDFS' in state.get('legacy_signals', []) and not state.get('key_pdfs_acknowledged')
+                store.append('decision', {'kind': 'continue_without_key_pdfs' if key_stage else 'continue_without_missing_pdfs',
+                                          'actor': 'user'})
+                state['key_pdfs_acknowledged' if key_stage else 'missing_pdfs_acknowledged'] = True
                 store.update(state)
             if args.command == 'continue' and args.require_complete:
                 state = Store(folder).state()
