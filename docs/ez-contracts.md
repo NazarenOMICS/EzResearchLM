@@ -73,10 +73,19 @@ El anfitrión presenta `qa-review.json` con hashes del contrato y corpus, reviso
 cobertura por subpregunta y afirmaciones con IDs de preguntas y números de cita.
 Cada cita debe aparecer en la respuesta original de NotebookLM, referir a una
 fuente verificada y conservar un pasaje citado. El adaptador exige otra QA de
-NotebookLM sobre el respaldo completo de cada afirmación, en lotes de hasta seis
-afirmaciones por consulta (protocolo `ez-verdict-v4-batch`). Una respuesta de formato
-no reconocido, vacía o sin citas no cuenta como aprobación y retiene solo la
-afirmación afectada.
+NotebookLM sobre el respaldo completo de cada afirmación (protocolo
+`ez-verdict-v5-grounded`). La pregunta lleva solo las afirmaciones, en lotes de hasta
+seis y de no más de 4.000 caracteres; un lote rechazado por tamaño se divide. El
+dictamen `supported` se acepta si sus citas nativas apuntan a fuentes de la afirmación,
+o, cuando NotebookLM no devuelve citas ni preguntando por la afirmación sola, si su
+cita textual aparece literal en el texto indexado de una de esas fuentes. Una respuesta
+de formato no reconocido, vacía o sin respaldo comprobable no cuenta como aprobación y
+retiene solo la afirmación afectada.
+
+El protocolo v3 (septiembre de 2026) pegaba los pasajes propuestos en la pregunta; en
+las corridas reales del 2026-10-07 NotebookLM respondió sin citas nativas y no se
+entregó ninguna afirmación. Por eso v5 vuelve a la pregunta sin pasajes, el formato con
+el que se entregaron afirmaciones en la primera prueba real.
 
 `answer.json` (esquema 2.1) agrega a cada referencia el objeto `source` con título,
 autores, año, DOI/PMID/PMCID, hash y ruta del PDF y origen. También registra

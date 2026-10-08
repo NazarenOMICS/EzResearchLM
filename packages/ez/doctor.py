@@ -51,6 +51,10 @@ def diagnose(folder, remote=False):
             path = folder / 'verification' / (key + '.json')
             if not path.exists() or sha256(path.read_bytes()).hexdigest() != expected:
                 add('support_qa_changed', 'Una comprobación de respaldo falta o cambió después de registrarse.')
+        for key, expected in state.get('fulltext_receipts', {}).items():
+            path = folder / 'verification' / ('fulltext-' + key + '.json')
+            if not path.exists() or sha256(path.read_bytes()).hexdigest() != expected:
+                add('fulltext_changed', 'El texto indexado guardado de una fuente falta o cambió después de registrarse.')
         for key, expected in state.get('citation_resolution_receipts', {}).items():
             path = folder / 'citation-resolution' / (key + '.json')
             if not path.exists() or sha256(path.read_bytes()).hexdigest() != expected:

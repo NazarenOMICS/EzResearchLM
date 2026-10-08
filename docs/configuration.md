@@ -13,6 +13,8 @@ environment variables win over `.env` values.
 - `EZRESEARCH_SEARCH_ROOT`: where search metadata and downloaded/acquired PDFs
   are written. Defaults to `Search/` under the repository.
 - `NOTEBOOKLM_STORAGE_STATE`: NotebookLM browser auth storage path.
+- `SEMANTIC_SCHOLAR_API_KEY`: optional. Without it Semantic Scholar often answers
+  HTTP 429; EZ records that query as failed and continues with the other providers.
 
 Example:
 

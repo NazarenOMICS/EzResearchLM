@@ -33,6 +33,7 @@ class Service:
         self.notebooks = []
         self.discovery_records = []
         self.verification_passage = None
+        self.fulltext = 'Introducción. Pasaje de prueba, sin contenido académico real. Otro párrafo correcto de la misma fuente.'
 
     def __call__(self, args, **kwargs):
         self.calls.append(args)
@@ -60,6 +61,8 @@ class Service:
             value = {'source': {'id': remote_id}}
         elif args[1:3] == ['source', 'list']:
             value = {'sources': self.sources}
+        elif args[1:3] == ['source', 'fulltext']:
+            value = {'source_id': args[3], 'content': self.fulltext}
         elif args[1] == 'ask':
             verification = 'Evalúa si las fuentes' in args[-2]
             if verification:
@@ -132,19 +135,22 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(self.service.create_count, 1)
         self.assertEqual(self.service.upload_count, 1)
 
-    def test_verification_must_use_the_passages_proposed_for_delivery(self):
+    def test_verification_cites_the_sources_without_passages_in_the_question(self):
         self.run_engine()
         self.service.verification_passage = 'Otro párrafo correcto de la misma fuente.'
         code, state = self.run_engine(self.review())
-        self.assertEqual(code, 2)
-        self.assertEqual(state['answer']['status'], 'unavailable')
+        self.assertEqual(code, 0)
         report = read_json(self.folder / 'answer.json')
-        self.assertEqual(report['claims'], [])
-        self.assertEqual(report['withheld_claims'][0]['reason'], 'verification_passage_mismatch')
+        refs = report['claims'][0]['references']
+        # The delivered claim carries both the QA passage and the passage the verification cited.
+        self.assertEqual([(r['role'], r['cited_text']) for r in refs],
+                         [('qa', 'Pasaje de prueba, sin contenido académico real.'),
+                          ('verification', 'Otro párrafo correcto de la misma fuente.')])
+        self.assertTrue(all(r['found_in_fulltext'] for r in refs))
         prompt = next(args[-2] for args in reversed(self.service.calls) if args[1] == 'ask')
-        supplied = json.loads(prompt.rsplit('\n', 1)[-1])
-        self.assertEqual(supplied['claims'][0]['proposed_passages'], [{'source_id': 'remote1', 'citation_number': 1,
-                          'cited_text': 'Pasaje de prueba, sin contenido académico real.'}])
+        # Passages are not pasted into the question: NotebookLM must cite the sources itself.
+        self.assertNotIn('Pasaje de prueba', prompt)
+        self.assertEqual(json.loads(prompt.rsplit('\n', 1)[-1]), {'claims': [{'id': 'c1', 'claim': 'Afirmación de prueba'}]})
 
     def test_historical_verification_is_retained_but_not_reused(self):
         from ez.audit import SUPPORT_PROTOCOL, load_answers, review_claims

@@ -63,6 +63,8 @@ class Engine:
         result = self.call([command, *args, '--json'], seconds)
         if result.returncode:
             output = (result.stdout + result.stderr).lower()
+            if not result.reason and re.search(r'too large|too long|over-long|size limit', output):
+                raise Pause('question_too_long', 'NotebookLM rechazó la pregunta por su tamaño. Acórtala o divídela en preguntas más breves.', 2)
             if not result.reason and re.search(r'quota|rate.?limit|too many requests|resource.?exhausted|usage limit|daily limit|\b429\b', output):
                 raise Pause('quota_exhausted', 'NotebookLM alcanzó el límite de uso de tu cuenta. El trabajo quedó guardado; '
                             'continúa más tarde con ez continue.', 3)
@@ -121,6 +123,7 @@ class Engine:
         self.checkpoint('discover')
         import search_topic
         records = []
+        failures = []
         for index, query in enumerate(self.contract['plan']['queries']):
             dest = self.folder / 'discovery' / str(index)
             dest.mkdir(parents=True, exist_ok=True)
@@ -133,11 +136,21 @@ class Engine:
                 if not candidate_file.exists() or receipt.get('candidates_hash') != digest(read_json(candidate_file)):
                     raise Pause('NEEDS_TRACEABILITY_REPAIR', 'Los resultados de búsqueda no coinciden con su recibo.', 4)
             else:
-                result = self.call([sys.executable, '-m', 'ez.discovery', '--query', str(queries_file), '--output', str(candidate_file)], 180)
+                argv = [sys.executable, '-m', 'ez.discovery', '--query', str(queries_file), '--output', str(candidate_file)]
+                result = self.call(argv, 180)
                 if result.returncode or not candidate_file.exists():
-                    raise Pause('discovery_failed', 'Un proveedor no completó la búsqueda. Se conservaron los resultados anteriores.', 3)
+                    result = self.call(argv, 180)  # one retry: providers often fail transiently (e.g. HTTP 429)
+                if result.returncode or not candidate_file.exists():
+                    # One provider down must not stop the research; record it and continue with the others.
+                    failures.append({'query_id': query.get('id'), 'provider': query.get('provider'),
+                                     'reason': result.reason or 'provider_error'})
+                    continue
                 atomic_json(receipt_file, {'query_hash': digest(query), 'candidates_hash': digest(read_json(candidate_file)), 'at': now()})
             records.extend(read_json(candidate_file)['candidates'])
+        if failures and len(failures) == len(self.contract['plan']['queries']):
+            raise Pause('discovery_failed', 'Ningún proveedor completó la búsqueda. Se conservaron los resultados anteriores; '
+                        'reintenta con ez continue.', 3)
+        self.checkpoint(discovery_failures=failures)
         # Rescue imports and migrated sources may precede discovery. Never erase
         # their identity decisions or existing remote IDs when merging results.
         for record in search_topic.dedupe_records(records):
@@ -394,9 +407,94 @@ class Engine:
                         next_action='El agente anfitrión debe revisar QA y completar una copia de review-request.json; luego usar ez continue --review. Aún no hay respuesta aprobada.' + note)
         return 2
 
+    def verification_batches(self, claims):
+        from .audit import VERIFICATION_BATCH_SIZE, VERIFICATION_PROMPT_LIMIT, verification_prompt
+        batches, current = [], []
+        for claim in claims:
+            candidate = current + [claim]
+            if current and (len(candidate) > VERIFICATION_BATCH_SIZE or len(verification_prompt(candidate)) > VERIFICATION_PROMPT_LIMIT):
+                batches.append(current)
+                candidate = [claim]
+            current = candidate
+        return batches + ([current] if current else [])
+
+    def verify(self, batch):
+        """One NotebookLM verdict question per batch, cached by receipt; oversized questions are split."""
+        from .audit import SUPPORT_PROTOCOL, batch_verdicts, verification_prompt
+        key = digest({'claims': batch, 'contract_hash': self.state['contract_hash'], 'corpus_hash': self.state['corpus_hash'],
+                      'support_protocol': SUPPORT_PROTOCOL})
+        path = self.folder / 'verification' / (key + '.json')
+        cached = self.state.get('verification_receipts', {}).get(key)
+        if cached:
+            if not path.exists() or sha256(path.read_bytes()).hexdigest() != cached:
+                raise ContractError('La QA de respaldo no coincide con su recibo.')
+            response = read_json(path)
+        else:
+            args = ['ask', '--notebook', self.state['notebook_id']]
+            for source_id in sorted({r['source_id'] for c in batch for r in c['references']}):
+                args += ['--source', source_id]
+            try:
+                response = self.notebook([*args, verification_prompt(batch)], 180)
+            except Pause as exc:
+                if exc.reason != 'question_too_long':
+                    raise
+                if len(batch) == 1:
+                    return {batch[0]['id']: {'verdict': 'unverified', 'stated_verdict': None, 'batch_size': 1,
+                                             'reason': 'verification_question_too_long'}}
+                half = len(batch) // 2
+                return {**self.verify(batch[:half]), **self.verify(batch[half:])}
+            atomic_json(path, response)
+            receipts = dict(self.state.get('verification_receipts', {}))
+            receipts[key] = sha256(path.read_bytes()).hexdigest()
+            self.checkpoint(verification_receipts=receipts)
+        receipt = {'path': str(path.relative_to(self.folder)), 'sha256': self.state['verification_receipts'][key]}
+        return {claim_id: dict(verdict, **receipt) for claim_id, verdict in batch_verdicts(response, self.sources, batch).items()}
+
+    def fulltexts(self, source_ids):
+        """NotebookLM's indexed text of each source, kept with a receipt for literal checks."""
+        result = {}
+        receipts = dict(self.state.get('fulltext_receipts', {}))
+        for source_id in sorted(source_ids):
+            key = digest({'source_id': source_id, 'corpus_hash': self.state['corpus_hash']})
+            path = self.folder / 'verification' / ('fulltext-' + key + '.json')
+            if receipts.get(key):
+                if not path.exists() or sha256(path.read_bytes()).hexdigest() != receipts[key]:
+                    raise ContractError('El texto indexado de una fuente no coincide con su recibo.')
+                result[source_id] = read_json(path)
+                continue
+            snapshot = self.notebook(['source', 'fulltext', source_id, '--notebook', self.state['notebook_id']], 30)
+            atomic_json(path, snapshot)
+            receipts[key] = sha256(path.read_bytes()).hexdigest()
+            self.checkpoint(fulltext_receipts=receipts)
+            result[source_id] = snapshot
+        return result
+
+    def evidence(self, claim, verdict):
+        """QA passages plus the passages the verification cited, each with bibliography and a literal check."""
+        from .audit import found_in
+        from .audit import normalize_text
+        refs = [dict(r, role='qa') for r in claim['references']]
+        seen = {(r['source_id'], normalize_text(r['cited_text'])) for r in refs}
+        for ref in verdict.get('passages', []):
+            if (ref['source_id'], normalize_text(ref['cited_text'])) not in seen:
+                seen.add((ref['source_id'], normalize_text(ref['cited_text'])))
+                refs.append(dict(ref, role='verification'))
+        if verdict.get('grounding') == 'quote_in_fulltext':
+            refs.append({'source_id': verdict['quote']['source_id'], 'citation_number': None,
+                         'cited_text': verdict['quote']['quote'], 'role': 'verification_quote'})
+        try:
+            texts = self.fulltexts({r['source_id'] for r in refs})
+        except Pause as exc:
+            if exc.reason in ('auth_required', 'quota_exhausted', 'notebooklm_missing'):
+                raise
+            texts = {}  # The literal check is extra transparency; its absence is recorded, not fatal.
+        for ref in refs:
+            snapshot = texts.get(ref['source_id'])
+            ref['found_in_fulltext'] = found_in(ref['cited_text'], snapshot['content']) if snapshot else None
+        return self.bibliography(refs)
+
     def finalize(self, review):
-        from .audit import (SUPPORT_PROTOCOL, VERIFICATION_BATCH_SIZE, batch_verdicts, check_review_version,
-                            load_answers, review_claims, verification_prompt)
+        from .audit import SUPPORT_PROTOCOL, UNGROUNDED, check_review_version, load_answers, quote_grounding, review_claims
         check_review_version(review, self.state)
         answers = load_answers(self.folder, self.state, self.contract, self.sources)
         claims = review_claims(review, self.state, self.contract, self.sources, answers)
@@ -405,34 +503,32 @@ class Engine:
         self.store.commit(self.state, {f'reviews/{review_key}.json': review})
         coverage = {r['scope_id']: r['status'] for r in review['coverage']}
         verdicts = {}
-        for start in range(0, len(claims), VERIFICATION_BATCH_SIZE):
-            batch = claims[start:start + VERIFICATION_BATCH_SIZE]
-            key = digest({'claims': batch, 'contract_hash': self.state['contract_hash'], 'corpus_hash': self.state['corpus_hash'],
-                          'support_protocol': SUPPORT_PROTOCOL})
-            path = self.folder / 'verification' / (key + '.json')
-            cached = self.state.get('verification_receipts', {}).get(key)
-            if cached:
-                if not path.exists() or sha256(path.read_bytes()).hexdigest() != cached:
-                    raise ContractError('La QA de respaldo no coincide con su recibo.')
-                response = read_json(path)
-            else:
-                args = ['ask', '--notebook', self.state['notebook_id']]
-                for source_id in sorted({r['source_id'] for c in batch for r in c['references']}):
-                    args += ['--source', source_id]
-                response = self.notebook([*args, verification_prompt(batch)], 180)
-                atomic_json(path, response)
-                receipts = dict(self.state.get('verification_receipts', {}))
-                receipts[key] = sha256(path.read_bytes()).hexdigest()
-                self.checkpoint(verification_receipts=receipts)
-            receipt = {'path': str(path.relative_to(self.folder)), 'sha256': self.state['verification_receipts'][key]}
-            for claim_id, verdict in batch_verdicts(response, self.sources, batch).items():
-                verdicts[claim_id] = dict(verdict, **receipt)
+        for batch in self.verification_batches(claims):
+            verdicts.update(self.verify(batch))
+        for claim in claims:
+            verdict = verdicts[claim['id']]
+            if verdict.get('reason') in UNGROUNDED and verdict.get('batch_size', 1) > 1:
+                # Batch answers may lose native citations; ask about the claim alone.
+                verdicts.update(self.verify([claim]))
+        for claim in claims:
+            verdict = verdicts[claim['id']]
+            if verdict.get('reason') in UNGROUNDED and verdict.get('stated_verdict') == 'supported':
+                allowed = {r['source_id'] for r in claim['references']}
+                try:
+                    texts = self.fulltexts(allowed)
+                except Pause as exc:
+                    if exc.reason in ('auth_required', 'quota_exhausted', 'notebooklm_missing'):
+                        raise
+                    texts = {}
+                grounding = quote_grounding(verdict.get('rationale'), allowed, texts)
+                if grounding:
+                    verdict.update(verdict='supported', reason=None, grounding='quote_in_fulltext', quote=grounding)
         verified, withheld = [], []
         for claim in claims:
             verdict = verdicts[claim['id']]
             summary = {k: claim[k] for k in ('id', 'text', 'scope_ids', 'question_id', 'citation_numbers')}
             if verdict['verdict'] == 'supported' and not verdict.get('reason'):
-                verified.append(dict(claim, references=self.bibliography(claim['references']), verification=verdict))
+                verified.append(dict(claim, references=self.evidence(claim, verdict), verification=verdict))
             else:
                 withheld.append(dict(summary, reason=verdict.get('reason') or 'verdict_' + verdict['verdict'], verification=verdict))
                 for scope in claim['scope_ids']:

@@ -79,11 +79,16 @@ correcto comprueba archivos; no certifica una conclusión científica.
    subpreguntas y números de cita presentes en NotebookLM. Marcar insuficiencia
    donde corresponda, aunque se hayan encontrado muchas fuentes.
 8. Validar la revisión con `ez continue <corrida> --review <revisión> --check --json`
-   y luego importarla sin `--check`. EZ verifica las afirmaciones con NotebookLM en
-   lotes (una consulta cada seis afirmaciones), cada una contra sus propios pasajes.
-   Una afirmación sin citas, con fuentes ajenas, con otro pasaje o con dictamen
-   ilegible queda retenida con su motivo en `withheld_claims`; las demás siguen su
-   curso. Una afirmación retenida deja su alcance como insuficiente: para entregar el
+   y luego importarla sin `--check`. EZ pregunta a NotebookLM, por lotes que respetan
+   el límite de tamaño de la pregunta, si las fuentes de cada afirmación la respaldan;
+   la pregunta no incluye los pasajes, para que NotebookLM los busque y los cite. Si un
+   lote vuelve sin citas, EZ repregunta por cada afirmación sola; si aun así no hay
+   citas, acepta el dictamen solo cuando su cita textual aparece literal en el texto
+   indexado de una fuente de la afirmación. Una afirmación que no supera eso, con fuentes
+   ajenas o con dictamen ilegible queda retenida con su motivo en `withheld_claims`; las
+   demás siguen su curso. Cada referencia entregada indica su papel (`qa`,
+   `verification` o `verification_quote`) y si el pasaje se encontró literal en el
+   texto indexado (`found_in_fulltext`). Una afirmación retenida deja su alcance como insuficiente: para entregar el
    resto de ese alcance, quitarla o reformularla en una revisión nueva. Si la revisión
    tiene errores (`review_invalid`) o corresponde a otro corpus (`review_outdated`),
    la corrida espera una revisión corregida; no es un fallo de integridad. El

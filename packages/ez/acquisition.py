@@ -307,7 +307,7 @@ class Retriever:
             if validation['status'] != 'valid':
                 self.record({'provider': provider, 'result': 'failed', 'failure_code': validation['reason'], 'at': now()})
                 continue
-            identity = verify_identity(candidate, record)
+            identity = verify_identity(candidate, record, provider)
             if location.get('requires_version_review') or location.get('is_retracted'):
                 identity = 'needs_review'
             output = self.root / (validation['sha256'] + '.pdf')
@@ -368,38 +368,63 @@ def archive_pdf(data, record):
     return matched[0]
 
 
-def verify_identity(path, record):
+PMCID_ROUTES = ('pmc_cloud', 'pmc_oa', 'europepmc')
+
+
+def verify_identity(path, record, provider=None):
     if record.get('identifier_conflicts'):
         return 'needs_review'
     from PyPDF2 import PdfReader
     try:
         reader = PdfReader(str(path))
-        return reader_identity(reader, record)
+        return reader_identity(reader, record, provider)
     except Exception:
         return 'needs_review'
 
 
-def reader_identity(reader, record):
-    """Conservative identity: a cited original DOI cannot identify an addendum."""
+def plain_words(value):
+    """Lowercase ASCII words; drops markup, accents and symbols such as Greek letters."""
+    value = re.sub(r'<[^>]+>', ' ', str(value or ''))
+    value = unicodedata.normalize('NFKD', unicodedata.normalize('NFKC', value)).encode('ascii', 'ignore').decode().casefold()
+    return re.findall(r'[a-z0-9]+', value)
+
+
+def reader_identity(reader, record, provider=None):
+    """Conservative identity: the complete title plus one stable identifier of the same work.
+
+    A correction notice repeats the original title and DOI, so it always needs review.
+    """
     try:
         text = unicodedata.normalize('NFKC', ' '.join((p.extract_text() or '') for p in list(reader.pages)[:2])).casefold()
-        doi = normalize_doi(record.get('doi'))
-        title_words = re.findall(r'\w+', unicodedata.normalize('NFKC', record.get('title') or '').casefold())
+        metadata = unicodedata.normalize('NFKC', str(reader.metadata or {})).casefold()
+        if re.search(r'\b(addendum|corrigendum|erratum|correction|retraction)\b', text[:1800] + '\n' + metadata):
+            return 'needs_review'
         # Fonts may extract ligatures as "scienti fic". Compare the full title's
         # characters in the header, without permitting approximate title matches.
-        header = ''.join(re.findall(r'\w+', text[:1800]))
-        title_matches = len(title_words) >= 3 and ''.join(title_words) in header
-        metadata = unicodedata.normalize('NFKC', str(reader.metadata or {})).casefold()
-        identity_text = text[:1800] + '\n' + metadata
-        # Corrections often repeat both the complete title and DOI of the original.
-        # Even when such a notice is the intended source, require explicit review.
-        if re.search(r'\b(addendum|corrigendum|erratum|correction|retraction)\b', identity_text):
+        title_words = plain_words(record.get('title'))
+        title_matches = len(title_words) >= 3 and ''.join(title_words) in ''.join(plain_words(text[:4000]))
+        if not title_matches:
             return 'needs_review'
-        found_dois = {value.rstrip('.,;:)]}') for value in re.findall(r'10\.\d{4,9}/[^\s<>\x27\x22]+', identity_text)}
-        if found_dois - {doi}:
-            return 'needs_review'
-        if doi and title_matches and re.search(re.escape(doi) + r'(?![\w./-])', identity_text):
+        identity_text = text[:4000] + '\n' + metadata
+        doi = normalize_doi(record.get('doi'))
+        listed = [value.rstrip('.,;:)]}') for value in re.findall(r'10\.\d{4,9}/[^\s<>\x27\x22]+', identity_text)]
+        found_dois = set(listed)
+        own_doi = bool(doi) and bool(re.search(re.escape(doi) + r'(?![\w./-])', identity_text))
+        # Other DOIs (data, related articles) are tolerated only after the work's own DOI.
+        if own_doi and listed and listed[0] == doi:
             return 'verified'
+        if own_doi:
+            return 'needs_review'
+        if doi and found_dois:
+            return 'needs_review'  # the header names another work's DOI and not this one
+        pmid = str(record.get('pmid') or '').strip()
+        pmcid = str(record.get('pmcid') or '').strip().casefold()
+        if pmcid and re.search(re.escape(pmcid) + r'(?!\d)', identity_text):
+            return 'verified'
+        if pmid and re.search(r'pmid:?\s*' + re.escape(pmid) + r'(?!\d)', identity_text):
+            return 'verified'
+        if pmcid and provider in PMCID_ROUTES:
+            return 'verified'  # fetched from PMC by this PMCID and the complete title matches
     except Exception:
         pass
     return 'needs_review'

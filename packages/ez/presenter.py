@@ -16,6 +16,7 @@ REASON_LABELS = {
     'verification_citation_without_passage': 'la verificación citó sin pasaje verificable',
     'verification_foreign_source': 'la verificación citó una fuente distinta de la propuesta',
     'verification_passage_mismatch': 'el respaldo aparece en otro pasaje; requiere una nueva revisión',
+    'verification_question_too_long': 'la afirmación es demasiado larga para verificarla; divídela',
     'scope_withheld_by_policy': 'su alcance espera una fuente obligatoria',
     'scope_not_sufficient': 'otra afirmación del mismo alcance no pasó la verificación; revisa ese alcance',
     'required_source_missing': 'falta una fuente obligatoria para ese alcance',
@@ -141,11 +142,15 @@ def render(value):
         markers = ' '.join(f'[{claim["question_id"]}:{n}]' for n in claim['citation_numbers'])
         lines.append('\n' + claim['text'] + ' ' + markers)
         for reference in claim.get('references', []):
-            lines.append(f'  [{claim["question_id"]}:{reference["citation_number"]}] ' + cite(reference))
+            label = (f'{claim["question_id"]}:{reference["citation_number"]}' if reference.get('role', 'qa') == 'qa'
+                     else 'verificación')
+            lines.append(f'  [{label}] ' + cite(reference))
             source = reference.get('source', {})
             if source.get('pdf_path'):
                 lines.append(f'  Archivo: {source["pdf_path"]} (SHA-256 {source.get("content_sha256", "")[:12]})')
             lines.append('  Pasaje: ' + reference['cited_text'])
+            if reference.get('found_in_fulltext') is False:
+                lines.append('  Aviso: el pasaje no se encontró literal en el texto indexado de la fuente; revísalo en el PDF.')
     if value.get('withheld_claims'):
         lines.append('\nNo se pudo afirmar:')
         for claim in value['withheld_claims']:
@@ -154,6 +159,9 @@ def render(value):
         lines.append('Preguntas no consultadas:')
         for question in value['skipped_questions']:
             lines.append(f'- {question["question_id"]} ({", ".join(question["scope_ids"])}): {REASON_LABELS.get(question["reason"], question["reason"])}')
+    if value.get('discovery_failures'):
+        providers = ', '.join(sorted({f.get('provider') or '?' for f in value['discovery_failures']}))
+        lines.append(f'Búsquedas que no se completaron: {len(value["discovery_failures"])} ({providers}). La investigación siguió con los demás proveedores.')
     if value.get('corpus_exclusions'):
         lines.append(f'Fuentes fuera del corpus: {len(value["corpus_exclusions"])}.')
         for source in value['corpus_exclusions'][:20]:
