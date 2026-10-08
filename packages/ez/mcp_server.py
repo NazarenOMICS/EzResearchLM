@@ -226,13 +226,21 @@ def ez_verify(run: str, claim: str | None = None, judgement: str | None = None, 
     return ez(*arguments, seconds=600)
 
 
+def ez_export(run: str, format: str = 'bibtex', all_sources: bool = False):
+    """Exporta la bibliografía citada (o todo el corpus) a BibTeX o RIS para Zotero o Mendeley; devuelve el texto."""
+    result = ez('export', str(run_folder(run)), '--format', format, *(['--all'] if all_sources else []), seconds=120)
+    if result.get('path') and Path(result['path']).exists():
+        result['text'] = Path(result['path']).read_text(encoding='utf-8')[:MAX_TEXT]
+    return result
+
+
 def ez_doctor(run: str):
     """Diagnóstico local de integridad de la corrida."""
     return ez('doctor', str(run_folder(run)), seconds=120)
 
 
 TOOLS = (ez_guide, ez_setup, ez_login, ez_context, ez_research, ez_submit, ez_continue, ez_status, ez_read,
-         ez_rescue, ez_draft, ez_verify, ez_doctor)
+         ez_rescue, ez_draft, ez_verify, ez_export, ez_doctor)
 
 
 def build_server():

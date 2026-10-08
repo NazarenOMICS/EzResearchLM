@@ -200,3 +200,46 @@ def check_draft(answer, text):
                             'hechos de la literatura, deben apoyarse en una afirmación verificada o eliminarse.')
             if not unknown and not refused else
             'El borrador cita afirmaciones inexistentes o retenidas. Corrígelo antes de entregarlo.'}
+
+
+def citation_key(source, used):
+    """surnameYEAR, with a, b, c… when two works share it."""
+    import unicodedata
+    authors = source.get('authors') or []
+    first = str((authors if isinstance(authors, list) else [authors])[0] if authors else '')
+    tokens = first.split(',')[0].split() if ',' in first else first.split()
+    # "Radmacher E" (PubMed) puts initials last; "Eva Radmacher" puts the surname last.
+    surname = (tokens[0] if ',' in first or (len(tokens) > 1 and re.fullmatch(r'[A-Z]{1,3}\.?', tokens[-1])) else tokens[-1]) if tokens else ''
+    surname = unicodedata.normalize('NFKD', surname).encode('ascii', 'ignore').decode()
+    key = (re.sub(r'[^A-Za-z]', '', surname).lower() or 'fuente') + str(source.get('year') or '')
+    candidate, suffix = key, 0
+    while candidate in used:
+        candidate = key + 'abcdefghijklmnopqrstuvwxyz'[suffix % 26]
+        suffix += 1
+    used.add(candidate)
+    return candidate
+
+
+def export_bibliography(sources, kind='bibtex'):
+    """BibTeX or RIS for reference managers, from the sources' recorded metadata only."""
+    used, chunks = set(), []
+    for source in sources:
+        authors = source.get('authors') or []
+        if not isinstance(authors, list):
+            authors = [a.strip() for a in re.split(r';| and ', str(authors))]
+        if kind == 'ris':
+            lines = ['TY  - JOUR', f'TI  - {source.get("title", "")}']
+            lines += [f'AU  - {a}' for a in authors if a]
+            for tag, field in (('PY', 'year'), ('JO', 'journal'), ('DO', 'doi')):
+                if source.get(field):
+                    lines.append(f'{tag}  - {source[field]}')
+            if source.get('pmid'):
+                lines.append(f'AN  - PMID:{source["pmid"]}')
+            chunks.append('\n'.join(lines + ['ER  - ']))
+            continue
+        fields = [('title', '{' + str(source.get('title', '')) + '}'), ('author', ' and '.join(a for a in authors if a)),
+                  ('year', source.get('year')), ('journal', source.get('journal')), ('doi', source.get('doi')),
+                  ('pmid', source.get('pmid'))]
+        body = ',\n'.join(f'  {name} = {{{value}}}' if name != 'title' else f'  title = {value}' for name, value in fields if value)
+        chunks.append(f'@article{{{citation_key(source, used)},\n{body}\n}}')
+    return '\n\n'.join(chunks) + '\n'

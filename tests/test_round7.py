@@ -67,5 +67,33 @@ class PageTests(unittest.TestCase):
         self.assertIn('[1, p. 7]: «pasaje»', text)
 
 
+class ExportTests(unittest.TestCase):
+    def test_bibtex_and_ris_carry_only_recorded_metadata(self):
+        from ez.deliver import export_bibliography
+        sources = [{'source_id': 's1', 'title': 'Ethambutol elicits L-glutamate efflux', 'authors': ['Radmacher E', 'Stansen KC'],
+                    'year': 2005, 'journal': 'Microbiology', 'doi': '10.1099/mic.0.27804-0', 'pmid': '15870446'},
+                   {'source_id': 's2', 'title': 'Otro', 'authors': 'Radmacher, Eva', 'year': 2005}]
+        bib = export_bibliography(sources)
+        self.assertIn('@article{radmacher2005,', bib)
+        self.assertIn('@article{radmacher2005a,', bib)
+        self.assertIn('  doi = {10.1099/mic.0.27804-0}', bib)
+        self.assertIn('  author = {Radmacher E and Stansen KC}', bib)
+        ris = export_bibliography(sources, 'ris')
+        self.assertIn('DO  - 10.1099/mic.0.27804-0', ris)
+        self.assertEqual(ris.count('ER  - '), 2)
+
+    def test_export_command_writes_the_cited_sources(self):
+        engine_case = test_engine.EngineTests('run_engine')
+        engine_case.setUp()
+        self.addCleanup(engine_case.temp.cleanup)
+        engine_case.run_engine(); engine_case.run_engine(engine_case.review())
+        output = StringIO()
+        with redirect_stdout(output), patch('ez.cli.load_environment'):
+            code = main(['--root', engine_case.temp.name, 'export', str(engine_case.folder), '--json'])
+        result = json.loads(output.getvalue())
+        self.assertEqual((code, result['sources']), (0, 1))
+        self.assertIn('Fuente de prueba', Path(result['path']).read_text(encoding='utf-8'))
+
+
 if __name__ == '__main__':
     unittest.main()

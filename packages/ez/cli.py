@@ -289,6 +289,26 @@ def verify_command(folder, args):
     return 0
 
 
+def export_command(folder, args):
+    """Read-only: write bibliography.bib or bibliography.ris next to the report."""
+    from .deliver import bibliography, export_bibliography
+    sources = read_json(folder / 'sources.json') if (folder / 'sources.json').exists() else []
+    if args.all:
+        chosen = [s for s in sources if s.get('notebook_status') == 'ready']
+    else:
+        answer = read_json(folder / 'answer.json') if (folder / 'answer.json').exists() else {}
+        by_id = {s['source_id']: s for s in sources}
+        chosen = [by_id.get(key, source) for key, (_, source, _) in sorted(bibliography(answer).items(), key=lambda i: i[1][0])
+                  if source or key in by_id]
+    if not chosen:
+        raise ContractError('Todavía no hay fuentes citadas para exportar; usa --all para exportar el corpus.')
+    path = folder / ('bibliography.' + ('ris' if args.format == 'ris' else 'bib'))
+    path.write_text(export_bibliography(chosen, args.format), encoding='utf-8')
+    emit({'kind': 'export', 'path': str(path), 'format': args.format, 'sources': len(chosen),
+          'next_action': 'Importa ese archivo en Zotero, Mendeley o tu gestor de referencias.'}, args.json)
+    return 0
+
+
 def draft_command(folder, args):
     """Read-only: the verified claims to write from, or a check of a draft that cites them as [EZ:<id>]."""
     from .deliver import check_draft
@@ -334,6 +354,8 @@ def main(argv=None):
                    'sin IDS, las 10 respaldadas por más fuentes; o IDs separados por comas.')
     p = sub.add_parser('status', help='Ver el avance y el siguiente paso.'); p.add_argument('run'); p.add_argument('--answer', action='store_true')
     p = sub.add_parser('draft', help='Ver las afirmaciones verificadas para redactar o comprobar un borrador.'); p.add_argument('run'); p.add_argument('--check', type=Path, metavar='BORRADOR')
+    p = sub.add_parser('export', help='Exportar la bibliografía a BibTeX o RIS.'); p.add_argument('run')
+    p.add_argument('--format', choices=['bibtex', 'ris'], default='bibtex'); p.add_argument('--all', action='store_true', help='Todo el corpus, no solo lo citado.')
     p = sub.add_parser('verify', help='Revisar en persona afirmaciones entregadas.'); p.add_argument('run'); p.add_argument('--claim'); p.add_argument('--judgement', choices=['supported', 'partial', 'unsupported']); p.add_argument('--note')
     p = sub.add_parser('doctor', help='Diagnosticar problemas de una investigación.'); p.add_argument('run'); p.add_argument('--migration-preview', action='store_true'); p.add_argument('--migrate', metavar='PREVIEW_HASH'); p.add_argument('--remote', action='store_true'); p.add_argument('--metrics', action='store_true')
     p = sub.add_parser('rescue', help='Ver documentos pendientes o incorporar un PDF.'); p.add_argument('run'); p.add_argument('--import', dest='import_pdf'); p.add_argument('--import-folder'); p.add_argument('--source'); p.add_argument('--confirm-identity', action='store_true'); p.add_argument('--retry', action='store_true')
@@ -424,6 +446,8 @@ def main(argv=None):
             return draft_command(folder, args)
         if args.command == 'verify':
             return verify_command(folder, args)
+        if args.command == 'export':
+            return export_command(folder, args)
         if args.command in ('status', 'doctor'):
             if args.command == 'status' and not args.answer:
                 state = Store(folder).state()

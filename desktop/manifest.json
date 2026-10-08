@@ -76,6 +76,10 @@
       "description": "Revisión humana de afirmaciones"
     },
     {
+      "name": "ez_export",
+      "description": "Bibliografía en BibTeX o RIS para Zotero o Mendeley"
+    },
+    {
       "name": "ez_doctor",
       "description": "Diagnóstico de integridad"
     }
