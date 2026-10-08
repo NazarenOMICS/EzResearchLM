@@ -18,25 +18,27 @@ La rama se actualizó mediante avance directo. La instalación editable con el e
 
 `python scripts/validate.py` terminó con código 0. Pasaron los bloques de 17, 4 y 133 pruebas; el último omitió una prueba. El bloque intermedio emitió la advertencia esperada de preservación ante un fallo simulado del auditor de citas. El auxiliar de benchmark informó dos casos controlados `deadline_exceeded`, pero el conjunto que los ejercita terminó `OK`.
 
-## Canary de NotebookLM sobre el notebook v5
+## Canary de NotebookLM
 
-El notebook registrado en la corrida v5 era `a783355e-c24d-49bf-b1e2-0bc83c790df4`. Con el CLI correcto y el acceso ya validado, el canary terminó con `passed: false`: la cuenta activa pudo enumerar 83 notebooks, pero NotebookLM devolvió `not found` al pedir las fuentes del notebook v5. El mensaje del servicio señaló como posibilidad un desajuste de encaminamiento entre cuentas. El identificador tampoco apareció en la lista de notebooks accesibles.
+El primer intento usó el notebook registrado en la corrida v5, `a783355e-c24d-49bf-b1e2-0bc83c790df4`. NotebookLM devolvió `not found` porque ese notebook había sido borrado por el usuario. Ese intento no evaluó el comportamiento del código y no se considera un fallo del canary.
+
+Después de refrescar el acceso, el canary se repitió sobre el notebook compartido creado por v6, `7cdf38fa-e33d-4e28-85b7-68a674311408`. Consumió dos consultas y terminó con `passed: true`.
 
 | Check | Resultado | Detalle |
 |---|---|---|
-| `list_notebooks` | pasó | 83 notebooks |
-| `list_sources` | falló | `exit_1`; notebook no encontrado |
-| `source_fulltext` | no ejecutado | Dependía de `list_sources` |
-| `qa_native_citations` | no ejecutado | Dependía de una fuente lista |
-| `fresh_conversation` | no ejecutado | El canary no llegó a las consultas |
-| `verdict_format` | no ejecutado | El canary no llegó al dictamen |
-| `verdict_native_citations` | no ejecutado | El canary no llegó al dictamen |
+| `list_notebooks` | pasó | 84 notebooks |
+| `list_sources` | pasó | 14 fuentes listas |
+| `source_fulltext` | pasó | 88.716 caracteres |
+| `qa_native_citations` | pasó | 9 citas con pasaje |
+| `fresh_conversation` | pasó | `is_follow_up=False` |
+| `verdict_format` | pasó | Dictamen `supported` |
+| `verdict_native_citations` | pasó | Citas nativas presentes |
 
-Por lo tanto, el canary no certificó `fresh_conversation`. Como observación separada de la corrida principal, las cinco respuestas QA y los dos lotes de verificación guardaron `is_follow_up: false` y `turn_number: 1`.
+El canary certificó `fresh_conversation`. De manera consistente, las cinco respuestas QA y los dos lotes de verificación de la corrida principal guardaron `is_follow_up: false` y `turn_number: 1`.
 
 ## Incidencia de recuperación del notebook compartido
 
-La primera actualización v6, `ez-373e56864af24023`, no pudo reutilizar el notebook v5 porque ya no era accesible. EZ creó el notebook de proyecto `7cdf38fa-e33d-4e28-85b7-68a674311408`, lo marcó `notebook_shared: true` y subió los 14 PDFs verificados. Trece quedaron listos y el PDF de Meyer et al. (2023), DOI `10.1016/j.tcsw.2023.100116`, permaneció en `PREPARING` durante tres ventanas internas y una espera explícita adicional de 600 segundos.
+La primera actualización v6, `ez-373e56864af24023`, no pudo reutilizar el notebook v5 porque había sido borrado. EZ creó el notebook de proyecto `7cdf38fa-e33d-4e28-85b7-68a674311408`, lo marcó `notebook_shared: true` y subió los 14 PDFs verificados. Trece quedaron listos y el PDF de Meyer et al. (2023), DOI `10.1016/j.tcsw.2023.100116`, permaneció en `PREPARING` durante tres ventanas internas y una espera explícita adicional de 600 segundos.
 
 Se eliminó únicamente esa carga remota atascada. La salvaguarda de reconciliación impidió que la misma corrida repitiera la subida sin revisión. No se forzaron hashes ni se alteró el corpus: `ez doctor` volvió a informar `healthy: true` después de restaurar el artefacto local exacto. Se creó entonces la corrida principal desde la misma v5. Esta reutilizó las 13 fuentes listas del notebook de proyecto y subió solo el PDF faltante, que procesó correctamente.
 
@@ -116,4 +118,4 @@ Los límites también se tomaron de `events.jsonl`.
 
 La corrida principal validó el comportamiento buscado por v6 en tres aspectos. Primero, un notebook de proyecto compartido permitió reutilizar 13 de 14 fuentes remotas y limitar la subida a un PDF. Segundo, el modo directo produjo una respuesta completa con cinco consultas, aunque conservó 42 oraciones no citadas fuera de la entrega. Tercero, la verificación retuvo una sola afirmación y entregó las otras nueve, en lugar de propagar esa insuficiencia a todo el alcance compartido.
 
-El resultado no elimina dos limitaciones operativas. El canary del notebook v5 no pudo evaluar `fresh_conversation` porque ese notebook no fue accesible. Además, una carga de PDF quedó atascada en `PREPARING` y requirió crear una nueva actualización para que la salvaguarda de reconciliación no fuera eludida. La corrida principal terminó con integridad `pass`, sin fallas externas registradas y con estado verificado `partial`.
+El reintento del canary sobre el notebook v6 pasó todos los checks y confirmó `fresh_conversation`; el `not found` anterior se explica por la eliminación del notebook v5 y no constituye un fallo del código. Permanece una limitación operativa distinta: una carga de PDF quedó atascada en `PREPARING` y requirió crear una nueva actualización para que la salvaguarda de reconciliación no fuera eludida. La corrida principal terminó con integridad `pass`, sin fallas externas registradas y con estado verificado `partial`.
