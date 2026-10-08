@@ -59,6 +59,10 @@ def diagnose(folder, remote=False):
             path = folder / 'citation-resolution' / (key + '.json')
             if not path.exists() or sha256(path.read_bytes()).hexdigest() != expected:
                 add('citation_resolution_changed', 'El cotejo de una cita o su texto indexado falta o cambió.')
+        if state.get('report_sha256'):
+            report = folder / 'report.md'
+            if not report.exists() or sha256(report.read_bytes()).hexdigest() != state['report_sha256']:
+                add('report_edited', 'report.md falta o fue editado; answer.json sigue siendo la referencia verificable.', 'warning')
         if state.get('pending_operation'):
             add('remote_operation_uncertain', 'Hay una operación remota pendiente de reconciliar antes de repetirla.', 'warning')
         if remote and state.get('notebook_id'):

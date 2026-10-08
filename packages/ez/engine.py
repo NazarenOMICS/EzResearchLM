@@ -681,6 +681,12 @@ class Engine:
                           execution={'status': 'completed' if delivered else 'waiting_user'},
                           next_action='Respuesta y límites guardados en answer.json.' if delivered else 'El corpus todavía no respalda una respuesta entregable. Revisa QA y fuentes.')
         self.store.commit(self.state, {'answer.json': report})
+        from .deliver import report_markdown
+        report_path = self.folder / 'report.md'
+        temporary = self.folder / '.report.md.tmp'
+        temporary.write_text(report_markdown(report, self.contract, self.state), encoding='utf-8')
+        os.replace(temporary, report_path)
+        self.checkpoint(report_sha256=sha256(report_path.read_bytes()).hexdigest())
         return 0 if delivered and not (self.state.get('require_complete') and result['answer']['status'] != 'complete') else 2
 
     def execute(self, review=None, screening=None):

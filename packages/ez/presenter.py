@@ -89,6 +89,19 @@ def render(value):
                           'Guía completa: ez --guide', 'Comprobar el entorno: ez setup --check'])
     if value.get('kind') == 'user_guide':
         return value['text']
+    if value.get('kind') == 'draft_material':
+        return '\n'.join(['Afirmaciones verificadas para redactar (informe: ' + value['report_path'] + '):',
+                          *[f'- {c["marker"]} {c["text"]}' for c in value['claims']], 'Siguiente paso: ' + value['next_action']])
+    if value.get('kind') == 'draft_check':
+        lines = ['Borrador ' + ('aceptado.' if value['valid'] else 'con errores.')]
+        if value['unknown_markers']:
+            lines.append('Marcadores que no corresponden a afirmaciones verificadas: ' + ', '.join(value['unknown_markers']))
+        if value['withheld_markers']:
+            lines.append('Marcadores de afirmaciones retenidas (no se pueden citar): ' + ', '.join(value['withheld_markers']))
+        if value['unmarked_count']:
+            lines.append(f'Oraciones sin marcador para revisar: {value["unmarked_count"]}')
+            lines += ['- ' + s for s in value['unmarked_sentences'][:10]]
+        return '\n'.join(lines + ['Siguiente paso: ' + value['next_action']])
     if value.get('kind') == 'check':
         return ('Comprobación sin cambios: ' + {'contract': 'la propuesta es válida', 'review': 'la revisión es válida',
                                                 'screening': 'el cribado es válido'}[value['target']] + '.\n'
@@ -114,6 +127,8 @@ def render(value):
                 lines.append(f'- {row["question"]} — {row["run_id"]}')
         else:
             lines.append('Todavía no hay investigaciones en este proyecto.')
+    if value.get('report_path'):
+        lines.append('Informe de evidencia: ' + value['report_path'])
     if value.get('run_id'):
         lines.append('Investigación: ' + value['run_id'])
     if value.get('path'):

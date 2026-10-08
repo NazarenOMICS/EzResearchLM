@@ -29,8 +29,10 @@ El recorrido es:
    obligatorias. Puedes empezar sin conocer términos de búsqueda ni DOI.
 4. **Investigar.** EZ resume qué va a buscar, conserva el contexto y consulta la
    evidencia en NotebookLM. Te avisa si necesita un documento o una decisión.
-5. **Revisar el resultado.** Recibes la respuesta respaldada, sus citas, los límites
-   y lo que quedó pendiente. Una búsqueda sin suficiente evidencia no se convierte
+5. **Revisar el resultado.** Recibes un informe de evidencia (`report.md`) con la
+   respuesta respaldada, cada pasaje citado, las fuentes numeradas con su archivo, y
+   lo que quedó pendiente y por qué. Si pides un texto, EZ redacta solo con las
+   afirmaciones verificadas y comprueba que cada una conserve su marca. Una búsqueda sin suficiente evidencia no se convierte
    en una respuesta inventada.
 
 No necesitas preparar archivos de configuración, búsquedas ni contratos a mano.

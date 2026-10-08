@@ -106,7 +106,16 @@ correcto comprueba archivos; no certifica una conclusión científica.
    habilitado, conservando referencias, omisiones y límites. Cada referencia trae en
    `source` el título, los identificadores, el archivo y su hash: citarlos desde ahí,
    no desde memoria. Informar también `gaps` (qué falta y por qué), `withheld_claims`,
-   `skipped_questions` y `corpus_exclusions`. Decir claramente
+   `skipped_questions` y `corpus_exclusions`. Entregar primero el informe de evidencia
+   `report.md` de la corrida: reúne respuesta, pasajes, fuentes numeradas, lagunas y
+   exclusiones, y se regenera igual a partir de `answer.json`.
+11. Si el usuario pide redactar (por ejemplo, una sección de tesis), usar
+   `ez draft <corrida>` para obtener las afirmaciones verificadas y escribir solo con
+   ellas, marcando cada una con su marcador `[EZ:<id>]`. Comprobar el borrador con
+   `ez draft <corrida> --check <archivo>`: rechaza marcadores inexistentes o de
+   afirmaciones retenidas y lista las oraciones sin marcador. Una oración sin marcador
+   que afirme algo de la literatura se elimina o se apoya en una afirmación verificada;
+   no completar desde memoria. Decir claramente
    cuándo la respuesta es parcial y qué falta para ampliarla. No completar huecos
    desde memoria ni usar resultados QMD como evidencia académica.
 

@@ -187,6 +187,28 @@ def check_proposal(folder, args):
             'next_action': 'La revisión es válida. Impórtala con ez continue --review; EZ verificará cada afirmación con NotebookLM.'}
 
 
+def draft_command(folder, args):
+    """Read-only: the verified claims to write from, or a check of a draft that cites them as [EZ:<id>]."""
+    from .deliver import check_draft
+    state = Store(folder).state()
+    if not state or state.get('answer', {}).get('status') not in ('complete', 'partial'):
+        raise ContractError('Todavía no hay afirmaciones verificadas para redactar.')
+    answer = read_json(folder / 'answer.json')
+    if answer.get('contract_hash') != state['contract_hash'] or answer.get('corpus_hash') != state.get('corpus_hash') \
+            or answer.get('support_protocol') != SUPPORT_PROTOCOL:
+        raise ContractError('La respuesta guardada no corresponde a la versión vigente; usa ez continue.')
+    if args.check:
+        result = check_draft(answer, Path(args.check).read_text(encoding='utf-8-sig'))
+        emit(result, args.json)
+        return 0 if result['valid'] else 4
+    emit({'kind': 'draft_material', 'report_path': str(folder / 'report.md'),
+          'claims': [{'id': c['id'], 'marker': f'[EZ:{c["id"]}]', 'text': c['text'], 'scope_ids': c['scope_ids']}
+                     for c in answer['claims']],
+          'next_action': 'Redacta solo con estas afirmaciones, marca cada una con su marcador y comprueba el borrador con '
+                         'ez draft <corrida> --check <archivo>.'}, args.json)
+    return 0
+
+
 def main(argv=None):
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, 'reconfigure'):
@@ -204,6 +226,7 @@ def main(argv=None):
     p.add_argument('--screening', type=Path, help='Decisiones del anfitrión sobre los candidatos de screening-request.json.')
     p.add_argument('--check', action='store_true', help='Validar la propuesta o la revisión sin modificar la corrida ni consultar servicios.')
     p = sub.add_parser('status', help='Ver el avance y el siguiente paso.'); p.add_argument('run'); p.add_argument('--answer', action='store_true')
+    p = sub.add_parser('draft', help='Ver las afirmaciones verificadas para redactar o comprobar un borrador.'); p.add_argument('run'); p.add_argument('--check', type=Path, metavar='BORRADOR')
     p = sub.add_parser('doctor', help='Diagnosticar problemas de una investigación.'); p.add_argument('run'); p.add_argument('--migration-preview', action='store_true'); p.add_argument('--migrate', metavar='PREVIEW_HASH'); p.add_argument('--remote', action='store_true'); p.add_argument('--metrics', action='store_true')
     p = sub.add_parser('rescue', help='Ver documentos pendientes o incorporar un PDF.'); p.add_argument('run'); p.add_argument('--import', dest='import_pdf'); p.add_argument('--source'); p.add_argument('--confirm-identity', action='store_true'); p.add_argument('--retry', action='store_true')
     p.add_argument('--origin'); p.add_argument('--origin-provider', choices=['repository', 'institution', 'publisher', 'user_import']); p.add_argument('--license'); p.add_argument('--source-version')
@@ -270,6 +293,8 @@ def main(argv=None):
                 else:
                     emit(preview(folder) if args.command == 'doctor' and args.migration_preview else inspect_run(folder), args.json)
                 return 0 if args.command in ('status', 'doctor') else 2
+        if args.command == 'draft':
+            return draft_command(folder, args)
         if args.command in ('status', 'doctor'):
             if args.command == 'status' and not args.answer:
                 state = Store(folder).state()
@@ -312,7 +337,7 @@ def main(argv=None):
                     if report.get('support_protocol') != SUPPORT_PROTOCOL:
                         emit(pending_passage_review(state), args.json)
                         return 2
-                    emit(report, args.json)
+                    emit(dict(report, report_path=str(folder / 'report.md')) if (folder / 'report.md').exists() else report, args.json)
                 else:
                     emit(state, args.json)
                 return 0
