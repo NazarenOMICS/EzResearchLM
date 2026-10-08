@@ -64,7 +64,7 @@ def draft(question, context):
         # direct: NotebookLM's cited sentences; verified: host review plus a support query per claim.
         'plan': {'status': 'needs_host_plan', 'delivery': 'direct', 'queries': [], 'notebook_questions': [], 'stop_rule': ''},
         'source_policies': [], 'acquisition': {'anna_enabled': False, 'consent_id': None},
-        'budgets': {'run_seconds': 3600, 'source_seconds': 600, 'attempts_per_route': 3, 'max_sources': DEFAULT_MAX_SOURCES},
+        'budgets': {'run_seconds': 3600, 'source_seconds': 120, 'attempts_per_route': 2, 'max_sources': DEFAULT_MAX_SOURCES},
         'operator': {'name': 'EZ', 'backend': 'host_agent', 'model': 'unknown'},
     }
 

@@ -27,6 +27,11 @@ def numbers_missing(text, passages):
 
 # NotebookLM's free plan accepts 50 sources per notebook.
 NOTEBOOK_SOURCE_LIMIT = 50
+# Local searches and downloads that run at the same time; each one is a separate process.
+PARALLEL_WORKERS = 4
+# How long EZ waits inside one call for NotebookLM to finish processing new PDFs.
+READINESS_WAIT_SECONDS = 240
+READINESS_POLL_SECONDS = 10
 
 
 def notebook_reuse_enabled():
@@ -81,6 +86,19 @@ class Engine:
         self.store.append('external_result', {'operation': str(argv[0]), 'command': str(argv[1]) if len(argv) > 1 else None,
                                               'exit_code': result.returncode, 'reason': result.reason})
         return result
+
+    def call_many(self, commands, seconds):
+        """Run independent local processes in parallel; the journal records them in order from this thread."""
+        from concurrent.futures import ThreadPoolExecutor
+        remaining = self.contract['budgets']['run_seconds'] - self.used_before - (time.monotonic() - self.started)
+        if remaining <= 0:
+            raise Pause('budget_exhausted', 'Se agotó el presupuesto de tiempo de la corrida.', 3)
+        with ThreadPoolExecutor(max_workers=PARALLEL_WORKERS) as pool:
+            results = list(pool.map(lambda argv: self.runner(argv, timeout=min(seconds, remaining), cwd=self.folder), commands))
+        for argv, result in zip(commands, results):
+            self.store.append('external_result', {'operation': str(argv[0]), 'command': str(argv[1]) if len(argv) > 1 else None,
+                                                  'exit_code': result.returncode, 'reason': result.reason})
+        return results
 
     def notebook(self, args, seconds=60):
         # Every question starts a fresh conversation (--new): answers never depend on
@@ -154,6 +172,7 @@ class Engine:
         import search_topic
         records = []
         failures = []
+        pending = {}
         for index, query in enumerate(self.contract['plan']['queries']):
             dest = self.folder / 'discovery' / str(index)
             dest.mkdir(parents=True, exist_ok=True)
@@ -166,17 +185,28 @@ class Engine:
                 if not candidate_file.exists() or receipt.get('candidates_hash') != digest(read_json(candidate_file)):
                     raise Pause('NEEDS_TRACEABILITY_REPAIR', 'Los resultados de búsqueda no coinciden con su recibo.', 4)
             else:
-                argv = [sys.executable, '-m', 'ez.discovery', '--query', str(queries_file), '--output', str(candidate_file)]
-                result = self.call(argv, 180)
-                if result.returncode or not candidate_file.exists():
-                    result = self.call(argv, 180)  # one retry: providers often fail transiently (e.g. HTTP 429)
-                if result.returncode or not candidate_file.exists():
-                    # One provider down must not stop the research; record it and continue with the others.
-                    failures.append({'query_id': query.get('id'), 'provider': query.get('provider'),
-                                     'reason': result.reason or 'provider_error'})
-                    continue
-                atomic_json(receipt_file, {'query_hash': digest(query), 'candidates_hash': digest(read_json(candidate_file)), 'at': now()})
-            records.extend(read_json(candidate_file)['candidates'])
+                pending[index] = [sys.executable, '-m', 'ez.discovery', '--query', str(queries_file), '--output', str(candidate_file)]
+        # One retry: providers often fail transiently (e.g. HTTP 429).
+        reasons = {}
+        for _ in range(2):
+            retry = {}
+            for index, result in zip(pending, self.call_many(list(pending.values()), 180) if pending else []):
+                if result.returncode or not (self.folder / 'discovery' / str(index) / 'candidate-sources.json').exists():
+                    retry[index] = pending[index]
+                    reasons[index] = result.reason
+                else:
+                    query = self.contract['plan']['queries'][index]
+                    candidate_file = self.folder / 'discovery' / str(index) / 'candidate-sources.json'
+                    atomic_json(self.folder / 'discovery' / str(index) / 'receipt.json',
+                                {'query_hash': digest(query), 'candidates_hash': digest(read_json(candidate_file)), 'at': now()})
+            pending = retry
+        for index in pending:
+            # One provider down must not stop the research; record it and continue with the others.
+            query = self.contract['plan']['queries'][index]
+            failures.append({'query_id': query.get('id'), 'provider': query.get('provider'), 'reason': reasons.get(index) or 'provider_error'})
+        for index, query in enumerate(self.contract['plan']['queries']):
+            if index not in pending:
+                records.extend(read_json(self.folder / 'discovery' / str(index) / 'candidate-sources.json')['candidates'])
         if failures and len(failures) == len(self.contract['plan']['queries']):
             raise Pause('discovery_failed', 'Ningún proveedor completó la búsqueda. Se conservaron los resultados anteriores; '
                         'reintenta con ez continue.', 3)
@@ -278,16 +308,19 @@ class Engine:
 
     def acquire(self):
         self.checkpoint('acquire')
-        for index, source in enumerate(self.sources):
-            if source.get('validation_status') == 'valid' or source.get('acquisition_status') == 'manual_needed' \
-                    or source.get('screening', 'include') != 'include':
-                continue
+        budgets = self.contract['budgets']
+        todo = [s for s in self.sources if not (s.get('validation_status') == 'valid' or s.get('acquisition_status') == 'manual_needed'
+                                                or s.get('screening', 'include') != 'include')]
+        commands = []
+        for source in todo:
             dest = contained(self.folder, 'acquisition/' + source['source_id'])
             dest.mkdir(parents=True, exist_ok=True)
-            record_path, result_path = dest / 'record.json', dest / 'result.json'
-            atomic_json(record_path, source)
-            result = self.call([sys.executable, '-m', 'ez.acquisition', '--record', str(record_path), '--output', str(result_path),
-                                '--seconds', str(self.contract['budgets']['source_seconds']), '--attempts', str(self.contract['budgets']['attempts_per_route'])], self.contract['budgets']['source_seconds'])
+            atomic_json(dest / 'record.json', source)
+            commands.append([sys.executable, '-m', 'ez.acquisition', '--record', str(dest / 'record.json'), '--output', str(dest / 'result.json'),
+                             '--seconds', str(budgets['source_seconds']), '--attempts', str(budgets['attempts_per_route'])])
+        for source, result in zip(todo, self.call_many(commands, budgets['source_seconds']) if commands else []):
+            index = self.sources.index(source)
+            result_path = contained(self.folder, 'acquisition/' + source['source_id']) / 'result.json'
             if result.returncode == 0 and result_path.exists():
                 acquired = read_json(result_path)
                 if acquired.get('source_id') != source['source_id'] or acquired.get('acquisition_input_hash') != digest(source):
@@ -370,12 +403,18 @@ class Engine:
             self.save_sources()
         self.register_notebook(verified)
         self.checkpoint('readiness')
-        remote = self.notebook(['source', 'list', '--notebook', notebook_id]).get('sources', [])
         expected = {s['notebook_source_id'] for s in verified}
-        actual = {s.get('id') for s in remote}
-        if (not expected <= actual) if shared else actual != expected:
-            raise Pause('remote_corpus_drift', 'El corpus remoto incluye fuentes ausentes o no registradas. Revisa su composición.', 4)
-        ready = {s['id'] for s in remote if str(s.get('status', '')).lower() in ('ready', 'completed', 'available')} & expected
+        deadline = time.monotonic() + READINESS_WAIT_SECONDS
+        while True:
+            # Wait here for NotebookLM to process new PDFs instead of handing the wait back to the agent.
+            remote = self.notebook(['source', 'list', '--notebook', notebook_id]).get('sources', [])
+            actual = {s.get('id') for s in remote}
+            if (not expected <= actual) if shared else actual != expected:
+                raise Pause('remote_corpus_drift', 'El corpus remoto incluye fuentes ausentes o no registradas. Revisa su composición.', 4)
+            ready = {s['id'] for s in remote if str(s.get('status', '')).lower() in ('ready', 'completed', 'available')} & expected
+            if ready == expected or time.monotonic() + READINESS_POLL_SECONDS > deadline:
+                break
+            time.sleep(READINESS_POLL_SECONDS)
         for source in verified:
             source['notebook_status'] = 'ready' if source['notebook_source_id'] in ready else 'processing'
         self.save_sources()

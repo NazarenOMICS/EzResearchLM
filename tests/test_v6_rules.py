@@ -181,6 +181,57 @@ class DirectDeliveryTests(unittest.TestCase):
         self.assertEqual(read_json(self.folder / 'answer.json')['support_protocol'], 'ez-verdict-v5-grounded')
 
 
+class SpeedTests(unittest.TestCase):
+    setUp = test_engine.EngineTests.setUp
+
+    def processing(self, polls):
+        state = {'lists': 0}
+        def run(args, **kwargs):
+            result = self.service(args, **kwargs)
+            if args[1:3] == ['source', 'list'] and self.service.sources:
+                state['lists'] += 1
+                value = json.loads(result.stdout)
+                if state['lists'] <= polls:
+                    value['sources'] = [dict(s, status='processing') for s in value['sources']]
+                return Result(0, json.dumps(value), '', None)
+            return result
+        return run
+
+    def test_ez_waits_for_processing_inside_the_same_call(self):
+        with lock(self.folder), patch('ez.engine.executable', return_value='notebooklm'), \
+                patch('ez.engine.time.sleep') as sleep:
+            self.assertEqual(Engine(self.folder, runner=self.processing(2)).execute(), 2)
+        self.assertEqual(sleep.call_count, 2)
+        self.assertEqual(read_json(self.folder / 'run-state.json')['phase'], 'audit')
+
+    def test_processing_beyond_the_wait_still_pauses(self):
+        with lock(self.folder), patch('ez.engine.executable', return_value='notebooklm'), \
+                patch('ez.engine.READINESS_WAIT_SECONDS', 0):
+            self.assertEqual(Engine(self.folder, runner=self.processing(99)).execute(), 3)
+        self.assertEqual(read_json(self.folder / 'run-state.json')['legacy_signals'], ['waiting_on_processing'])
+
+    def test_downloads_run_in_parallel_and_are_journaled_in_order(self):
+        import threading
+        from ez.state import Store as S
+        with lock(self.folder):
+            store = S(self.folder); state = store.state()
+            sources = read_json(self.folder / 'sources.json')
+            sources += [{'source_id': 'p%d' % i, 'title': 'Pendiente %d' % i, 'acquisition_status': 'pending', 'screening': 'include',
+                         'validation_status': 'unknown', 'identity_status': 'unknown', 'notebook_status': 'pending'} for i in range(4)]
+            state['sources_hash'] = digest(sources)
+            store.commit(state, {'sources.json': sources})
+        barrier = threading.Barrier(4, timeout=5)
+        def run(args, **kwargs):
+            if args[1:3] == ['-m', 'ez.acquisition']:
+                barrier.wait()  # Fails unless the four downloads are in flight together.
+                return Result(1, '', '', 'routes_exhausted')
+            return self.service(args, **kwargs)
+        with lock(self.folder), patch('ez.engine.executable', return_value='notebooklm'):
+            Engine(self.folder, runner=run).execute()
+        sources = {s['source_id']: s for s in read_json(self.folder / 'sources.json')}
+        self.assertEqual({sources['p%d' % i]['failure_code'] for i in range(4)}, {'routes_exhausted'})
+
+
 class SentenceTests(unittest.TestCase):
     def test_species_abbreviations_and_trailing_markers_stay_in_their_sentence(self):
         from ez.audit import plain, sentences
