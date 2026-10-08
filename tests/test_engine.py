@@ -37,7 +37,12 @@ class Service:
 
     def __call__(self, args, **kwargs):
         self.calls.append(args)
-        if args[1:3] == ['-m', 'ez.discovery']:
+        if args[1:3] == ['-m', 'ez.openaccess']:
+            dois = json.loads(Path(args[args.index('--input') + 1]).read_text(encoding='utf-8'))
+            atomic_json(args[args.index('--output') + 1], {'status': {d.lower(): {'is_oa': d.endswith('oa'), 'oa_status': 'gold'}
+                                                                      for d in dois}})
+            value = {}
+        elif args[1:3] == ['-m', 'ez.discovery']:
             atomic_json(args[args.index('--output') + 1], {'candidates': self.discovery_records, 'status': 'complete'})
             value = {}
         elif args[1] == 'create':

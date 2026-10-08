@@ -276,16 +276,35 @@ class Engine:
         pending = [s for s in self.sources if s.get('screening') == 'pending']
         if not pending:
             return
+        self.open_access(pending)
         request = {'schema_version': '2.0', 'sources_hash': self.state['sources_hash'], 'max_sources': self.max_sources(),
                    'already_included': sum(s.get('screening', 'include') == 'include' for s in self.sources),
                    'candidates': [{k: s.get(k) for k in ('source_id', 'title', 'authors', 'year', 'journal', 'doi', 'pmid',
-                                                         'pmcid', 'sources', 'queries') if s.get(k)}
+                                                         'pmcid', 'sources', 'queries', 'open_access') if s.get(k)}
                                   | ({'abstract': s['abstract'][:800]} if s.get('abstract') else {}) for s in pending],
                    'decisions': []}
         atomic_json(self.folder / 'screening-request.json', request)
         raise Pause('NEEDS_SCREENING', f'Hay {len(pending)} candidatos por decidir. El agente anfitrión debe completar una copia de '
                     'screening-request.json con include, exclude o uncertain y una razón por candidato; luego usar '
                     'ez continue --screening.', 2)
+
+    def open_access(self, pending):
+        """Mark each candidate as open access or not, so screening can prefer PDFs EZ will be able to download."""
+        unknown = [s for s in pending if 'open_access' not in s and s.get('doi')]
+        if unknown:
+            dois = self.folder / 'discovery' / 'open-access-request.json'
+            output = self.folder / 'discovery' / 'open-access.json'
+            atomic_json(dois, [s['doi'] for s in unknown])
+            result = self.call([sys.executable, '-m', 'ez.openaccess', '--input', str(dois), '--output', str(output)], 120)
+            status = read_json(output)['status'] if result.returncode == 0 and output.exists() else {}
+            from .acquisition import normalize_doi
+            for source in unknown:
+                found = status.get(normalize_doi(source['doi']))
+                source['open_access'] = ('yes' if found['is_oa'] else 'no') if found else 'unknown'
+        for source in pending:
+            if 'open_access' not in source:
+                source['open_access'] = 'yes' if source.get('pdf_url') or source.get('pmcid') else 'unknown'
+        self.save_sources()
 
     def apply_screening(self, screening, dry_run=False):
         from .audit import ReviewError
