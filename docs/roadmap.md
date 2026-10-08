@@ -1,0 +1,148 @@
+# Hoja de ruta de EZ
+
+Actualizada: 2026-10-08. Este es el **único plan vigente**. Reemplaza a la
+auditoría P1–P14, al plan v2 por fases (0–7), a la lista de mejoras pendientes y a
+`docs/plan-refactor-v6.md`. Esos documentos quedan como registro del porqué de cada
+cambio. `docs/ez-refurbish-implementation-plan.md` y `docs/refurbish-progress.md` son
+anteriores a todo esto y solo tienen valor histórico.
+
+Cada ítem tiene un dueño: **código** (se hace en el repositorio y se valida offline)
+o **usuario** (requiere la cuenta de NotebookLM, una máquina Windows o el criterio de
+una persona).
+
+## 1. Dónde estamos
+
+Corrida en vivo v6, M2 sobre PDFs ya cargados
+(`gold_set_benchmark/resultado_ezresearchlm_v6.md`):
+
+| Modo | Afirmaciones | Consultas | Minutos |
+|---|---:|---:|---:|
+| Directo | 102 | 5 | 7 |
+| Verificado | 9 de 10 | +2 | +7 |
+
+En v5 la misma misión entregó 0 de 14 en 20 minutos.
+
+**Qué no sabemos todavía:**
+
+1. cuánto tarda una investigación desde cero;
+2. qué precisión tiene el modo directo;
+3. cómo se compara EZ con ChatGPT con búsqueda y con NotebookLM manual;
+4. si la instalación funciona en un Windows limpio y en Claude Desktop.
+
+## 2. Hecho
+
+**Auditoría y plan v2:**
+
+1. Fase 0: una sola rama; Anna's Archive fuera; aviso de versión preliminar.
+2. Fase 1, rigor:
+   1. revisión versionada por corpus;
+   2. bibliografía completa en cada cita;
+   3. retenciones, preguntas omitidas y exclusiones registradas;
+   4. señales coherentes;
+   5. detección de cuota agotada;
+   6. validación en seco `--check`.
+3. Fase 2, corpus:
+   1. cribado con tope de fuentes;
+   2. deduplicación DOI, PMID y PMCID;
+   3. PDFs duplicados por hash;
+   4. identidad por PMID o PMCID;
+   5. lagunas clasificadas por causa;
+   6. conteo de consultas.
+4. Fase 3, entregables: `report.md`; redacción con `ez draft` y marcadores `[EZ:<id>]`.
+5. Fase 4, lanzamiento parcial: README humano; capa legacy separada; canary de NotebookLM.
+6. Fase 5, madurez:
+   1. `ez research --update` con diferencias;
+   2. revisión humana con `ez verify`;
+   3. aviso de números ausentes en los pasajes.
+7. Fase 6: extensión experimental de Claude Desktop (servidor MCP y paquete `.mcpb`).
+
+**Refactor v6:**
+
+1. Retención por afirmación, no por subpregunta.
+2. Verificación con cualquier fuente del corpus.
+3. Revisión que se corrige sola.
+4. Notebook por proyecto y conversación nueva por pregunta (`--new`).
+5. Modo directo por defecto.
+6. Búsqueda y descarga en paralelo.
+7. Espera interna del procesamiento.
+8. PDFs atascados excluidos sin frenar la corrida.
+9. Oraciones repetidas unidas y resumen "Lo central".
+10. `ez continue --verify`.
+11. Tiempos explicados al usuario.
+
+**Decisiones tomadas:**
+
+1. Una afirmación fallida no arrastra a su subpregunta.
+2. La entrega directa es la opción por defecto y la verificada queda para redactar.
+
+## 3. Descartado o reemplazado
+
+1. Protocolos de verificación v3 y v4 (pasajes en la pregunta, lotes grandes): rompían la entrega en vivo. Los reemplaza v5.
+2. Plantilla compacta de revisión QA para el agente: la reemplazan el modo directo y `--verify`.
+3. Un notebook por corrida: lo reemplaza el notebook por proyecto.
+4. Consultas paralelas a NotebookLM: con `--new` en un mismo notebook tienen que ir en serie. Cada pregunta tarda alrededor de un minuto, igual que en la web.
+5. Parámetro `min_oa`: pertenece a los wrappers legacy y no afecta a `ez`. No se toca.
+6. Entrega progresiva en dos tandas: con notebook compartido y modo directo, la primera respuesta ya llega en minutos. Se reconsidera solo si la corrida desde cero tarda demasiado.
+
+## 4. Pendiente, en orden
+
+### Fase A. Medir (bloquea todo lo demás)
+
+| ID | Tarea | Dueño | Puerta |
+|---|---|---|---|
+| A1 | Corrida v6b: investigación desde cero, M2 directo con `--verify`, precisión de 20 afirmaciones directas | usuario | `gold_set_benchmark/resultado_ezresearchlm_v6b.md` |
+| A2 | Acuerdo humano del modo verificado: 30 afirmaciones juzgadas con `ez verify` | usuario | Porcentaje de acuerdo publicado |
+| A3 | Benchmark M1 a M3 con ChatGPT con búsqueda y con NotebookLM manual, según `gold_set_benchmark/reglas_benchmark.md`, y M3 (control negativo) con EZ | usuario | Planilla con referencias inventadas, precisión y tiempo por sistema |
+
+**Regla de decisión:**
+
+1. Si la precisión del modo directo (A1) es menor al 80 %, el modo verificado pasa a ser el valor por defecto.
+2. Si EZ no supera a las alternativas en referencias inventadas y precisión (A3), se revisa el producto antes de distribuirlo.
+
+### Fase B. Arreglos que salen de la medición
+
+| ID | Tarea | Dueño |
+|---|---|---|
+| B1 | Corregir lo que muestren A1 a A3 (lentitud de la corrida desde cero, oraciones mal cortadas, falsos positivos) | código |
+| B2 | Corpus inicial más chico: `budgets.max_sources` de 40 a 15, con ampliación cuando una subpregunta queda sin respaldo; priorizar rutas con identidad segura (PMC, Unpaywall) | código |
+| B3 | Confirmar la identidad de varios PDFs importados en una sola operación | código |
+| B4 | Decidir la verificación por cita textual: mantenerla, exigir revisión humana o quitarla, según cuántas veces aparezca `verification_quote` en A1 a A3 | decisión |
+| B5 | Modo directo: separar las oraciones que unen con punto y coma una parte citada y otra sin cita | código |
+
+### Fase C. Lanzamiento en GitHub
+
+| ID | Tarea | Dueño | Puerta |
+|---|---|---|---|
+| C1 | Instalación en un Windows limpio siguiendo solo el README | usuario | Lista de pasos que fallaron, o ninguno |
+| C2 | Archivar en `docs/history/` los informes viejos de la raíz y los planes superados | código | Raíz con README, AGENTS, CLAUDE y SETUP |
+| C3 | Publicar en el README los resultados de A1 a A3 y los tiempos reales | código | Números con fecha y versión |
+| C4 | Mergear `NazarenOMICS/EzResearchLM#1` a `main` y etiquetar la versión | usuario | Etiqueta `v0.x` |
+
+### Fase D. Usuarios sin terminal
+
+| ID | Tarea | Dueño |
+|---|---|---|
+| D1 | `ez_continue` en segundo plano dentro de la extensión, con avance consultable por `ez_status`; hoy una llamada larga puede superar el tiempo de la herramienta | código |
+| D2 | Prueba real de la extensión en Claude Desktop, incluido el login | usuario |
+| D3 | Migrar a `mcp` 2.x cuando su API se estabilice | código |
+
+### Fase E. Mejoras de uso (después del lanzamiento)
+
+| ID | Tarea | Dueño |
+|---|---|---|
+| E1 | Número de página por pasaje, ubicándolo en el PDF local | código |
+| E2 | Exportar la bibliografía citada a BibTeX y RIS para Zotero o Mendeley | código |
+| E3 | Estimar consultas y minutos antes de correr (≈1 min por pregunta, 1 consulta cada 6 afirmaciones verificadas) | código |
+| E4 | Benchmark ampliado a 8 misiones | usuario |
+
+### Fase F. Condicional
+
+F1. Aplicación web propia. Requiere una API oficial con consulta y citas para cuentas
+individuales, que hoy NotebookLM no ofrece. Se revisa cada vez que cambie esa API.
+Mientras tanto, la vía para usuarios sin terminal es la extensión de escritorio (fase D).
+
+## 5. Cómo se actualiza este plan
+
+1. Cada cambio del plan se registra en este archivo con la fecha.
+2. Un ítem pasa a "Hecho" cuando está en la rama con pruebas, o, si es de medición, cuando su informe está en `gold_set_benchmark/`.
+3. Un ítem nuevo entra en la fase que corresponde por dependencia, no al final.

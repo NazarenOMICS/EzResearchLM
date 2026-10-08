@@ -1,5 +1,7 @@
 # Ejecución del refactor EZ
 
+> Registro histórico. El plan vigente es `docs/roadmap.md`.
+
 Actualizado: 2026-09-20. Rama de trabajo: `codex/ez-refurbish`.
 Estado: **candidato interno; validación final incompleta; no listo para lanzar**.
 

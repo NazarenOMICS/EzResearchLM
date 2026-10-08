@@ -1,5 +1,7 @@
 # Plan de refactor v6: menos capas, menos espera
 
+> Registro histórico. El plan vigente es `docs/roadmap.md`.
+
 Fecha: 2026-10-08. Base: `gold_set_benchmark/resultado_ezresearchlm_v5.md`
 (corrida en vivo del commit `0298ccf`).
 

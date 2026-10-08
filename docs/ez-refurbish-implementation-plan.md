@@ -1,5 +1,7 @@
 # EZresearchLM: plan técnico-operativo de implementación de EZ
 
+> Registro histórico. El plan vigente es `docs/roadmap.md`.
+
 Fecha de inspección: 2026-09-16. Estado: propuesta para revisión; no es una implementación ni una autorización de lanzamiento.
 
 > **Decisión posterior (2026-10-07):** Anna's Archive se retiró del producto. Las secciones de este plan que lo mencionan quedan como registro histórico; la adquisición usa solo rutas de acceso abierto y PDFs importados por el usuario.
