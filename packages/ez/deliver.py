@@ -145,7 +145,9 @@ def report_markdown(answer, contract, state):
         lines += ['## Fuentes que no entraron al corpus', '']
         for source in answer.get('corpus_exclusions', []):
             detail = f' ({source["detail"]})' if source.get('detail') else ''
-            lines.append(f'- {source.get("title") or source["source_id"]}: {REASON_LABELS.get(source["reason"], source["reason"])}{detail}.')
+            routes = ', '.join(f'{r["provider"]} ({r["failure_code"]})' for r in source.get('routes', []))
+            routes = f' Rutas probadas: {routes}.' if routes else ''
+            lines.append(f'- {source.get("title") or source["source_id"]}: {REASON_LABELS.get(source["reason"], source["reason"])}{detail}.{routes}')
         for failure in state.get('discovery_failures', []):
             lines.append(f'- Búsqueda {failure.get("query_id")} en {failure.get("provider")}: no se completó ({failure.get("reason")}).')
         lines.append('')

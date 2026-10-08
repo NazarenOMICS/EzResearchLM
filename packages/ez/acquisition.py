@@ -186,7 +186,7 @@ class Retriever:
                         if isinstance(location.get(key), str) and location[key]:
                             candidates.append((location[key], 'openalex'))
                             self.location_metadata[location[key]] = {'license': location.get('license'), 'version': location.get('version'), 'source': location.get('source')}
-            email = os.environ.get('PAPER_SEARCH_MCP_UNPAYWALL_EMAIL')
+            email = os.environ.get('PAPER_SEARCH_MCP_UNPAYWALL_EMAIL') or os.environ.get('UNPAYWALL_EMAIL')
             if email:
                 data = self.metadata('https://api.unpaywall.org/v2/' + quote(doi, safe='/') + '?email=' + quote(email), 'unpaywall')
                 for location in self.rows(data.get('oa_locations', []), 'unpaywall'):

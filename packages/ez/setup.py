@@ -1,6 +1,7 @@
 """Isolated optional tool installation and capability-based onboarding."""
 import os
 import json
+import re
 from pathlib import Path
 import sys
 
@@ -13,7 +14,7 @@ from .state import atomic_json, lock, read_json
 NOTEBOOKLM_SPEC = 'notebooklm-py==0.8.0'
 
 
-def prepare(root, check=False, install_notebooklm=False):
+def prepare(root, check=False, install_notebooklm=False, unpaywall_email=None):
     receipt = None
     if install_notebooklm:
         if check:
@@ -38,9 +39,15 @@ def prepare(root, check=False, install_notebooklm=False):
             if not config.exists():
                 atomic_json(config, {'schema_version': '2.0', 'operator': 'EZ', 'backend': 'host_agent',
                                      'runs_root': str(root), 'telemetry': False, 'anna_enabled': False, 'created_at': now()})
+            if unpaywall_email:
+                if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', unpaywall_email):
+                    raise ValueError('El correo para Unpaywall no parece válido.')
+                atomic_json(config, dict(read_json(config), unpaywall_email=unpaywall_email))
+                os.environ['PAPER_SEARCH_MCP_UNPAYWALL_EMAIL'] = unpaywall_email
     checks = {'python': sys.version.split()[0], 'operator': 'host_agent', 'can_plan': True, 'can_discover': True,
               'can_notebook_qa': False, 'can_recall': False, 'configuration_exists': config.exists(),
-              'runs_root': str(root), 'installation': receipt}
+              'runs_root': str(root), 'installation': receipt,
+              'unpaywall_configured': bool(os.environ.get('PAPER_SEARCH_MCP_UNPAYWALL_EMAIL') or os.environ.get('UNPAYWALL_EMAIL'))}
     for tool in ('notebooklm', 'qmd'):
         command = executable(tool)
         checks[tool + '_installed'] = bool(command)
@@ -67,4 +74,8 @@ def prepare(root, check=False, install_notebooklm=False):
         checks['next_action'] = 'Puedes preparar el corpus. Para consultar la evidencia, abre el login de NotebookLM y completa el acceso en tu navegador.'
     else:
         checks['next_action'] = 'Falta NotebookLM. EZ puede instalarlo en un entorno aislado con ez setup --install-notebooklm; después debes iniciar sesión.'
+    if not checks['unpaywall_configured']:
+        # Unpaywall is the widest open-access index; without a contact email EZ skips it and more PDFs fail.
+        checks['next_action'] += (' Para encontrar más PDFs de acceso abierto, guarda un correo de contacto para Unpaywall con '
+                                  'ez setup --unpaywall-email <correo>; solo se envía a Unpaywall.')
     return checks

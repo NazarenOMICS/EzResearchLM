@@ -19,6 +19,7 @@ def data_root():
 
 def load_environment():
     """Read checkout overrides without replacing explicit process configuration."""
+    load_user_config()
     root = runtime_root()
     path = root / '.env'
     if not path.is_file():
@@ -34,6 +35,18 @@ def load_environment():
         if key in ('EZRESEARCH_RUNS_ROOT', 'EZRESEARCH_SEARCH_ROOT', 'EZRESEARCH_VAULT', 'EZRESEARCH_PYTHON'):
             value = str((root / Path(value).expanduser()).resolve())
         os.environ[key] = value
+
+
+def load_user_config(runs_root=None):
+    """Settings saved by ez setup (for now, the contact email Unpaywall requires)."""
+    import json
+    path = Path(runs_root or data_root()).parent / 'ez-config.json'
+    try:
+        email = json.loads(path.read_text(encoding='utf-8-sig')).get('unpaywall_email') if path.is_file() else None
+    except (OSError, ValueError):
+        return
+    if email and not (os.environ.get('PAPER_SEARCH_MCP_UNPAYWALL_EMAIL') or os.environ.get('UNPAYWALL_EMAIL')):
+        os.environ['PAPER_SEARCH_MCP_UNPAYWALL_EMAIL'] = email
 
 
 def executable(name):

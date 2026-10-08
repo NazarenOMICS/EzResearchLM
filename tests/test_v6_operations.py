@@ -1,0 +1,72 @@
+"""Refactor v6, operations: download diagnostics, Unpaywall setup, batch PDF import and background jobs."""
+from contextlib import redirect_stdout
+from io import StringIO
+import json
+import os
+from pathlib import Path
+import unittest
+from unittest.mock import patch
+
+from ez.cli import main
+from ez.contracts import digest
+from ez.engine import Engine
+from ez.process import Result
+from ez.state import Store, atomic_json, lock, read_json
+import test_engine
+
+
+class DownloadDiagnosticsTests(unittest.TestCase):
+    setUp = test_engine.EngineTests.setUp
+
+    def test_failed_downloads_report_each_route_tried(self):
+        with lock(self.folder):
+            store = Store(self.folder); state = store.state()
+            sources = read_json(self.folder / 'sources.json')
+            sources.append({'source_id': 'paid', 'title': 'Artículo pago', 'doi': '10.1/paid', 'acquisition_status': 'pending',
+                            'screening': 'include', 'validation_status': 'unknown', 'identity_status': 'unknown',
+                            'notebook_status': 'pending'})
+            state['sources_hash'] = digest(sources)
+            store.commit(state, {'sources.json': sources})
+        def run(args, **kwargs):
+            if args[1:3] == ['-m', 'ez.acquisition']:
+                record = read_json(args[args.index('--record') + 1])
+                atomic_json(args[args.index('--output') + 1], dict(
+                    record, acquisition_status='manual_needed', validation_status='unknown', failure_code='routes_exhausted',
+                    acquisition_input_hash=digest(record),
+                    attempts=[{'provider': 'doi', 'result': 'failed', 'failure_code': 'http_403'},
+                              {'provider': 'unpaywall', 'result': 'skipped', 'failure_code': 'missing_email'},
+                              {'provider': 'openalex', 'result': 'failed', 'failure_code': 'html_instead_of_pdf'}]))
+                return Result(0, '', '', None)
+            return self.service(args, **kwargs)
+        with lock(self.folder), patch('ez.engine.executable', return_value='notebooklm'):
+            Engine(self.folder, runner=run).execute()
+        exclusion = next(e for e in read_json(self.folder / 'run-state.json')['corpus_exclusions'] if e['source_id'] == 'paid')
+        self.assertEqual(exclusion['routes'], [{'provider': 'doi', 'failure_code': 'http_403'},
+                                               {'provider': 'unpaywall', 'failure_code': 'missing_email'},
+                                               {'provider': 'openalex', 'failure_code': 'html_instead_of_pdf'}])
+        from ez.metrics import collect
+        self.assertEqual(collect(self.folder)['download_routes_failed']['unpaywall:missing_email'], 1)
+
+
+class UnpaywallSetupTests(unittest.TestCase):
+    def test_setup_saves_the_contact_email_and_later_commands_load_it(self):
+        import tempfile
+        from ez.paths import load_user_config
+        with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {}, clear=False):
+            for key in ('PAPER_SEARCH_MCP_UNPAYWALL_EMAIL', 'UNPAYWALL_EMAIL'):
+                os.environ.pop(key, None)
+            root = Path(temp) / 'runs'
+            output = StringIO()
+            with redirect_stdout(output), patch('ez.cli.load_environment'), patch('ez.setup.executable', return_value=None):
+                self.assertEqual(main(['--root', str(root), 'setup', '--unpaywall-email', 'tesista@example.org', '--json']), 0)
+            self.assertTrue(json.loads(output.getvalue())['unpaywall_configured'])
+            self.assertEqual(read_json(Path(temp) / 'ez-config.json')['unpaywall_email'], 'tesista@example.org')
+            os.environ.pop('PAPER_SEARCH_MCP_UNPAYWALL_EMAIL')
+            load_user_config(root)
+            self.assertEqual(os.environ['PAPER_SEARCH_MCP_UNPAYWALL_EMAIL'], 'tesista@example.org')
+            with redirect_stdout(StringIO()), patch('ez.cli.load_environment'), patch('ez.setup.executable', return_value=None):
+                self.assertEqual(main(['--root', str(root), 'setup', '--unpaywall-email', 'no-es-un-correo', '--json']), 1)
+
+
+if __name__ == '__main__':
+    unittest.main()

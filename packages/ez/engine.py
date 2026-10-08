@@ -47,6 +47,15 @@ def same_content(remote, source):
     return remote.get('title', '').endswith('-' + source['content_sha256'][:12] + '.pdf')
 
 
+def routes_tried(source):
+    """Each provider EZ tried for a failed download, with the last reason it gave."""
+    last = {}
+    for attempt in source.get('attempts') or []:
+        if isinstance(attempt, dict) and attempt.get('provider') and attempt.get('result') in ('failed', 'skipped'):
+            last[attempt['provider']] = attempt.get('failure_code') or attempt['result']
+    return [{'provider': provider, 'failure_code': code} for provider, code in last.items()]
+
+
 class Pause(Exception):
     def __init__(self, reason, message, code=2):
         self.reason, self.message, self.code = reason, message, code
@@ -512,7 +521,9 @@ class Engine:
                 reason = 'not_acquired'
             result.append({k: v for k, v in (('source_id', source['source_id']), ('title', source.get('title')),
                                               ('doi', source.get('doi')), ('reason', reason),
-                                              ('detail', source.get('screening_reason') if screening != 'include' else None)) if v})
+                                              ('detail', source.get('screening_reason') if screening != 'include' else None),
+                                              ('routes', routes_tried(source) if source.get('acquisition_status') == 'manual_needed'
+                                               else None)) if v})
         return result
 
     def blocking_policies(self, question):

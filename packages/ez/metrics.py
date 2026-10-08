@@ -39,6 +39,12 @@ def collect(folder):
                                                                           c.get('verification', {}).get('mode') == 'direct'))
                                             for c in claims),
             'external_calls': sum(e['kind'] == 'external_result' for e in events), 'external_failures': dict(failures),
+            'download_failures': dict(Counter(s.get('failure_code') or 'unknown' for s in sources
+                                              if s.get('acquisition_status') == 'manual_needed')),
+            'download_routes_failed': dict(Counter(f"{a.get('provider')}:{a.get('failure_code') or a.get('result')}"
+                                                   for s in sources if s.get('acquisition_status') == 'manual_needed'
+                                                   for a in s.get('attempts') or [] if isinstance(a, dict)
+                                                   and a.get('result') in ('failed', 'skipped'))),
             'notebooklm_questions': sum(e['kind'] == 'external_result' and e['payload'].get('command') == 'ask' for e in events),
             'local_integrity_verified': diagnosis['healthy'], 'unjustified_block': None,
             'human_citation_review': human_review(state), 'authenticated_e2e_verified': None, 'sent_remotely': False}
