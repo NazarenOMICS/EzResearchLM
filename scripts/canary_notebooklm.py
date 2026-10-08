@@ -56,14 +56,17 @@ def main():
             source_id = ready[0]['id']
             text, error = call(command, ['source', 'fulltext', source_id, '--notebook', args.notebook], 60)
             check('source_fulltext', text is not None, error or f'{len(text["content"])} caracteres')
-            answer, error = call(command, ['ask', '--notebook', args.notebook, '--source', source_id,
+            answer, error = call(command, ['ask', '--notebook', args.notebook, '--new', '--source', source_id,
                                            '¿Cuál es el objetivo principal de esta fuente? Cita la fuente.'], 180)
             refs = [r for r in (answer or {}).get('references', []) if r.get('cited_text')]
             check('qa_native_citations', answer is not None and refs, error or f'{len(refs)} citas con pasaje')
             claim = [{'id': 'c1', 'text': 'Esta fuente describe un trabajo de investigación.',
                       'references': [{'source_id': source_id, 'citation_number': 1, 'cited_text': ''}]}]
-            verdict, error = call(command, ['ask', '--notebook', args.notebook, '--source', source_id,
+            verdict, error = call(command, ['ask', '--notebook', args.notebook, '--new', '--source', source_id,
                                             verification_prompt(claim)], 180)
+            # EZ asks every question in a fresh conversation; a follow-up here means --new did not apply.
+            check('fresh_conversation', verdict is not None and verdict.get('is_follow_up') is False,
+                  error or f'is_follow_up={verdict.get("is_follow_up")!r}')
             parsed = batch_verdicts(verdict, [{'notebook_source_id': source_id, 'notebook_status': 'ready',
                                                'validation_status': 'valid', 'identity_status': 'verified'}], claim)['c1'] if verdict else {}
             check('verdict_format', verdict is not None and parsed.get('stated_verdict'), error or f'dictamen {parsed.get("stated_verdict")}')

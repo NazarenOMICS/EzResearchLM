@@ -25,6 +25,23 @@ def numbers_missing(text, passages):
     return sorted(numbers(text) - found)
 
 
+# NotebookLM's free plan accepts 50 sources per notebook.
+NOTEBOOK_SOURCE_LIMIT = 50
+
+
+def notebook_reuse_enabled():
+    return os.environ.get('EZ_NOTEBOOK_REUSE', '1').strip().lower() not in ('0', 'false', 'no')
+
+
+def upload_title(source):
+    return source['source_id'] + '-' + source['content_sha256'][:12] + '.pdf'
+
+
+def same_content(remote, source):
+    """Remote titles end with the first 12 hex characters of the PDF's SHA-256."""
+    return remote.get('title', '').endswith('-' + source['content_sha256'][:12] + '.pdf')
+
+
 class Pause(Exception):
     def __init__(self, reason, message, code=2):
         self.reason, self.message, self.code = reason, message, code
@@ -66,6 +83,8 @@ class Engine:
         return result
 
     def notebook(self, args, seconds=60):
+        # Every question starts a fresh conversation (--new): answers never depend on
+        # earlier turns, including other runs' turns in a shared project notebook.
         command = executable('notebooklm')
         if not command:
             raise Pause('notebooklm_missing', 'Instala NotebookLM y ejecuta ez setup --check.')
@@ -293,39 +312,32 @@ class Engine:
             raise Pause('NEEDS_SOURCE_REVIEW' if any(s.get('validation_status') == 'valid' for s in self.sources) else 'NEEDS_CORPUS',
                         'Faltan PDFs validados y con identidad verificada. Usa ez rescue para revisar o importar fuentes.')
         self.checkpoint('upload')
-        title = 'EZ ' + self.state['run_id']
         if not self.state.get('notebook_id'):
-            if self.state.get('pending_operation') == 'create_notebook':
-                notebooks = self.notebook(['list']).get('notebooks', [])
-                matches = [n for n in notebooks if n.get('title') == title]
-                if len(matches) != 1:
-                    raise Pause('remote_reconciliation', 'La creación anterior no tiene resultado inequívoco. Revisa el notebook antes de repetir.')
-                self.checkpoint(notebook_id=matches[0]['id'], pending_operation=None)
+            shared = self.project_notebook(verified) if notebook_reuse_enabled() else None
+            if shared:
+                self.store.append('decision', {'kind': 'reuse_project_notebook', 'actor': 'ez', 'notebook_id': shared})
+                self.checkpoint(notebook_id=shared, notebook_shared=True)
             else:
-                self.checkpoint(pending_operation='create_notebook')
-                try:
-                    data = self.notebook(['create', title])
-                except Pause as exc:
-                    if exc.reason in ('auth_required', 'notebooklm_missing', 'quota_exhausted'):
-                        self.checkpoint(pending_operation=None)
-                    raise
-                notebook_id = data.get('id') or data.get('notebook', {}).get('id')
-                if not notebook_id:
-                    raise Pause('remote_reconciliation', 'No se pudo identificar el notebook creado.')
-                self.checkpoint(notebook_id=notebook_id, pending_operation=None)
+                self.create_notebook()
         notebook_id = self.state['notebook_id']
+        shared = bool(self.state.get('notebook_shared'))
         remote = self.notebook(['source', 'list', '--notebook', notebook_id]).get('sources', [])
         known_ids = {s.get('notebook_source_id') for s in self.sources if s.get('notebook_source_id')}
-        known_titles = {s['source_id'] + '-' + s['content_sha256'][:12] + '.pdf' for s in self.sources if s.get('content_sha256')}
-        if any(s.get('id') not in known_ids and s.get('title') not in known_titles for s in remote):
+        known_titles = {upload_title(s) for s in self.sources if s.get('content_sha256')}
+        # A project notebook holds other runs' sources; queries pass --source, so they never mix.
+        if not shared and any(s.get('id') not in known_ids and s.get('title') not in known_titles for s in remote):
             raise Pause('remote_corpus_drift', 'El notebook contiene fuentes sin reconciliar. Revisa el corpus antes de añadir documentos.', 4)
         for source in verified:
             # Verify local bytes again before sending them outside the machine.
             path = Path(source['pdf_path'])
             if not path.is_file() or sha256(path.read_bytes()).hexdigest() != source['content_sha256']:
                 raise Pause('NEEDS_TRACEABILITY_REPAIR', 'Un PDF cambió después de validarlo.', 4)
-            upload_title = source['source_id'] + '-' + source['content_sha256'][:12] + '.pdf'
-            matches = [s for s in remote if s.get('id') == source.get('notebook_source_id') or s.get('title') == upload_title]
+            title = upload_title(source)
+            if shared:
+                matches = sorted((s for s in remote if s.get('id') == source.get('notebook_source_id') or same_content(s, source)),
+                                 key=lambda s: (str(s.get('status', '')).lower() not in ('ready', 'completed', 'available'), s['id']))[:1]
+            else:
+                matches = [s for s in remote if s.get('id') == source.get('notebook_source_id') or s.get('title') == title]
             if len(matches) > 1:
                 raise Pause('remote_reconciliation', 'NotebookLM tiene fuentes duplicadas; revisa antes de continuar.')
             if matches:
@@ -335,7 +347,7 @@ class Engine:
             else:
                 # File uploads can ignore --title. Give the actual upload file
                 # its deterministic reconciliation name while preserving the PDF.
-                staged = contained(self.folder, 'upload/' + upload_title)
+                staged = contained(self.folder, 'upload/' + title)
                 staged.parent.mkdir(exist_ok=True)
                 if not staged.exists():
                     shutil.copyfile(path, staged)
@@ -344,7 +356,7 @@ class Engine:
                 source['upload_pending'] = True
                 self.save_sources()
                 try:
-                    data = self.notebook(['source', 'add', '--notebook', notebook_id, '--type', 'file', '--mime-type', 'application/pdf', '--title', upload_title, str(staged)], 180)
+                    data = self.notebook(['source', 'add', '--notebook', notebook_id, '--type', 'file', '--mime-type', 'application/pdf', '--title', title, str(staged)], 180)
                 except Pause as exc:
                     if exc.reason in ('auth_required', 'notebooklm_missing', 'quota_exhausted'):
                         source['upload_pending'] = False
@@ -356,12 +368,14 @@ class Engine:
                 source['notebook_source_id'] = source_id
             source['upload_pending'] = False
             self.save_sources()
+        self.register_notebook(verified)
         self.checkpoint('readiness')
         remote = self.notebook(['source', 'list', '--notebook', notebook_id]).get('sources', [])
         expected = {s['notebook_source_id'] for s in verified}
-        if {s.get('id') for s in remote} != expected:
+        actual = {s.get('id') for s in remote}
+        if (not expected <= actual) if shared else actual != expected:
             raise Pause('remote_corpus_drift', 'El corpus remoto incluye fuentes ausentes o no registradas. Revisa su composición.', 4)
-        ready = {s['id'] for s in remote if str(s.get('status', '')).lower() in ('ready', 'completed', 'available')}
+        ready = {s['id'] for s in remote if str(s.get('status', '')).lower() in ('ready', 'completed', 'available')} & expected
         for source in verified:
             source['notebook_status'] = 'ready' if source['notebook_source_id'] in ready else 'processing'
         self.save_sources()
@@ -369,6 +383,64 @@ class Engine:
             raise Pause('waiting_on_processing', 'NotebookLM todavía procesa fuentes. Ejecuta ez continue más adelante.', 3)
         self.checkpoint(corpus_hash=digest(sorted((s['source_id'], s['content_sha256'], s['notebook_source_id']) for s in verified)),
                         corpus_exclusions=self.exclusions())
+
+    def create_notebook(self):
+        title = 'EZ ' + self.state['run_id']
+        if self.state.get('pending_operation') == 'create_notebook':
+            notebooks = self.notebook(['list']).get('notebooks', [])
+            matches = [n for n in notebooks if n.get('title') == title]
+            if len(matches) != 1:
+                raise Pause('remote_reconciliation', 'La creación anterior no tiene resultado inequívoco. Revisa el notebook antes de repetir.')
+            self.checkpoint(notebook_id=matches[0]['id'], pending_operation=None)
+            return
+        self.checkpoint(pending_operation='create_notebook')
+        try:
+            data = self.notebook(['create', title])
+        except Pause as exc:
+            if exc.reason in ('auth_required', 'notebooklm_missing', 'quota_exhausted'):
+                self.checkpoint(pending_operation=None)
+            raise
+        notebook_id = data.get('id') or data.get('notebook', {}).get('id')
+        if not notebook_id:
+            raise Pause('remote_reconciliation', 'No se pudo identificar el notebook creado.')
+        self.checkpoint(notebook_id=notebook_id, pending_operation=None, notebook_shared=notebook_reuse_enabled())
+
+    def library_path(self):
+        project = re.sub(r'[^A-Za-z0-9_-]+', '-', str(self.contract.get('context', {}).get('project') or 'general')).strip('-') or 'general'
+        return self.folder.parent / 'projects' / project / 'notebooks.json'
+
+    def project_notebook(self, verified):
+        """The project's latest notebook when this corpus still fits in it; uploads then cover only new PDFs."""
+        path = self.library_path()
+        library = read_json(path) if path.exists() else {}
+        notebooks = library.get('notebooks', [])
+        if not notebooks:
+            return None
+        notebook_id = notebooks[-1]['notebook_id']
+        try:
+            remote = self.notebook(['source', 'list', '--notebook', notebook_id]).get('sources', [])
+        except Pause as exc:
+            if exc.reason in ('auth_required', 'notebooklm_missing', 'quota_exhausted'):
+                raise
+            return None  # The notebook was deleted or is unreadable: start a new one.
+        missing = [s for s in verified if not any(same_content(r, s) for r in remote)]
+        return notebook_id if len(remote) + len(missing) <= NOTEBOOK_SOURCE_LIMIT else None
+
+    def register_notebook(self, verified):
+        if not self.state.get('notebook_shared'):
+            return
+        from .state import lock
+        path = self.library_path()
+        with lock(path.parent):
+            library = read_json(path) if path.exists() else {'schema_version': '1.0', 'notebooks': []}
+            entry = next((n for n in library['notebooks'] if n['notebook_id'] == self.state['notebook_id']), None)
+            if entry is None:
+                entry = {'notebook_id': self.state['notebook_id'], 'created_by_run': self.state['run_id'], 'runs': [], 'sources': {}}
+                library['notebooks'].append(entry)
+            if self.state['run_id'] not in entry['runs']:
+                entry['runs'].append(self.state['run_id'])
+            entry['sources'].update({upload_title(s): s['notebook_source_id'] for s in verified})
+            atomic_json(path, library)
 
     def exclusions(self):
         """Sources that stayed outside the corpus, with the reason the user can act on."""
@@ -446,7 +518,7 @@ class Engine:
                 continue
             if self.blocking_policies(question):
                 continue
-            args = ['ask', '--notebook', self.state['notebook_id']]
+            args = ['ask', '--notebook', self.state['notebook_id'], '--new']
             for source_id in remote_ids:
                 args += ['--source', source_id]
             args += [question['text'] + '\nCita las fuentes que respaldan cada afirmación y declara explícitamente lo que el corpus no permite responder.']
@@ -512,7 +584,7 @@ class Engine:
                 raise ContractError('La QA de respaldo no coincide con su recibo.')
             response = read_json(path)
         else:
-            args = ['ask', '--notebook', self.state['notebook_id']]
+            args = ['ask', '--notebook', self.state['notebook_id'], '--new']
             for source_id in sorted({r['source_id'] for c in batch for r in c['references']}):
                 args += ['--source', source_id]
             try:

@@ -79,7 +79,8 @@ def diagnose(folder, remote=False):
                         raise ContractError('NotebookLM devolvió un esquema remoto desconocido.')
                     actual = {s['id'] for s in payload['sources']}
                     expected = {s['notebook_source_id'] for s in sources if s.get('notebook_source_id')}
-                    if actual != expected:
+                    # A project notebook also holds other runs' sources; this run only needs its own.
+                    if (not expected <= actual) if state.get('notebook_shared') else actual != expected:
                         add('remote_corpus_drift', 'La composición del notebook difiere del manifiesto local. Reconciliar antes de continuar.')
     except (ContractError, ValueError, OSError, KeyError) as exc:
         add('integrity_unverified', str(exc))

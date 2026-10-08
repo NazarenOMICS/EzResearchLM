@@ -354,7 +354,7 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(json.loads(output.getvalue())['answer']['status'], 'unavailable')
         self.assertEqual(pdf.read_bytes(), b'changed')
 
-    def test_reuse_preserves_origin_and_creates_a_separate_remote_corpus(self):
+    def test_reuse_preserves_origin_and_shares_the_project_notebook(self):
         from ez.context import reuse_sources
         self.run_engine()
         before = {p.relative_to(self.folder): p.read_bytes() for p in self.folder.rglob('*') if p.is_file()}
@@ -367,13 +367,23 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(sources[0]['reused_from']['notebook_source_id'], 'remote1')
         self.assertEqual(sources[0]['notebook_status'], 'pending')
         self.assertTrue(Path(sources[0]['pdf_path']).is_relative_to(destination))
-        new_service = Service()
         with lock(destination), patch('ez.engine.executable', return_value='notebooklm'):
-            self.assertEqual(Engine(destination, runner=new_service).execute(), 2)
-        self.assertEqual(new_service.create_count, 1)
-        self.assertEqual(new_service.upload_count, 1)
-        self.assertFalse(any(c[1:3] == ['-m', 'ez.discovery'] for c in new_service.calls))
+            self.assertEqual(Engine(destination, runner=self.service).execute(), 2)
+        # Same project: the existing notebook and its processed source are reused.
+        self.assertEqual((self.service.create_count, self.service.upload_count), (1, 1))
+        self.assertEqual(Store(destination).state()['notebook_id'], 'nb1')
+        self.assertEqual(read_json(destination / 'sources.json')[0]['notebook_source_id'], 'remote1')
+        self.assertFalse(any(c[1:3] == ['-m', 'ez.discovery'] for c in self.service.calls))
         self.assertEqual(before, {p.relative_to(self.folder): p.read_bytes() for p in self.folder.rglob('*') if p.is_file()})
+        library = read_json(Path(self.temp.name) / 'projects' / 'general' / 'notebooks.json')
+        self.assertEqual(library['notebooks'][0]['runs'], [Store(self.folder).state()['run_id'], Store(destination).state()['run_id']])
+        # Opting out restores one notebook per run.
+        other, _ = create_run(Path(self.temp.name), 'Pregunta de prueba', {}, contract)
+        reuse_sources(self.folder, other)
+        with lock(other), patch('ez.engine.executable', return_value='notebooklm'), patch.dict('os.environ', {'EZ_NOTEBOOK_REUSE': '0'}):
+            self.assertEqual(Engine(other, runner=self.service).execute(), 2)
+        self.assertEqual(self.service.create_count, 2)
+        self.assertFalse(Store(other).state().get('notebook_shared'))
 
     def test_reuse_rejects_changed_evidence_and_does_not_create_sources(self):
         from ez.context import reuse_sources
