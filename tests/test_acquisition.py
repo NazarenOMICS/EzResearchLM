@@ -89,6 +89,21 @@ class AcquisitionTests(unittest.TestCase):
             self.assertEqual(len(session.calls), 1)
             self.assertEqual(retriever.history[0]['failure_code'], 'tls_downgrade')
 
+    def test_redirect_to_plain_http_is_upgraded_to_https(self):
+        with tempfile.TemporaryDirectory() as folder:
+            session = Session([Response(302, headers={'Location': 'http://publisher.example/article.pdf'}),
+                               Response(data=b'%PDF-1.4 test')])
+            retriever = Retriever(folder, 's1', session=session, check_url=lambda u: None)
+            data, final = retriever.request('https://doi.org/10.1/x', 'doi')
+            self.assertEqual((data, final), (b'%PDF-1.4 test', 'https://publisher.example/article.pdf'))
+            self.assertTrue(all(call[0].startswith('https://') for call in session.calls))
+
+    def test_a_record_without_any_location_is_not_reported_as_failed_routes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            retriever = Retriever(folder, 's1', session=Session([]), check_url=lambda u: None)
+            result = retriever.acquire({'source_id': 's1', 'title': 'Sin identificadores'})
+            self.assertEqual((result['failure_code'], result['routes_consulted']), ('no_open_access_location', {}))
+
     def test_rate_limit_longer_than_budget_is_not_retried(self):
         with tempfile.TemporaryDirectory() as folder:
             session = Session([Response(429, headers={'Retry-After': '3600'})])

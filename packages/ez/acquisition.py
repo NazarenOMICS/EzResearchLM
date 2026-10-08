@@ -69,6 +69,7 @@ class Retriever:
         self.history = []
         self.circuit = set()
         self.location_metadata = {}
+        self.consulted = {}
 
     def record(self, event):
         self.history.append(event)
@@ -107,7 +108,12 @@ class Retriever:
                         break
                     target = urljoin(current, response.headers.get('Location', ''))
                     if urlsplit(current).scheme == 'https' and urlsplit(target).scheme != 'https':
-                        raise ValueError('tls_downgrade')
+                        # Many publishers redirect to an http address that also serves https. Never fetch
+                        # plain http: ask for the https version, unless that is the page we just left.
+                        upgraded = urlsplit(target)._replace(scheme='https').geturl()
+                        if urlsplit(target).scheme != 'http' or upgraded == current:
+                            raise ValueError('tls_downgrade')
+                        target = upgraded
                     response.close()
                     current = target
                 else:
@@ -234,6 +240,15 @@ class Retriever:
                         if isinstance(url, str) and url:
                             candidates.append((url, 'openaire'))
                             self.location_metadata[url] = {'record_id': work.get('id'), 'license': instance.get('license'), 'version': work.get('version'), 'repository': instance.get('hostedBy')}
+        # Which indexes were asked and how many locations each offered: a failed source with only
+        # zeros was never openly available, which is different from a route that failed.
+        asked = ['openalex', 'unpaywall'] if doi else []
+        asked += ['europepmc'] if query else []
+        asked += ['core', 'openaire'] if doi else []
+        if not os.environ.get('PAPER_SEARCH_MCP_UNPAYWALL_EMAIL') and not os.environ.get('UNPAYWALL_EMAIL'):
+            asked = [a for a in asked if a != 'unpaywall']
+        for provider in asked:
+            self.consulted[provider] = sum(1 for c in candidates if c[1] == provider)
         # Fairly interleave providers so a long location list from one API does
         # not consume the bounded route count before PMC or other repositories.
         groups = {}
@@ -320,8 +335,10 @@ class Retriever:
                                     'acquisition_policy': 'public_route', 'source_version': self.location_metadata.get(url, {}).get('version') or 'unknown'}
             result['attempts'] = self.history
             return result
-        reason = 'source_budget_exhausted' if time.monotonic() >= self.deadline else 'candidate_limit' if len(seen) >= 40 else 'routes_exhausted'
-        return dict(record, acquisition_status='manual_needed', validation_status='unknown', failure_code=reason, attempts=self.history)
+        reason = 'source_budget_exhausted' if time.monotonic() >= self.deadline else 'candidate_limit' if len(seen) >= 40 else \
+            'routes_exhausted' if seen else 'no_open_access_location'
+        return dict(record, acquisition_status='manual_needed', validation_status='unknown', failure_code=reason,
+                    attempts=self.history, routes_consulted=self.consulted)
 
 
 def normalize_doi(value):

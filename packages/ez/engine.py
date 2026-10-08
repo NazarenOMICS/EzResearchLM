@@ -53,6 +53,9 @@ def routes_tried(source):
     for attempt in source.get('attempts') or []:
         if isinstance(attempt, dict) and attempt.get('provider') and attempt.get('result') in ('failed', 'skipped'):
             last[attempt['provider']] = attempt.get('failure_code') or attempt['result']
+    for provider, offered in (source.get('routes_consulted') or {}).items():
+        if not offered and provider not in last:
+            last[provider] = 'no_open_access_location'
     return [{'provider': provider, 'failure_code': code} for provider, code in last.items()]
 
 
@@ -753,7 +756,7 @@ class Engine:
         review = read_json(self.folder / 'reviews' / (self.state['review_hash'] + '.json'))
         return self.finalize(review)
 
-    NO_ACCESS = {'paywall', 'access_denied', 'auth_required', 'captcha_or_challenge'}
+    NO_ACCESS = {'paywall', 'access_denied', 'auth_required', 'captcha_or_challenge', 'no_open_access_location'}
 
     def gaps(self, result, review, withheld):
         """Why each unanswered scope is unanswered: no access, failed download, unverified claims or thin evidence."""

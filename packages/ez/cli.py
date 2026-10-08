@@ -124,30 +124,56 @@ def import_pdf(folder, store, source, path, args, actor='user'):
     store.append('decision', {'actor': actor, 'kind': 'pdf_import', 'source_id': source['source_id'], 'sha256': report['sha256'], 'at': now()})
 
 
+def likely_match(path, text, source):
+    """Weaker evidence than identity: the PDF prints the complete title or the DOI, or its filename carries the DOI."""
+    from .acquisition import normalize_doi, plain_words
+    title = ''.join(plain_words(source.get('title')))
+    doi = normalize_doi(source.get('doi'))
+    name = path.name.casefold().replace('_', '/')
+    return (len(title) >= 20 and title in ''.join(plain_words(text))) or \
+        bool(doi and (doi in text.casefold() or doi.replace('/', '') in name.replace('/', '')))
+
+
 def import_folder(folder, store, sources, directory, args):
-    """Match each PDF of a folder to the one pending source whose title and identifiers it prints; import the matches."""
+    """Match each PDF of a folder to one missing source. Printed title and identifiers verify identity; a title,
+    DOI or filename match alone imports the PDF but leaves its identity for a quick confirmation."""
     from .acquisition import verify_identity
+    from PyPDF2 import PdfReader
     pending = [s for s in sources if s.get('validation_status') != 'valid' and s.get('screening', 'include') == 'include'
                and not s.get('notebook_source_id')]
-    imported, unmatched, ambiguous = [], [], []
+    imported, to_confirm, unmatched, ambiguous = [], [], [], []
     for path in sorted(Path(directory).glob('*.pdf')):
         if path.is_symlink() or validate_pdf_bounded(path.resolve())['status'] != 'valid':
             unmatched.append(path.name)
             continue
-        matches = [s for s in pending if verify_identity(path, s) == 'verified']
+        strong = [s for s in pending if verify_identity(path, s) == 'verified']
+        if not strong:
+            try:
+                text = ' '.join((page.extract_text() or '') for page in list(PdfReader(str(path)).pages)[:2])
+            except Exception:
+                text = ''
+            weak = [s for s in pending if likely_match(path, text, s)]
+        matches = strong or weak
         if len(matches) != 1:
             (ambiguous if matches else unmatched).append(path.name)
             continue
         source = matches[0]
         import_pdf(folder, store, source, path, args, actor='ez')
-        # The PDF prints this work's own title and identifiers: the same rule automatic downloads use.
-        source['identity_status'] = 'verified'
-        store.append('decision', {'actor': 'ez', 'kind': 'identity_confirmed', 'source_id': source['source_id'],
-                                  'sha256': source['content_sha256'], 'method': 'printed_identifiers'})
+        row = {'file': path.name, 'source_id': source['source_id'], 'title': source.get('title')}
+        if strong:
+            # The PDF prints this work's own title and identifiers: the same rule automatic downloads use.
+            source['identity_status'] = 'verified'
+            store.append('decision', {'actor': 'ez', 'kind': 'identity_confirmed', 'source_id': source['source_id'],
+                                      'sha256': source['content_sha256'], 'method': 'printed_identifiers'})
+            imported.append(row)
+        else:
+            to_confirm.append(row)
         pending.remove(source)
-        imported.append({'file': path.name, 'source_id': source['source_id'], 'title': source.get('title')})
-    return {'imported': imported, 'unmatched_files': unmatched, 'ambiguous_files': ambiguous,
-            'still_missing': [{'source_id': s['source_id'], 'title': s.get('title'), 'doi': s.get('doi')} for s in pending]}
+    return {'imported': imported, 'needs_identity_confirmation': to_confirm, 'unmatched_files': unmatched,
+            'ambiguous_files': ambiguous,
+            'still_missing': [{'source_id': s['source_id'], 'title': s.get('title'), 'doi': s.get('doi')} for s in pending],
+            'next_action': 'Coteja título y autores de cada PDF en needs_identity_confirmation y confírmalos juntos con '
+                           '--confirm-identity --source id1,id2.' if to_confirm else None}
 
 
 def rescue(folder, args):

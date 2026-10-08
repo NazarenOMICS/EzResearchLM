@@ -48,6 +48,14 @@ class DownloadDiagnosticsTests(unittest.TestCase):
         from ez.metrics import collect
         self.assertEqual(collect(self.folder)['download_routes_failed']['unpaywall:missing_email'], 1)
 
+    def test_indexes_without_any_open_location_are_named(self):
+        from ez.engine import routes_tried
+        source = {'attempts': [{'provider': 'core', 'result': 'failed', 'failure_code': 'rate_limited'}],
+                  'routes_consulted': {'openalex': 0, 'unpaywall': 0, 'core': 0, 'europepmc': 2}}
+        self.assertEqual(routes_tried(source), [{'provider': 'core', 'failure_code': 'rate_limited'},
+                                                {'provider': 'openalex', 'failure_code': 'no_open_access_location'},
+                                                {'provider': 'unpaywall', 'failure_code': 'no_open_access_location'}])
+
 
 class UnpaywallSetupTests(unittest.TestCase):
     def test_setup_saves_the_contact_email_and_later_commands_load_it(self):
@@ -91,7 +99,7 @@ class BatchImportTests(unittest.TestCase):
             store.commit(state, {'sources.json': sources})
         library = Path(self.temp.name) / 'mis-pdfs'
         library.mkdir()
-        for index, name in enumerate(('p1.pdf', 'otro.pdf')):
+        for index, name in enumerate(('p1.pdf', 'otro.pdf', '10.1_p2.pdf')):
             writer = PdfWriter(); writer.add_blank_page(width=80 + index, height=80)
             with (library / name).open('wb') as stream:
                 writer.write(stream)
@@ -101,7 +109,11 @@ class BatchImportTests(unittest.TestCase):
         self.assertEqual(code, 0)
         summary = result['import_folder']
         self.assertEqual(([i['source_id'] for i in summary['imported']], summary['unmatched_files']), (['p1'], ['otro.pdf']))
-        self.assertEqual([m['source_id'] for m in summary['still_missing']], ['p2'])
+        # A DOI in the filename imports the PDF but leaves its identity for a quick confirmation.
+        self.assertEqual([i['source_id'] for i in summary['needs_identity_confirmation']], ['p2'])
+        self.assertEqual(summary['still_missing'], [])
+        p2 = next(s for s in read_json(self.folder / 'sources.json') if s['source_id'] == 'p2')
+        self.assertEqual((p2['validation_status'], p2['identity_status']), ('valid', 'needs_review'))
         p1 = next(s for s in read_json(self.folder / 'sources.json') if s['source_id'] == 'p1')
         self.assertEqual((p1['validation_status'], p1['identity_status']), ('valid', 'verified'))
 

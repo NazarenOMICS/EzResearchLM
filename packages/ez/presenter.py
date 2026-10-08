@@ -27,6 +27,7 @@ REASON_LABELS = {
     'paywall': 'sin acceso abierto',
     'access_denied': 'el sitio negó el acceso',
     'routes_exhausted': 'ninguna ruta de acceso abierto funcionó',
+    'no_open_access_location': 'ningún índice de acceso abierto lo ofrece; probablemente es pago: importa tu PDF',
     'source_budget_exhausted': 'se agotó el tiempo asignado a la fuente',
     'not_acquired': 'todavía no se intentó descargar',
     'excluded_by_screening': 'excluida en el cribado',
