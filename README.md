@@ -27,6 +27,8 @@ Codex), abierto en esta carpeta. No hay una aplicación gráfica todavía.
 
 Más detalle en la [guía de primer uso](docs/ez-user-guide.md).
 
+Si no usas agentes en la terminal, hay una [extensión experimental para Claude Desktop](desktop/README.md).
+
 ## Qué tienes que saber antes de usarlo
 
 - **NotebookLM gratuito:** admite hasta 50 fuentes por notebook. EZ usa 40 como máximo

@@ -18,9 +18,11 @@ dependencies = [
 
 [project.optional-dependencies]
 notebooklm = ["notebooklm-py==0.8.0"]
+desktop = ["mcp>=1.2,<2"]
 
 [project.scripts]
 ez = "ez.cli:main"
+ez-mcp = "ez.mcp_server:main"
 
 [tool.setuptools]
 package-dir = {"" = "packages/paper_search", "ez" = "packages/ez"}
