@@ -294,6 +294,33 @@ class DirectQualityTests(unittest.TestCase):
         self.assertEqual((merged[0]['scope_ids'], len(merged[0]['references'])), (['sq1', 'sq2'], 2))
         self.assertEqual([c['id'] for c in key_claims({'claims': merged}, 1)], ['a1'])
 
+    def test_trailing_uncited_clauses_and_contained_sentences(self):
+        from ez.audit import cited_clauses, merge_repeated
+        self.assertEqual(cited_clauses('En C. glutamicum emb es esencial [5]; no hay datos proteómicos globales.'),
+                         ('En C. glutamicum emb es esencial [5].', 'no hay datos proteómicos globales.'))
+        self.assertEqual(cited_clauses('A ocurre; B también ocurre [2].'), ('A ocurre; B también ocurre [2].', None))
+        ref = lambda source: [{'source_id': source, 'cited_text': source}]
+        short = {'id': 'a', 'text': 'El etambutol inhibe EmbC.', 'scope_ids': ['sq1'], 'question_id': 'qa1', 'citation_numbers': [1],
+                 'references': ref('r1')}
+        longer = dict(short, id='b', text='El etambutol inhibe EmbC en Corynebacterium glutamicum ATCC 13032.', question_id='qa2')
+        negated = dict(short, id='c', text='El etambutol no inhibe EmbC.', question_id='qa3')
+        other_source = dict(short, id='d', text='El etambutol inhibe EmbC en Mycobacterium smegmatis mc2 155.', references=ref('r9'))
+        merged = merge_repeated([short, longer, negated, other_source])
+        self.assertEqual([c['id'] for c in merged], ['a', 'c', 'd'])
+        self.assertEqual(merged[0]['text'], longer['text'])
+        self.assertEqual(merged[0]['merged_from'][0]['id'], 'b')
+
+    def test_scopes_with_many_claims_keep_the_rest_in_an_annex(self):
+        from ez.deliver import report_markdown
+        claims = [{'id': 'qa1-%d' % i, 'text': 'Afirmación %d del corpus.' % i, 'scope_ids': ['sq1'],
+                   'references': [{'source_id': 'r%d' % (i % 3), 'cited_text': 'p', 'role': 'qa'}]} for i in range(14)]
+        text = report_markdown({'answer': {'status': 'complete'}, 'claims': claims, 'contract_hash': 'c', 'corpus_hash': 'k',
+                                'delivery': 'direct'}, {'question': {'original': 'P'}, 'scope': [{'id': 'sq1', 'question': 'P'}]},
+                               {'run_id': 'r'})
+        self.assertIn('Otras 4 afirmaciones de esta subpregunta están en el anexo.', text)
+        self.assertIn('## Anexo: resto de las afirmaciones', text)
+        self.assertEqual(sum(text.count('`[EZ:qa1-%d]`' % i) > 0 for i in range(14)), 14)
+
     def test_a_long_report_opens_with_the_key_claims_after_its_header(self):
         from ez.deliver import report_markdown
         claims = [{'id': 'qa1-%d' % i, 'text': 'Afirmación %d del corpus.' % i, 'scope_ids': ['sq1'],

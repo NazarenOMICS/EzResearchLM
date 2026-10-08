@@ -175,10 +175,23 @@ def plain(sentence):
     return re.sub(r'(?<![\w*])\*(?=\S)([^*]+?)(?<=\S)\*(?![\w*])', r'\1', text).strip(' :;')
 
 
+def cited_clauses(sentence):
+    """Split off trailing clauses that follow the last citation marker: 'X [1]; Y.' cites X, not Y."""
+    parts = sentence.split(';')
+    marked = [i for i, part in enumerate(parts) if MARKERS.search(part)]
+    if len(parts) < 2 or not marked or marked[-1] == len(parts) - 1:
+        return sentence, None
+    cut = marked[-1] + 1
+    return ';'.join(parts[:cut]).rstrip() + '.', ';'.join(parts[cut:]).strip()
+
+
 def direct_claims(question, response, sources, minimum=25):
     """NotebookLM's own cited sentences as claims, each with the native passages of its markers."""
     claims, uncited = [], []
     for sentence in sentences(response.get('answer') or ''):
+        sentence, trailing = cited_clauses(sentence)
+        if trailing and len(plain(trailing)) >= minimum:
+            uncited.append(plain(trailing))
         text = plain(sentence)
         if len(text) < minimum:
             continue
@@ -209,19 +222,39 @@ def words(text):
     return set(re.findall(r'[a-z0-9]+', ''.join(c for c in plain_text if not unicodedata.combining(c))))
 
 
-def merge_repeated(claims, threshold=0.8):
-    """Merge sentences that NotebookLM repeated across answers; the first keeps the union of scopes and passages."""
+NEGATIONS = {'no', 'not', 'sin', 'nunca', 'tampoco', 'ni', 'without', 'never', 'nor', 'unlike', 'excepto'}
+
+
+def same_statement(a, b, tokens_a, tokens_b):
+    """Near-identical wording, or one sentence contained in the other while citing a common source.
+
+    A negation present in only one of them makes them different statements.
+    """
+    if not tokens_a or not tokens_b or (tokens_a ^ tokens_b) & NEGATIONS:
+        return False
+    if len(tokens_a & tokens_b) / len(tokens_a | tokens_b) >= 0.8:
+        return True
+    shared = {r['source_id'] for r in a['references']} & {r['source_id'] for r in b['references']}
+    return bool(shared) and len(tokens_a & tokens_b) / min(len(tokens_a), len(tokens_b)) >= 0.85
+
+
+def merge_repeated(claims):
+    """Merge sentences NotebookLM repeated across answers into the fuller one, with the union of scopes and passages."""
     kept = []
     for claim in claims:
         tokens = words(claim['text'])
-        twin = next((k for k in kept if tokens and len(tokens & k['_words']) / len(tokens | k['_words']) >= threshold), None)
+        twin = next((k for k in kept if same_statement(k, claim, k['_words'], tokens)), None)
         if twin is None:
             kept.append(dict(claim, _words=tokens))
             continue
+        if len(tokens) > len(twin['_words']):
+            # Keep the fuller wording; its own markers are already part of the passages below.
+            twin.update(text=claim['text'], _words=tokens)
         twin['scope_ids'] = twin['scope_ids'] + [s for s in claim['scope_ids'] if s not in twin['scope_ids']]
         seen = {(r['source_id'], r['cited_text']) for r in twin['references']}
         twin['references'] = twin['references'] + [r for r in claim['references'] if (r['source_id'], r['cited_text']) not in seen]
-        twin.setdefault('merged_from', []).append({'question_id': claim['question_id'], 'citation_numbers': claim['citation_numbers']})
+        twin.setdefault('merged_from', []).append({'id': claim['id'], 'question_id': claim['question_id'],
+                                                   'citation_numbers': claim['citation_numbers']})
     return [{k: v for k, v in c.items() if k != '_words'} for c in kept]
 
 

@@ -14,6 +14,7 @@ METHOD = {'verified': '**Cómo se verificó:** cada afirmación proviene de una 
           'direct': '**Cómo se obtuvo:** cada afirmación es una oración de NotebookLM respondiendo sobre los PDFs del corpus, '
                     'con los pasajes que NotebookLM citó para ella. No pasó una segunda verificación por afirmación: lee el '
                     'pasaje antes de usarla en tu texto.'}
+PER_SCOPE = 10
 MARKER = re.compile(r'\[EZ:\s*([A-Za-z0-9_,\s-]+)\]')
 
 
@@ -75,9 +76,15 @@ def report_markdown(answer, contract, state):
         lines.append('')
     lines += ['## Respuesta por subpregunta', '']
     gaps = {g['scope_id']: g for g in answer.get('gaps', [])}
+    annex = []
     for scope in contract['scope']:
         lines += [f'### {scope["question"]}', '']
         claims = [c for c in answer.get('claims', []) if scope['id'] in c['scope_ids']]
+        if len(claims) > PER_SCOPE:
+            # Long answers show the best-supported claims here and keep the rest, complete, in an annex.
+            shown = {c['id'] for c in key_claims({'claims': claims}, PER_SCOPE)}
+            annex += [(scope, c) for c in claims if c['id'] not in shown]
+            claims = [c for c in claims if c['id'] in shown]
         for claim in claims:
             cited = sorted({number[(r.get('source') or {}).get('source_id') or r['source_id']] for r in claim['references']})
             lines.append(f'- {claim["text"]} [{", ".join(map(str, cited))}] `[EZ:{claim["id"]}]`')
@@ -92,6 +99,9 @@ def report_markdown(answer, contract, state):
                 judgement = {'supported': 'respaldada', 'partial': 'respaldo parcial'}.get(claim['human_check']['judgement'],
                                                                                            claim['human_check']['judgement'])
                 lines.append(f'  - Revisión humana: {judgement}.')
+        hidden = sum(1 for item in annex if item[0] is scope)
+        if hidden:
+            lines.append(f'- Otras {hidden} afirmaciones de esta subpregunta están en el anexo.')
         if not claims:
             lines.append('- Sin afirmaciones verificadas.')
         if scope['id'] in gaps:
@@ -138,6 +148,15 @@ def report_markdown(answer, contract, state):
             lines.append(f'- {source.get("title") or source["source_id"]}: {REASON_LABELS.get(source["reason"], source["reason"])}{detail}.')
         for failure in state.get('discovery_failures', []):
             lines.append(f'- Búsqueda {failure.get("query_id")} en {failure.get("provider")}: no se completó ({failure.get("reason")}).')
+        lines.append('')
+    if annex:
+        lines += ['## Anexo: resto de las afirmaciones', '']
+        for scope, claim in annex:
+            cited = sorted({number[(r.get('source') or {}).get('source_id') or r['source_id']] for r in claim['references']})
+            lines.append(f'- ({scope["id"]}) {claim["text"]} [{", ".join(map(str, cited))}] `[EZ:{claim["id"]}]`')
+            for ref in claim['references']:
+                key = (ref.get('source') or {}).get('source_id') or ref['source_id']
+                lines.append(f'  - {ROLE.get(ref.get("role", "qa"), "Pasaje")} [{number[key]}]: «{ref["cited_text"]}»')
         lines.append('')
     lines += ['## Trazabilidad', '',
               f'- Corrida: `{state["run_id"]}`',
