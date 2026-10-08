@@ -29,11 +29,13 @@ El recorrido es:
    obligatorias. Puedes empezar sin conocer términos de búsqueda ni DOI.
 4. **Investigar.** EZ resume qué va a buscar, conserva el contexto y consulta la
    evidencia en NotebookLM. Te avisa si necesita un documento o una decisión.
-5. **Revisar el resultado.** Recibes un informe de evidencia (`report.md`) con la
-   respuesta respaldada, cada pasaje citado, las fuentes numeradas con su archivo, y
-   lo que quedó pendiente y por qué. Si pides un texto, EZ redacta solo con las
-   afirmaciones verificadas y comprueba que cada una conserve su marca. Una búsqueda sin suficiente evidencia no se convierte
-   en una respuesta inventada.
+5. **Revisar el resultado.** Recibes un informe de evidencia (`report.md`) apenas
+   NotebookLM responde: cada afirmación es una oración de NotebookLM con el pasaje que
+   citó, las fuentes van numeradas con su archivo y se indica lo que quedó pendiente y
+   por qué. Lo que NotebookLM dijo sin citar aparece aparte y no cuenta como evidencia.
+   Si vas a redactar, pide la verificación por afirmación: EZ consulta de nuevo cada
+   una, redacta solo con las que pasan y comprueba que cada una conserve su marca. Una
+   búsqueda sin suficiente evidencia no se convierte en una respuesta inventada.
 
 No necesitas preparar archivos de configuración, búsquedas ni contratos a mano.
 Una carpeta nueva por sí sola no instala EZ ni conecta tu cuenta: el primer paso
@@ -131,7 +133,9 @@ no es de acceso abierto, la vía es entregar el PDF que ya tengas.
 
 Para otra pregunta sobre material anterior, pide reutilizar la investigación.
 EZ copia los PDFs verificados a una corrida nueva y vuelve a comprobar qué
-respaldan; conserva intactos la investigación y el notebook originales.
+respaldan; la investigación original queda intacta. Las investigaciones de un mismo
+proyecto comparten su notebook en NotebookLM, así que los PDFs ya cargados no se
+vuelven a subir ni a procesar.
 
 Si ya trabajabas con los wrappers anteriores, sus corridas siguen disponibles.
 La migración se previsualiza y crea una copia lateral. Los originales no se borran.

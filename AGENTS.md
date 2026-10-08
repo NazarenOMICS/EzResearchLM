@@ -10,8 +10,12 @@ to debug or resume interrupted work.
 EZ is the single user-facing operator. Claude Code, Codex, Hermes, or another
 host agent supplies its planning and synthesis without an additional model API.
 Read `docs/ez-host-operator.md` before operating the new `ez` interface. The host
-prepares contracts and QA reviews on the user's behalf; do not ask users to edit
-JSON. The historical wrappers remain available for existing runs.
+prepares contracts and, in verified delivery, QA reviews on the user's behalf; do not
+ask users to edit JSON. New contracts default to `plan.delivery: "direct"`: EZ delivers
+NotebookLM's cited sentences right after QA, without a host review or a second query.
+Choose `"verified"` when the user will draft from the claims. Runs of one project share
+the project's NotebookLM notebook. The historical wrappers remain available for
+existing runs.
 
 NotebookLM remains the evidence engine. The current implementation is an internal
 candidate; authenticated E2E and closed beta are still required before release.

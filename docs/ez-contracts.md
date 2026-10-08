@@ -69,18 +69,34 @@ una respuesta parcial válida devuelve 0; esto no convierte la cobertura en comp
 
 ## Revisión y entrega
 
-El anfitrión presenta `qa-review.json` con hashes del contrato y corpus, revisor,
+`plan.delivery` define cómo se entrega. Con `direct` (por defecto en contratos nuevos)
+EZ no espera revisión: al terminar la QA convierte cada oración de NotebookLM que tenga
+al menos una cita con pasaje en una afirmación con esos pasajes nativos (protocolo
+`ez-direct-v1`). No hay segunda consulta. Las oraciones sin cita quedan en
+`uncited_statements` y no son evidencia. Las abreviaturas de especie (*C. glutamicum*),
+*et al.* y similares no cortan oraciones. Un contrato sin el campo se trata como
+`verified`. En una corrida directa, una revisión enviada después activa la entrega
+verificada y la reemplaza.
+
+En modo `verified`, el anfitrión presenta `qa-review.json` con hashes del contrato y corpus, revisor,
 cobertura por subpregunta y afirmaciones con IDs de preguntas y números de cita.
 Cada cita debe aparecer en la respuesta original de NotebookLM, referir a una
 fuente verificada y conservar un pasaje citado. El adaptador exige otra QA de
 NotebookLM sobre el respaldo completo de cada afirmación (protocolo
 `ez-verdict-v5-grounded`). La pregunta lleva solo las afirmaciones, en lotes de hasta
 seis y de no más de 4.000 caracteres; un lote rechazado por tamaño se divide. El
-dictamen `supported` se acepta si sus citas nativas apuntan a fuentes de la afirmación,
+dictamen `supported` se acepta si sus citas nativas apuntan a fuentes verificadas del
+corpus (no solo a las que citó la QA),
 o, cuando NotebookLM no devuelve citas ni preguntando por la afirmación sola, si su
 cita textual aparece literal en el texto indexado de una de esas fuentes. Una respuesta
 de formato no reconocido, vacía o sin respaldo comprobable no cuenta como aprobación y
-retiene solo la afirmación afectada.
+retiene solo la afirmación afectada: las demás de su subpregunta se entregan y la
+subpregunta figura en `answer.partial_scope_ids`. Solo las políticas de fuente
+(`hard_block` ausente o revisión de política pendiente) retienen subpreguntas enteras.
+Errores mecánicos de la revisión se corrigen y quedan en `review_adjustments`: una
+subpregunta ajena a la pregunta QA se recorta a las de esa pregunta, los números de cita
+sin pasaje se descartan si queda al menos uno y un alcance `sufficient` sin afirmaciones
+pasa a `insufficient`.
 
 El protocolo v3 (septiembre de 2026) pegaba los pasajes propuestos en la pregunta; en
 las corridas reales del 2026-10-07 NotebookLM respondió sin citas nativas y no se

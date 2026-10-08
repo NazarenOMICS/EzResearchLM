@@ -45,13 +45,17 @@ correcto comprueba archivos; no certifica una conclusión científica.
    **propuesta separada**, sin editar el contrato canónico. El agente hace este
    trabajo; no pedirle al usuario que escriba JSON.
    Para reutilizar evidencia, agregar `--reuse <corrida anterior>`: EZ copia los
-   PDFs verificados y su procedencia a la corrida nueva, sin modificar el notebook
-   anterior. Usar `plan.discovery_mode: "reuse_only"` y queries vacías solamente
-   si el alcance no requiere buscar fuentes adicionales; de otro modo conservar
+   PDFs verificados y su procedencia a la corrida nueva. Las corridas de un mismo
+   proyecto comparten el notebook del proyecto: los PDFs ya procesados ahí no se
+   vuelven a subir (ver "Notebook por proyecto"). Usar `plan.discovery_mode: "reuse_only"`
+   y queries vacías solamente si el alcance no requiere buscar fuentes adicionales; de otro modo conservar
    búsquedas nuevas junto a las fuentes reutilizadas.
 4. Completar queries por proveedor, subpreguntas QA, límites temporales y criterio
-   de parada. Las fuentes obligatorias necesitan identificadores verificados y
-   una razón ligada al alcance. No inventar autores, DOI, títulos ni referencias.
+   de parada. Elegir `plan.delivery`: `direct` (por defecto) entrega las oraciones
+   citadas de NotebookLM apenas termina la QA, sin revisión del agente ni segunda
+   consulta; `verified` exige revisión y verificación por afirmación (pasos 8 y 9).
+   Usar `verified` cuando el usuario va a redactar con esas afirmaciones o lo pide.
+   Las fuentes obligatorias necesitan identificadores verificados y una razón ligada al alcance. No inventar autores, DOI, títulos ni referencias.
    Una política `contextual` pendiente necesita una decisión explícita antes de
    habilitar sus conclusiones. Las obligaciones fijadas por el usuario conservan
    `locked_by_user: true`.
@@ -80,8 +84,13 @@ correcto comprueba archivos; no certifica una conclusión científica.
    identidad ni suficiencia. Una versión ya subida no se reemplaza silenciosamente.
    Si el agente realizó el cotejo, registrar `--confirm-identity --reviewer host_agent`;
    no atribuir al usuario una revisión que hizo el agente.
-8. Cuando QA termine, leer **completos** `qa/manifest.json` y sus respuestas. Revisar
-   pasajes, alcance y límites. `review-request.json` corresponde siempre al corpus
+8. Con `plan.delivery: "direct"`, EZ entrega al terminar la QA: cada oración de
+   NotebookLM con al menos una cita con pasaje es una afirmación (`qa1-1`, `qa1-2`, …)
+   con esos pasajes; las oraciones sin cita quedan aparte en `uncited_statements`, que
+   no son evidencia. Ir al paso 10. Para pasar una corrida directa a verificada,
+   completar `review-request.json` y seguir el resto de este paso y el 9: la revisión
+   reemplaza la entrega directa. En modo verificado, cuando QA termine, leer
+   **completos** `qa/manifest.json` y sus respuestas. Revisar pasajes, alcance y límites. `review-request.json` corresponde siempre al corpus
    vigente; si el corpus cambió, la plantilla anterior queda archivada como
    `review-request-<hash>.json` y no debe usarse. Preparar una copia según
    `packages/ez/schemas/qa-review.json`. Cada afirmación lleva pregunta QA,
@@ -95,12 +104,16 @@ correcto comprueba archivos; no certifica una conclusión científica.
    citas, acepta el dictamen solo cuando su cita textual aparece literal en el texto
    indexado de una fuente de la afirmación. Una afirmación que no supera eso, con fuentes
    ajenas o con dictamen ilegible queda retenida con su motivo en `withheld_claims`; las
-   demás siguen su curso. Cada referencia entregada indica su papel (`qa`,
-   `verification` o `verification_quote`) y si el pasaje se encontró literal en el
-   texto indexado (`found_in_fulltext`). Una afirmación retenida deja su alcance como insuficiente: para entregar el
-   resto de ese alcance, quitarla o reformularla en una revisión nueva. Si la revisión
-   tiene errores (`review_invalid`) o corresponde a otro corpus (`review_outdated`),
-   la corrida espera una revisión corregida; no es un fallo de integridad. El
+   demás siguen su curso: una afirmación retenida no arrastra a las otras de su
+   alcance, que queda como parcial (`partial_scope_ids`). La verificación puede citar
+   cualquier fuente verificada del corpus, no solo la que citó la QA. Cada referencia
+   entregada indica su papel (`qa`, `verification` o `verification_quote`) y si el
+   pasaje se encontró literal en el texto indexado (`found_in_fulltext`). Errores
+   mecánicos de la revisión (subpreguntas ajenas a la pregunta QA, números de cita sin
+   pasaje, alcances suficientes sin afirmaciones) se corrigen solos y quedan en
+   `review_adjustments`. Si la revisión no se puede usar (`review_invalid`) o
+   corresponde a otro corpus (`review_outdated`), la corrida espera una revisión
+   corregida; no es un fallo de integridad. El
    respaldo automatizado no equivale a revisión científica humana.
 10. Leer `ez status <corrida> --answer --json`. Entregar solamente el contenido
    habilitado, conservando referencias, omisiones y límites. Cada referencia trae en
@@ -131,6 +144,18 @@ correcto comprueba archivos; no certifica una conclusión científica.
    pasajes. Decir claramente
    cuándo la respuesta es parcial y qué falta para ampliarla. No completar huecos
    desde memoria ni usar resultados QMD como evidencia académica.
+
+## Notebook por proyecto
+
+Las corridas de un proyecto usan el último notebook del proyecto, registrado en
+`<carpeta de corridas>/projects/<proyecto>/notebooks.json`, mientras el corpus quepa en
+50 fuentes; si no cabe o el notebook ya no existe, EZ crea otro. Los PDFs se reconocen
+por su hash, así que uno ya procesado no se sube otra vez. Cada consulta pasa `--source`
+con las fuentes de la corrida y empieza una conversación nueva (`--new`): las fuentes de
+otras corridas y los turnos anteriores no influyen en la respuesta. `--new` borra la
+conversación anterior de ese notebook en NotebookLM; EZ ya guardó cada respuesta en la
+corrida. No agregar ni borrar fuentes de un notebook EZ a mano. `EZ_NOTEBOOK_REUSE=0`
+vuelve a un notebook por corrida.
 
 ## Autoridad y consentimiento
 

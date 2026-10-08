@@ -104,7 +104,12 @@ que no depende de la corrida.
    2. M2 en modo directo y en modo verificado sobre el notebook del proyecto;
    3. tiempo de reloj por etapa.
 
-## 4. Fuera de alcance
+## 4. Estado
+
+Fases 1 a 5 implementadas y validadas offline (`scripts/validate.py`). Falta la
+validación en vivo indicada en la fase 5.
+
+## 5. Fuera de alcance
 
 1. Consultas paralelas a NotebookLM: con `--new` cada consulta borra la
    conversación anterior del notebook, así que en un mismo notebook deben ir en

@@ -1,9 +1,9 @@
 # EZresearchLM
 
 > **Versión preliminar en validación.** No uses sus resultados en una tesis o un artículo
-> sin revisar cada cita contra el PDF original. La verificación de respaldo la hace el
-> mismo NotebookLM que genera la respuesta: es una comprobación automática, no una
-> revisión humana.
+> sin revisar cada cita contra el PDF original. Las afirmaciones son oraciones de NotebookLM
+> con los pasajes que él mismo citó; la verificación opcional por afirmación también la hace
+> NotebookLM. Nada de eso es una revisión humana.
 
 EZ es un asistente de investigación bibliográfica para quien necesita afirmaciones que
 pueda defender: cada afirmación que entrega viene con el pasaje exacto, el artículo
@@ -22,8 +22,9 @@ Codex), abierto en esta carpeta. No hay una aplicación gráfica todavía.
 2. Inicia sesión en NotebookLM en tu navegador cuando EZ te lo pida.
 3. EZ arma la búsqueda, elige qué artículos son relevantes y te consulta solo los dudosos.
 4. Si un artículo importante es pago, EZ te lo dice: puedes entregarle tu PDF.
-5. Recibes el informe de evidencia. Si pides un texto, EZ redacta solo con las
-   afirmaciones verificadas y marca de dónde sale cada una.
+5. Recibes el informe de evidencia en cuanto NotebookLM responde. Si vas a redactar,
+   pide la verificación por afirmación: EZ vuelve a consultar cada afirmación, redacta
+   solo con las que pasan y marca de dónde sale cada una.
 
 Más detalle en la [guía de primer uso](docs/ez-user-guide.md).
 
@@ -32,7 +33,8 @@ Si no usas agentes en la terminal, hay una [extensión experimental para Claude 
 ## Qué tienes que saber antes de usarlo
 
 - **NotebookLM gratuito:** admite hasta 50 fuentes por notebook. EZ usa 40 como máximo
-  por investigación. Cada pregunta a NotebookLM consume tu cuota de uso.
+  por investigación y un notebook por proyecto: las preguntas siguientes del mismo
+  proyecto reutilizan los PDFs ya cargados. Cada pregunta a NotebookLM consume tu cuota.
 - **Tus PDFs se suben a tu cuenta de Google**, dentro de NotebookLM.
 - **EZ usa `notebooklm-py`, una librería no oficial.** Si Google cambia NotebookLM, EZ
   puede dejar de funcionar hasta que se actualice.
