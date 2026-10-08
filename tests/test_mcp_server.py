@@ -66,6 +66,13 @@ class McpServerTests(unittest.TestCase):
             self.assertEqual(mcp_server.ez_continue(run)['running'], True)
         popen.assert_not_called()
 
+    def test_the_project_inbox_opens_in_the_file_explorer(self):
+        with patch('ez.mcp_server.subprocess.Popen') as popen, patch('ez.mcp_server.os.name', 'posix'):
+            opened = mcp_server.ez_open_folder('tesis', 'bandeja')
+        self.assertTrue(opened['opened'].endswith(str(Path('proyectos', 'tesis', 'bandeja'))))
+        self.assertEqual(popen.call_args[0][0][-1], opened['opened'])
+        self.assertEqual(mcp_server.ez_open_folder('tesis', 'otra')['error'], 'which_invalid')
+
     def test_guide_is_available_to_the_agent(self):
         self.assertIn('Primera conversación', mcp_server.ez_guide())
 

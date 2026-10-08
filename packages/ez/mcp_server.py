@@ -235,13 +235,28 @@ def ez_export(run: str, format: str = 'bibtex', all_sources: bool = False):
     return result
 
 
+def ez_open_folder(project: str = 'general', which: str = 'bandeja'):
+    """Abre en el explorador de archivos del usuario la bandeja, los informes o la carpeta del proyecto."""
+    from .workspace import ensure
+    paths = ensure(root(), project)
+    target = {'bandeja': paths['inbox'], 'informes': paths['reports'], 'proyecto': paths['project']}.get(which)
+    if not target:
+        return {'error': 'which_invalid', 'next_action': 'Usa bandeja, informes o proyecto.'}
+    if os.name == 'nt':
+        os.startfile(target)  # noqa: S606 - opens the user's own folder in Explorer
+    else:
+        subprocess.Popen(['open' if sys.platform == 'darwin' else 'xdg-open', target], stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    return {'opened': target, 'link': Path(target).as_uri()}
+
+
 def ez_doctor(run: str):
     """Diagnóstico local de integridad de la corrida."""
     return ez('doctor', str(run_folder(run)), seconds=120)
 
 
 TOOLS = (ez_guide, ez_setup, ez_login, ez_context, ez_research, ez_submit, ez_continue, ez_status, ez_read,
-         ez_rescue, ez_draft, ez_verify, ez_export, ez_doctor)
+         ez_rescue, ez_draft, ez_verify, ez_export, ez_open_folder, ez_doctor)
 
 
 def build_server():

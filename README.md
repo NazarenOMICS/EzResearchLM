@@ -26,6 +26,9 @@ Codex), abierto en esta carpeta. No hay una aplicación gráfica todavía.
    pide la verificación por afirmación: EZ vuelve a consultar cada afirmación, redacta
    solo con las que pasan y marca de dónde sale cada una.
 
+Tus informes, tu bandeja de PDFs y el índice de cada proyecto quedan en
+`~/.ezresearch/proyectos/` ([dónde queda cada cosa](docs/carpetas.md)).
+
 Más detalle en la [guía de primer uso](docs/ez-user-guide.md). Estado y próximos pasos: [hoja de ruta](docs/roadmap.md).
 
 Si no usas agentes en la terminal, hay una [extensión experimental para Claude Desktop](desktop/README.md).

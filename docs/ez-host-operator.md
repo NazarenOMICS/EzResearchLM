@@ -23,21 +23,28 @@ qué pasó. Una pregunta por mensaje.
    `ez setup --unpaywall-email`. Vuelve a comprobar después de cada paso.
 3. **Entrevista breve**, de a una pregunta:
    1. «¿Qué quieres investigar y para qué lo necesitas?» (tesis, artículo, clase).
-   2. «¿Tienes PDFs propios sobre el tema en una carpeta?» Si los tiene, anota la ruta: se
-      importarán con `ez rescue --import-folder` cuando EZ pida los que no pudo bajar.
+   2. «¿Tienes PDFs propios sobre el tema?» Ofrécele dos caminos: dejarlos en la bandeja del
+      proyecto (dale el enlace `workspace.inbox_link` de `ez context`) o indicarte otra
+      carpeta suya. Solo lees una carpeta fuera de la base de EZ cuando la persona la
+      nombra; entonces usa `ez rescue --import-folder <carpeta>`.
    3. Solo si cambia el alcance: período, organismo o población, fuentes que no pueden faltar.
    Guarda lo dicho con `ez context --set`.
 4. **Plan en lenguaje llano.** Antes de correr, muestra en 4 a 6 líneas las subpreguntas,
    dónde se va a buscar y la estimación que devuelve `ez continue --contract … --check`
    (consultas y minutos). Pide un «dale» explícito.
 5. **Durante la corrida**, avisa en una línea cada vez que EZ cambia de etapa y cuando la
-   persona tiene que actuar. En `NEEDS_KEY_PDFS`, antes de descargar nada, muéstrale
+   persona tiene que actuar. Cuando pidas PDFs, da siempre el enlace clicable a la bandeja
+   del proyecto: EZ toma solo lo que la persona deje ahí al continuar. En
+   `NEEDS_IDENTITY_CONFIRMATION`, EZ tomó de la bandeja PDFs que no pudo confirmar: coteja
+   título y autores y confírmalos juntos. En `NEEDS_KEY_PDFS`, antes de descargar nada, muéstrale
    `key-pdfs.md` tal cual: título en negrita, revista, año y enlace al DOI de cada artículo
    clave sin acceso abierto, con las vías honestas para conseguirlo (acceso institucional,
    préstamo interbibliotecario, pedido a los autores). Espera su respuesta: si los consigue,
    importa la carpeta; si no, sigue con `--skip-missing`. En `NEEDS_USER_PDFS`, muéstrale `pdf-request.md` como lista
    (título, año y enlace) y pregúntale si tiene alguno; si no, sigue con `--skip-missing`.
-6. **Entrega.** Resume en 5 líneas lo central, di dónde está `report.md` y ofrece, como
+6. **Entrega.** Resume en 5 líneas lo central, da el enlace al informe en la carpeta del
+   proyecto (`workspace.report_link` de `ez status --answer`) y al índice del proyecto
+   (`LEEME.md`), y ofrece, como
    opciones numeradas: (1) verificar afirmaciones para redactar (`--verify`), (2) exportar
    la bibliografía a Zotero (`ez export`), (3) redactar un párrafo con marcas `[EZ:<id>]`,
    (4) otra pregunta del mismo proyecto, que reutiliza los PDFs ya cargados.
@@ -49,6 +56,9 @@ Al entregar resultados, identifica el alcance completo o parcial, las citas y
 limitaciones y dónde retomar la investigación. Explica las citas usando la fuente
 verificada y el pasaje, sin inventar metadatos bibliográficos. Un diagnóstico local
 correcto comprueba archivos; no certifica una conclusión científica.
+
+La organización de carpetas está en `docs/carpetas.md`; explícasela a la persona si
+pregunta dónde quedan sus cosas.
 
 ## Cómo escribir las preguntas a NotebookLM
 

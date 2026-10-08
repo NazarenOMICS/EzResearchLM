@@ -80,6 +80,10 @@
       "description": "Bibliografía en BibTeX o RIS para Zotero o Mendeley"
     },
     {
+      "name": "ez_open_folder",
+      "description": "Abre la bandeja de PDFs, los informes o la carpeta del proyecto"
+    },
+    {
       "name": "ez_doctor",
       "description": "Diagnóstico de integridad"
     }
