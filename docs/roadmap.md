@@ -22,12 +22,22 @@ Corrida en vivo v6, M2 sobre PDFs ya cargados
 
 En v5 la misma misión entregó 0 de 14 en 20 minutos.
 
+Corrida v6b (`gold_set_benchmark/resultado_ezresearchlm_v6b.md`):
+
+1. **Desde cero**, en un proyecto nuevo: 6,5 minutos en total, con 4 preguntas y
+   4 consultas a NotebookLM. Se cribaron 49 candidatos, se incluyeron 15 y se
+   descargaron 10. Las 5 descargas fallidas fueron `routes_exhausted`. Entregó 84
+   afirmaciones.
+2. **M2 directo:** 103 afirmaciones en 5,8 minutos; ninguna se unió con otra.
+   Con `--verify`, 8 de 10 en 5,5 minutos más.
+3. **Precisión del modo directo:** en 20 afirmaciones al azar, 18 respaldadas,
+   2 parciales y 0 no respaldadas (90 %). Con n = 20, el intervalo de confianza al
+   95 % va de 70 % a 97 % (Wilson).
+
 **Qué no sabemos todavía:**
 
-1. cuánto tarda una investigación desde cero;
-2. qué precisión tiene el modo directo;
-3. cómo se compara EZ con ChatGPT con búsqueda y con NotebookLM manual;
-4. si la instalación funciona en un Windows limpio y en Claude Desktop.
+1. cómo se compara EZ con ChatGPT con búsqueda y con NotebookLM manual;
+2. si la instalación funciona en un Windows limpio y en Claude Desktop.
 
 ## 2. Hecho
 
@@ -90,7 +100,7 @@ En v5 la misma misión entregó 0 de 14 en 20 minutos.
 
 | ID | Tarea | Dueño | Puerta |
 |---|---|---|---|
-| A1 | Corrida v6b: investigación desde cero, M2 directo con `--verify`, precisión de 20 afirmaciones directas | usuario | `gold_set_benchmark/resultado_ezresearchlm_v6b.md` |
+| A1 | ~~Corrida v6b~~ **Hecho** (2026-10-08). La precisión del modo directo fue de 90 %: supera la regla del 80 % y el modo directo sigue siendo el valor por defecto | usuario | `gold_set_benchmark/resultado_ezresearchlm_v6b.md` |
 | A2 | Acuerdo humano del modo verificado: 30 afirmaciones juzgadas con `ez verify` | usuario | Porcentaje de acuerdo publicado |
 | A3 | Benchmark M1 a M3 con ChatGPT con búsqueda y con NotebookLM manual, según `gold_set_benchmark/reglas_benchmark.md`, y M3 (control negativo) con EZ | usuario | Planilla con referencias inventadas, precisión y tiempo por sistema |
 
@@ -108,6 +118,8 @@ En v5 la misma misión entregó 0 de 14 en 20 minutos.
 | B3 | Confirmar la identidad de varios PDFs importados en una sola operación | código |
 | B4 | Decidir la verificación por cita textual: mantenerla, exigir revisión humana o quitarla, según cuántas veces aparezca `verification_quote` en A1 a A3 | decisión |
 | B5 | Modo directo: separar las oraciones que unen con punto y coma una parte citada y otra sin cita | código |
+| B6 | Un tercio de las descargas falló (5 de 15, `routes_exhausted`): registrar qué rutas se probaron por fuente y sumar rutas de acceso abierto que falten | código |
+| B7 | Volumen del modo directo: entre 84 y 103 afirmaciones por corrida y ninguna unida. Revisar el umbral de unión con una muestra real y agrupar en el informe las afirmaciones por fuente | código |
 
 ### Fase C. Lanzamiento en GitHub
 

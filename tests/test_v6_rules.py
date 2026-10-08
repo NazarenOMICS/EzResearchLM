@@ -294,6 +294,16 @@ class DirectQualityTests(unittest.TestCase):
         self.assertEqual((merged[0]['scope_ids'], len(merged[0]['references'])), (['sq1', 'sq2'], 2))
         self.assertEqual([c['id'] for c in key_claims({'claims': merged}, 1)], ['a1'])
 
+    def test_a_long_report_opens_with_the_key_claims_after_its_header(self):
+        from ez.deliver import report_markdown
+        claims = [{'id': 'qa1-%d' % i, 'text': 'Afirmación %d del corpus.' % i, 'scope_ids': ['sq1'],
+                   'references': [{'source_id': 'r%d' % (i % 3), 'cited_text': 'p', 'role': 'qa'}]} for i in range(9)]
+        text = report_markdown({'answer': {'status': 'complete'}, 'claims': claims, 'contract_hash': 'c', 'corpus_hash': 'k',
+                                'delivery': 'direct'}, {'question': {'original': 'P'}, 'scope': [{'id': 'sq1', 'question': 'P'}]},
+                               {'run_id': 'r'})
+        headings = [line for line in text.splitlines() if line.startswith('## ')]
+        self.assertEqual(headings[:2], ['## Lo central', '## Respuesta por subpregunta'])
+
 
 class SentenceTests(unittest.TestCase):
     def test_species_abbreviations_and_trailing_markers_stay_in_their_sentence(self):
