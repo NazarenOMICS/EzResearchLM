@@ -133,6 +133,9 @@ def render(value):
                 lines.append(f'{number}. [{mark}] {step["say"]}')
     if 'project' in value and 'research_history' in value:
         lines.append('Proyecto: ' + value['project'])
+        if value.get('workspace'):
+            lines.append('Carpeta del proyecto: ' + value['workspace']['project'])
+            lines.append('Bandeja para tus PDFs: ' + value['workspace']['inbox'])
         labels = {'language': 'Idioma', 'discipline': 'Disciplina', 'goal': 'Objetivo',
                   'preferences': 'Preferencias', 'inclusions': 'Incluir', 'exclusions': 'Excluir',
                   'date_range': 'Período', 'budget': 'Presupuesto'}

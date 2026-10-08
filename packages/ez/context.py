@@ -14,7 +14,7 @@ def history(root, project, limit=20):
     for path in Path(root).glob('ez-*/research-contract.json'):
         try:
             contract = read_json(path)
-            if contract.get('context', {}).get('project') != project:
+            if (contract.get('context', {}).get('project') or 'general') != project:
                 continue
             state = Store(path.parent).state()
             if not state or digest(contract) != state.get('contract_hash'):

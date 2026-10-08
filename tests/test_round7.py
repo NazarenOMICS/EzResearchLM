@@ -88,6 +88,69 @@ class KeyPdfTests(unittest.TestCase):
         self.assertEqual(len(self.acquired), 2)
 
 
+class WorkspaceTests(unittest.TestCase):
+    setUp = test_screening.ScreeningTests.setUp
+    setUp_base = test_engine.EngineTests.setUp
+    runner = test_screening.ScreeningTests.runner
+    screen = KeyPdfTests.screen
+
+    def test_each_project_gets_an_inbox_reports_and_an_index(self):
+        state = Store(self.folder).state()
+        inbox = Path(state['workspace']['inbox'])
+        self.assertEqual(inbox, Path(self.temp.name).resolve() / 'proyectos' / 'general' / 'bandeja')
+        self.assertTrue((inbox / 'LEEME.md').exists())
+        self.assertTrue(state['workspace']['inbox_link'].startswith('file://'))
+        self.assertIn('Bandeja para tus PDFs', (inbox.parent / 'LEEME.md').read_text(encoding='utf-8'))
+
+    def test_a_pdf_left_in_the_inbox_is_taken_before_downloading(self):
+        from PyPDF2 import PdfWriter
+        inbox = Path(Store(self.folder).state()['workspace']['inbox'])
+        writer = PdfWriter(); writer.add_blank_page(width=90, height=90)
+        with (inbox / 'articulo-central.pdf').open('wb') as stream:
+            writer.write(stream)
+        verified = lambda path, record, provider=None: 'verified' if record.get('doi') == '10.1/paid' else 'needs_review'
+        with patch('ez.acquisition.verify_identity', verified):
+            self.screen('10.1/paid')
+        state = read_json(self.folder / 'run-state.json')
+        self.assertNotIn('NEEDS_KEY_PDFS', state['legacy_signals'])
+        self.assertEqual([i['file'] for i in state['inbox_import']['imported']], ['articulo-central.pdf'])
+        paid = next(s for s in read_json(self.folder / 'sources.json') if s.get('doi') == '10.1/paid')
+        self.assertEqual((paid['identity_status'], paid['provenance']['origin']), ('verified', 'bandeja del proyecto'))
+        self.assertEqual(len(self.acquired), 1)
+        self.assertTrue((inbox / 'articulo-central.pdf').exists())
+
+    def test_an_uncertain_inbox_match_asks_for_identity_confirmation(self):
+        from PyPDF2 import PdfWriter
+        inbox = Path(Store(self.folder).state()['workspace']['inbox'])
+        writer = PdfWriter(); writer.add_blank_page(width=91, height=91)
+        with (inbox / '10.1_paid.pdf').open('wb') as stream:
+            writer.write(stream)
+        with patch('ez.acquisition.verify_identity', lambda *a, **k: 'needs_review'):
+            self.screen('10.1/paid')
+        state = read_json(self.folder / 'run-state.json')
+        self.assertEqual(state['legacy_signals'], ['NEEDS_IDENTITY_CONFIRMATION'])
+        self.assertIn('Artículo central pago', state['next_action'])
+        self.assertEqual(self.acquired, [])
+
+
+class PublishTests(unittest.TestCase):
+    def test_each_delivery_lands_in_the_project_reports_with_its_bibliography_and_index(self):
+        import test_v6_rules
+        case = test_v6_rules.DirectDeliveryTests('test_direct_delivery_needs_no_review_and_no_second_query')
+        case.setUp()
+        self.addCleanup(case.temp.cleanup)
+        self.assertEqual(case.run_engine()[0], 0)
+        project = Path(case.temp.name).resolve() / 'proyectos' / 'general'
+        reports = sorted((project / 'informes').glob('*.md'))
+        self.assertEqual(len(reports), 1)
+        self.assertEqual(reports[0].read_text(encoding='utf-8'), (case.folder / 'report.md').read_text(encoding='utf-8'))
+        self.assertTrue(reports[0].with_suffix('.bib').exists())
+        index = (project / 'LEEME.md').read_text(encoding='utf-8')
+        self.assertIn('[abrir](' + reports[0].as_uri() + ')', index)
+        self.assertIn('Pregunta de prueba', index)
+        self.assertEqual(Store(case.folder).state()['workspace']['report_link'], reports[0].as_uri())
+
+
 class PageTests(unittest.TestCase):
     def test_a_passage_is_found_on_its_page_despite_hyphenation_and_spacing(self):
         from ez.pages import find_page, page_text

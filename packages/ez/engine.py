@@ -370,10 +370,34 @@ class Engine:
                 source.update(acquisition_status='manual_needed', failure_code=result.reason or 'acquisition_failed')
             self.save_sources()
 
+    def workspace(self):
+        from .workspace import ensure
+        return ensure(self.folder.parent, self.contract.get('context', {}).get('project') or 'general')
+
+    def import_inbox(self):
+        """Take PDFs the user left in the project's inbox for any included work still without one."""
+        from .imports import INBOX_ORIGIN, import_folder
+        paths = self.workspace()
+        if not any(Path(paths['inbox']).glob('*.pdf')):
+            return paths
+        summary = import_folder(self.folder, self.store, self.sources, paths['inbox'], INBOX_ORIGIN)
+        if summary['imported'] or summary['needs_identity_confirmation']:
+            self.save_sources()
+            self.checkpoint(inbox_import={k: summary[k] for k in ('imported', 'needs_identity_confirmation')})
+        unconfirmed = [s for s in self.sources if s.get('validation_status') == 'valid' and s.get('identity_status') != 'verified'
+                       and (s.get('provenance') or {}).get('origin') == INBOX_ORIGIN.origin and s.get('screening', 'include') == 'include']
+        if unconfirmed:
+            names = '; '.join(f'{s["source_id"]} ({s.get("title") or "sin título"})' for s in unconfirmed)
+            raise Pause('NEEDS_IDENTITY_CONFIRMATION', 'EZ tomó de la bandeja PDFs que parecen corresponder a estos artículos, pero '
+                        f'no pudo confirmar su identidad: {names}. Coteja título y autores de cada PDF y confírmalos con ez rescue '
+                        '--confirm-identity --source id1,id2; luego continúa.', 2)
+        return paths
+
     def request_key_pdfs(self):
         """Before downloading anything, name the key works with no open-access copy so the user can obtain them."""
         if self.state.get('key_pdfs_acknowledged'):
             return
+        paths = self.import_inbox()
         required = {p['source_id'] for p in self.contract['source_policies'] if (p.get('effective_policy') or p['policy']) == 'hard_block'}
         closed = [s for s in self.sources if (s.get('key') or s['source_id'] in required) and s.get('screening', 'include') == 'include'
                   and s.get('open_access') == 'no' and s.get('validation_status') != 'valid']
@@ -391,33 +415,38 @@ class Engine:
             link = f'[https://doi.org/{row["doi"]}](https://doi.org/{row["doi"]})' if row.get('doi') else 'sin DOI registrado'
             detail = ', '.join(str(row[k]) for k in ('journal', 'year') if row.get(k))
             lines.append(f'- **{row.get("title") or row["source_id"]}**' + (f' ({detail})' if detail else '') + f' — {link}')
-        lines += ['', 'Guarda los PDFs en una carpeta y dile a EZ cuál es. Si no puedes conseguirlos, dile que siga sin ellos.']
+        lines += ['', f'Cuando los tengas, guárdalos en la bandeja de tu proyecto: [{paths["inbox"]}]({paths["inbox_link"]}) y dile '
+                  'a EZ que siga. Si no puedes conseguirlos, dile que siga sin ellos.']
         atomic_json(self.folder / 'key-pdfs.json', {'schema_version': '1.0', 'closed_access': rows})
         (self.folder / 'key-pdfs.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
         raise Pause('NEEDS_KEY_PDFS', f'{len(closed)} artículos clave no tienen acceso abierto; la lista con título y enlace al DOI está '
-                    'en key-pdfs.md. Muéstrasela al usuario antes de seguir. Si los consigue, impórtalos con ez rescue '
-                    '--import-folder y continúa; si no, continúa con ez continue --skip-missing.', 2)
+                    f'en key-pdfs.md. Muéstrasela al usuario con el enlace a su bandeja ({paths["inbox_link"]}). Cuando deje '
+                    'los PDFs ahí, continúa: EZ los toma solo. Si no los consigue, continúa con ez continue --skip-missing.', 2)
 
     def request_pdfs(self):
         """Ask once, before anything is uploaded, for the included works EZ could not download."""
+        if self.state.get('missing_pdfs_acknowledged'):
+            return
+        paths = self.import_inbox()
         missing = [s for s in self.sources if s.get('screening', 'include') == 'include' and s.get('acquisition_status') == 'manual_needed'
                    and s.get('validation_status') != 'valid']
-        if not missing or self.state.get('missing_pdfs_acknowledged'):
+        if not missing:
             return
         rows = [{k: v for k, v in (('source_id', s['source_id']), ('title', s.get('title')), ('year', s.get('year')),
                                    ('doi', s.get('doi')), ('reason', s.get('failure_code'))) if v} for s in missing]
         lines = ['# PDFs que EZ no pudo descargar', '',
                  'Estos artículos entraron en la investigación pero no tienen una copia de acceso abierto que EZ pueda '
-                 'bajar. Si tienes alguno (de tu biblioteca, tu institución o pedido a los autores), guárdalos en una '
-                 'carpeta y dile a EZ cuál es. Si no, EZ sigue sin ellos y lo dice en el informe.', '']
+                 'bajar. Si tienes alguno (de tu biblioteca, tu institución o pedido a los autores), guárdalo en la bandeja '
+                 f'de tu proyecto: [{paths["inbox"]}]({paths["inbox_link"]}) y dile a EZ que siga. Si no, EZ sigue sin '
+                 'ellos y lo dice en el informe.', '']
         for row in rows:
             link = f' https://doi.org/{row["doi"]}' if row.get('doi') else ''
             lines.append(f'- {row.get("title") or row["source_id"]}' + (f' ({row["year"]})' if row.get('year') else '') + link)
         atomic_json(self.folder / 'pdf-request.json', {'schema_version': '1.0', 'missing': rows})
         (self.folder / 'pdf-request.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
         raise Pause('NEEDS_USER_PDFS', f'{len(missing)} artículos incluidos no tienen PDF de acceso abierto; la lista está en '
-                    'pdf-request.md. Si el usuario los tiene, importa la carpeta con ez rescue --import-folder y continúa; si '
-                    'no, continúa con ez continue --skip-missing.', 2)
+                    f'pdf-request.md. Si el usuario los tiene, que los deje en su bandeja ({paths["inbox_link"]}) y continúa: '
+                    'EZ los toma solo. Si no, continúa con ez continue --skip-missing.', 2)
 
     def upload(self):
         verified = [s for s in self.sources if s.get('validation_status') == 'valid' and s.get('identity_status') == 'verified'
@@ -976,6 +1005,11 @@ class Engine:
         temporary.write_text(report_markdown(report, self.contract, self.state), encoding='utf-8')
         os.replace(temporary, report_path)
         self.checkpoint(report_sha256=sha256(report_path.read_bytes()).hexdigest())
+        try:
+            from .workspace import publish
+            self.checkpoint(workspace=publish(self.folder.parent, self.folder, self.contract, self.state, report))
+        except OSError:
+            pass  # The project copy is a convenience; the run keeps the canonical report.
         return 0 if delivered and not (self.state.get('require_complete') and result['answer']['status'] != 'complete') else 2
 
     def skipped_questions(self, answers):
