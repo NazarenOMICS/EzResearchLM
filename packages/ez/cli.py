@@ -21,7 +21,17 @@ from .presenter import render, welcome
 from . import __version__
 
 
+# Repeated in every JSON answer: a host agent whose context was compacted, or a small model, still sees the rules on each call.
+OPERATOR_REMINDER = ('Reglas de EZ: responde solo con afirmaciones de EZ y sus marcadores [EZ:<id>]. Una pregunta de seguimiento '
+                     'se responde con esas afirmaciones o con ez ask; artículos nuevos, con ez research; un borrador, con ez draft '
+                     'y ez draft --check. No uses búsqueda web ni tu memoria para afirmaciones bibliográficas; un dato externo que '
+                     'el usuario pida explícitamente va rotulado «fuente externa, no del corpus». El plan se arma con ez plan y el '
+                     'cribado con ez screen; no edites archivos de la corrida ni leas docs/history.')
+
+
 def emit(value, machine=False):
+    if machine and isinstance(value, dict):
+        value = dict(value, operator_reminder=OPERATOR_REMINDER)
     print(json.dumps(value, ensure_ascii=False, indent=2) if machine else render(value))
 
 
@@ -45,7 +55,7 @@ def create_run(root, question, context, contract=None):
     with lock(folder):
         from .workspace import ensure
         state = {'run_id': run_id, 'phase': 'plan', 'contract_hash': digest(value), 'execution': {'status': 'waiting_user'},
-                 'answer': {'status': 'unavailable'}, 'next_action': 'El agente anfitrión debe completar el contrato y continuar esta corrida.',
+                 'answer': {'status': 'unavailable'}, 'next_action': 'El agente anfitrión arma el plan con ez plan y, con el visto bueno del usuario, continúa esta corrida.',
                  'workspace': ensure(root, value.get('context', {}).get('project') or 'general')}
         store = Store(folder)
         store.append('decision', {'actor': 'user', 'kind': 'research_requested', 'question': question, 'backend': 'host_agent'})
@@ -53,11 +63,9 @@ def create_run(root, question, context, contract=None):
     request = ('# Solicitud para el agente anfitrión EZ\n\n'
                + 'Guía operativa: ' + str(runtime_root() / 'docs/ez-host-operator.md') + '\n\n'
                +
-               'Lee research-contract.json. Conserva la pregunta y el contexto. Completa plan.queries por proveedor, '
-               'plan.notebook_questions por subpregunta y plan.stop_rule; usa plan.status="ready". '
-               'Asigna las cinco políticas por alcance cuando corresponda, con razón y fuente verificable. '
-               'No inventes referencias ni respuestas. NotebookLM es el motor de evidencia. '
-               'Guarda la propuesta en otro archivo e impórtala con ez continue <run> --contract <archivo>. '
+               'Arma el plan con ez plan <run> --qa "pregunta" (una por subpregunta, entre 3 y 5) y --query proveedor:texto '
+               '(pubmed, europepmc, openalex, semantic, crossref); no escribas el contrato a mano. Muéstrale al usuario la '
+               'estimación y, con su visto bueno, sigue el comando que indica. No inventes referencias ni respuestas. NotebookLM es el motor de evidencia. '
                'No edites los artefactos canónicos directamente. Tras QA revisa sus citas y límites antes de sintetizar.\n')
     (folder / 'host-request.md').write_text(request, encoding='utf-8')
     return folder, state
@@ -151,7 +159,7 @@ def check_proposal(folder, args):
     if args.screening:
         result = Engine(folder).apply_screening(read_json(args.screening), dry_run=True)
         return {'kind': 'check', 'target': 'screening', 'valid': True, **result,
-                'next_action': 'El cribado es válido. Impórtalo con ez continue --screening.'}
+                'next_action': 'El cribado es válido. Aplícalo con el mismo comando sin --check.'}
     if args.contract:
         value = import_contract(folder, args.contract, args.accept_policy_change, dry_run=True)
         try:
@@ -174,6 +182,94 @@ def check_proposal(folder, args):
     claims = review_claims(review, state, contract, sources, load_answers(folder, state, contract, sources))
     return {'kind': 'check', 'target': 'review', 'valid': True, 'claims': len(claims),
             'next_action': 'La revisión es válida. Impórtala con ez continue --review; EZ verificará cada afirmación con NotebookLM.'}
+
+
+PROVIDERS = ('pubmed', 'europepmc', 'openalex', 'semantic', 'crossref')
+DEFAULT_STOP_RULE = 'Detenerse cuando cada pregunta QA tenga respuesta con citas del corpus o quede declarada como laguna.'
+
+
+def plan_command(folder, args):
+    """Build the plan from flags, so the host agent never writes contract JSON; validate it and return the estimate."""
+    contract = read_json(folder / 'research-contract.json')
+    questions = [q.strip() for q in args.qa or [] if q.strip()]
+    if not questions:
+        raise ContractError('Indica las preguntas QA con --qa "texto", una por subpregunta (entre 3 y 5).')
+    queries = []
+    for raw in args.query or []:
+        provider, _, text = raw.partition(':')
+        if provider.strip().lower() not in PROVIDERS or not text.strip():
+            raise ContractError(f'Cada --query va como proveedor:texto, con proveedor en {", ".join(PROVIDERS)}: {raw!r}.')
+        queries.append((provider.strip().lower(), text.strip()))
+    if not queries and not args.reuse_only:
+        raise ContractError('Indica al menos una búsqueda con --query proveedor:texto, o usa --reuse-only para responder '
+                            'solo con los PDFs ya verificados.')
+    scopes = [{'id': f'sq{i}', 'question': text, 'central': True} for i, text in enumerate(questions, 1)]
+    ids = [s['id'] for s in scopes]
+    contract['scope'] = scopes
+    contract['plan'] = dict(contract['plan'], status='ready', delivery=args.delivery or contract['plan'].get('delivery', 'direct'),
+                            discovery_mode='reuse_only' if args.reuse_only else 'search',
+                            queries=[{'id': f'q{i}', 'provider': p, 'text': t, 'scope_ids': ids} for i, (p, t) in enumerate(queries, 1)],
+                            notebook_questions=[{'id': f'qa{i}', 'scope_ids': [f'sq{i}'], 'text': t} for i, t in enumerate(questions, 1)],
+                            stop_rule=args.stop_rule or DEFAULT_STOP_RULE)
+    for policy in contract['source_policies']:
+        policy['scope_ids'] = [i for i in policy['scope_ids'] if i in ids] or ids
+    text = json.dumps(contract, ensure_ascii=False, indent=2)
+    path = contained(folder, f'proposals/contract-{sha256(text.encode()).hexdigest()[:16]}.json')
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding='utf-8')
+    args.contract, args.review, args.screening = path, None, None
+    result = check_proposal(folder, args)
+    if result['ready']:
+        result['next_action'] = ('Plan válido. Muéstrale al usuario en pocas líneas las preguntas, dónde se busca y esto: '
+                                 + result['estimate']['text'] + ' Con su visto bueno, ez continue ' + str(folder)
+                                 + ' --contract ' + str(path) + '. Para cambiarlo, vuelve a usar ez plan.')
+        result['choices'] = [{'label': 'Empezar', 'action': f'ez continue {folder} --contract {path}'},
+                             {'label': 'Cambiar las preguntas', 'action': 'ez plan'}]
+    return dict(result, proposal=str(path))
+
+
+def split_group(raw):
+    """'s1,s2: razón' -> (['s1', 's2'], 'razón')."""
+    ids, _, reason = raw.partition(':')
+    return [i.strip() for i in ids.split(',') if i.strip()], reason.strip()
+
+
+def screen_document(folder, args):
+    """Screening decisions from flags, checked against the current screening-request.json."""
+    request_path = folder / 'screening-request.json'
+    if not request_path.exists():
+        raise ContractError('Esta corrida no espera cribado: no hay screening-request.json.')
+    request = read_json(request_path)
+    candidates = [c['source_id'] for c in request['candidates']]
+    decisions = {}
+    for decision, groups in (('include', args.include), ('exclude', args.exclude), ('uncertain', args.uncertain)):
+        for raw in groups or []:
+            ids, reason = split_group(raw)
+            if not ids or not reason:
+                raise ContractError(f'Cada --{decision} va como "id1,id2: razón breve": {raw!r}.')
+            for source_id in ids:
+                if source_id not in candidates:
+                    raise ContractError(f'{source_id} no es un candidato de screening-request.json.')
+                if source_id in decisions:
+                    raise ContractError(f'{source_id} tiene más de una decisión.')
+                decisions[source_id] = {'source_id': source_id, 'decision': decision, 'reason': reason}
+    if args.exclude_rest:
+        for source_id in candidates:
+            decisions.setdefault(source_id, {'source_id': source_id, 'decision': 'exclude', 'reason': args.exclude_rest.strip()})
+    for source_id in [i.strip() for i in (args.key or '').split(',') if i.strip()]:
+        if decisions.get(source_id, {}).get('decision') != 'include':
+            raise ContractError(f'--key solo marca candidatos incluidos: {source_id}.')
+        decisions[source_id]['key'] = True
+    undecided = [i for i in candidates if i not in decisions]
+    if undecided:
+        raise ContractError(f'Faltan decidir {len(undecided)} candidatos: {", ".join(undecided[:20])}. Decídelos o usa '
+                            '--exclude-rest "razón".')
+    document = {'schema_version': '2.0', 'sources_hash': request['sources_hash'], 'decisions': list(decisions.values())}
+    text = json.dumps(document, ensure_ascii=False, indent=2)
+    path = contained(folder, f'proposals/screening-{sha256(text.encode()).hexdigest()[:16]}.json')
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding='utf-8')
+    return path
 
 
 def update_proposal(previous, question, context):
@@ -297,6 +393,17 @@ def main(argv=None):
     p.add_argument('--skip-missing', action='store_true', help='Seguir sin los PDFs que no se pudieron descargar.')
     p.add_argument('--verify', nargs='?', const='', metavar='IDS', help='Verificar afirmaciones de la entrega directa: '
                    'sin IDS, las 10 respaldadas por más fuentes; o IDs separados por comas.')
+    p = sub.add_parser('plan', help='Armar el plan de una corrida con preguntas QA y búsquedas, sin escribir JSON.'); p.add_argument('run')
+    p.add_argument('--qa', action='append', metavar='PREGUNTA', help='Pregunta para NotebookLM, una por subpregunta (repetible).')
+    p.add_argument('--query', action='append', metavar='PROVEEDOR:TEXTO', help='Búsqueda, p. ej. pubmed:"ethambutol glutamicum" (repetible).')
+    p.add_argument('--delivery', choices=['direct', 'verified']); p.add_argument('--stop-rule')
+    p.add_argument('--reuse-only', action='store_true', help='Responder solo con los PDFs ya verificados, sin buscar.')
+    p.add_argument('--accept-policy-change', action='store_true')
+    p = sub.add_parser('screen', help='Decidir los candidatos del cribado sin escribir JSON.'); p.add_argument('run')
+    p.add_argument('--include', action='append', metavar='"IDS: RAZÓN"'); p.add_argument('--exclude', action='append', metavar='"IDS: RAZÓN"')
+    p.add_argument('--uncertain', action='append', metavar='"IDS: RAZÓN"'); p.add_argument('--exclude-rest', metavar='RAZÓN')
+    p.add_argument('--key', metavar='IDS', help='Incluidos centrales para responder, separados por comas.')
+    p.add_argument('--check', action='store_true', help='Validar sin modificar la corrida.')
     p = sub.add_parser('status', help='Ver el avance y el siguiente paso.'); p.add_argument('run'); p.add_argument('--answer', action='store_true')
     p = sub.add_parser('draft', help='Ver las afirmaciones verificadas para redactar o comprobar un borrador.'); p.add_argument('run'); p.add_argument('--check', type=Path, metavar='BORRADOR')
     p = sub.add_parser('ask', help='Pregunta de seguimiento respondida solo con los PDFs ya verificados del proyecto.')
@@ -415,6 +522,15 @@ def main(argv=None):
             return verify_command(folder, args)
         if args.command == 'export':
             return export_command(folder, args)
+        if args.command == 'plan':
+            with lock(folder):
+                emit(plan_command(folder, args), args.json)
+            return 0
+        if args.command == 'screen':
+            with lock(folder):
+                args.screening = screen_document(folder, args)
+            args.contract = args.review = args.verify = None
+            args.command, args.skip_missing, args.require_complete, args.accept_policy_change = 'continue', False, False, False
         if args.command in ('status', 'doctor'):
             if args.command == 'status' and not args.answer:
                 state = Store(folder).state()

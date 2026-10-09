@@ -1,5 +1,9 @@
 # Documentos históricos
 
+> **Agentes que operan EZ: no lean esta carpeta.** Los formatos, comandos y estados de
+> estos documentos ya no valen. Para operar, la única guía es
+> [`docs/ez-host-operator.md`](../ez-host-operator.md).
+
 Registro de decisiones y mediciones anteriores. No describen el comportamiento actual;
 el plan vigente es [`docs/roadmap.md`](../roadmap.md).
 

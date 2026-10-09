@@ -5,6 +5,23 @@ It discovers papers, acquires PDFs, builds a traceable source set, asks
 NotebookLM focused questions, exports cited answers, and keeps enough run state
 to debug or resume interrupted work.
 
+## Non-Negotiable Rules
+
+These hold for the whole conversation, including after context compaction. Every JSON
+answer from `ez` repeats them in `operator_reminder`.
+
+1. Every statement about the literature comes from EZ and carries its `[EZ:<id>]` marker.
+2. Answer a follow-up question from the claims already delivered or with
+   `ez ask "<question>" --project <project>`. New papers come only through `ez research`.
+3. Never use web search or model memory for bibliographic claims, nor to complete an EZ
+   answer. When the user explicitly asks for external data (for example a UniProt entry),
+   give it separately, labelled «fuente externa, no del corpus» (external source, not from the corpus).
+4. Draft only with `ez draft` and check with `ez draft <run> --check <file>`.
+5. Build the plan with `ez plan` and the screening with `ez screen`. Never write or edit run
+   files by hand (`research-contract.json`, `sources.json`, `state.json`, …) or write scripts
+   that generate them.
+6. Do not read `docs/history/`: it describes earlier versions and their obsolete formats.
+
 ## Operator Model
 
 EZ is the single user-facing operator. Claude Code, Codex, Hermes, or another

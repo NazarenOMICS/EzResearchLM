@@ -152,6 +152,33 @@ def ez_research(question: str, project: str = 'general', update_run: str | None 
     return ez(*arguments, seconds=600)
 
 
+def ez_plan(run: str, questions: list[str], queries: list[str] | None = None, delivery: str | None = None,
+            reuse_only: bool = False):
+    """Arma y valida el plan: questions son las preguntas QA (3 a 5); queries, búsquedas "proveedor:texto" (pubmed,
+    europepmc, openalex, semantic, crossref). Devuelve la estimación para mostrar al usuario; no consulta servicios."""
+    arguments = ['plan', str(run_folder(run))]
+    for question in questions:
+        arguments += ['--qa', question]
+    for query in queries or []:
+        arguments += ['--query', query]
+    arguments += (['--delivery', delivery] if delivery else []) + (['--reuse-only'] if reuse_only else [])
+    return ez(*arguments, seconds=120)
+
+
+def ez_screen(run: str, include: list[str] | None = None, exclude: list[str] | None = None, uncertain: list[str] | None = None,
+              exclude_rest: str | None = None, key: str | None = None, check: bool = False):
+    """Decide los candidatos de screening-request.json. Cada elemento de include, exclude y uncertain va como
+    "id1,id2: razón breve"; exclude_rest excluye el resto con esa razón; key lista los incluidos centrales separados por
+    comas. Sin check aplica el cribado y sigue la corrida en segundo plano."""
+    folder = run_folder(run)
+    arguments = ['screen', str(folder)]
+    for flag, groups in (('--include', include), ('--exclude', exclude), ('--uncertain', uncertain)):
+        for group in groups or []:
+            arguments += [flag, group]
+    arguments += (['--exclude-rest', exclude_rest] if exclude_rest else []) + (['--key', key] if key else [])
+    return ez(*arguments, '--check', seconds=120) if check else start_job(folder, arguments)
+
+
 def ez_submit(run: str, kind: str, document: dict, check: bool = False):
     """Envía un documento preparado por el agente: kind = contract, screening o review. Con check solo lo valida."""
     if kind not in ('contract', 'screening', 'review'):
@@ -270,7 +297,7 @@ def ez_doctor(run: str):
     return ez('doctor', str(run_folder(run)), seconds=120)
 
 
-TOOLS = (ez_guide, ez_setup, ez_login, ez_projects, ez_ask, ez_context, ez_research, ez_submit, ez_continue, ez_status, ez_read,
+TOOLS = (ez_guide, ez_setup, ez_login, ez_projects, ez_ask, ez_context, ez_research, ez_plan, ez_screen, ez_submit, ez_continue, ez_status, ez_read,
          ez_rescue, ez_draft, ez_verify, ez_export, ez_open_folder, ez_doctor)
 
 

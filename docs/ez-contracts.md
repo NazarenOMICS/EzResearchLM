@@ -113,9 +113,11 @@ título, revista, año y enlace al DOI. `ez continue --skip-missing` sigue sin e
 confirmación vale solo para la pausa vigente (la lista de PDFs faltantes después de
 descargar, `NEEDS_USER_PDFS`, se confirma aparte).
 
-Antes de adquirir, el anfitrión decide cada candidato en una copia de
-`screening-request.json` (`include`, `exclude` o `uncertain`, con razón) y la importa
-con `ez continue --screening`. El cribado debe corresponder al `sources_hash` vigente
+Antes de adquirir, el anfitrión decide cada candidato de `screening-request.json`
+(`include`, `exclude` o `uncertain`, con razón) con `ez screen`, que arma el documento de
+cribado en `proposals/` y lo importa; `ez continue --screening <archivo>` sigue aceptando
+un documento armado aparte. Del mismo modo, `ez plan` arma el plan desde preguntas QA y
+búsquedas. El cribado debe corresponder al `sources_hash` vigente
 y no puede superar `budgets.max_sources` (40 por defecto). Una fuente ya subida a
 NotebookLM no se excluye en la misma corrida. Las fuentes obligatorias del contrato
 entran incluidas.

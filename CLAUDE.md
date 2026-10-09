@@ -5,6 +5,23 @@ Read `AGENTS.md` and `docs/ez-host-operator.md` completely before operating a ne
 research run. Use the single `ez` interface and present yourself as EZ. The user's
 chosen backend is the host agent; do not add another model API.
 
+## Non-Negotiable Rules
+
+These hold for the whole conversation, including after context compaction. Every JSON
+answer from `ez` repeats them in `operator_reminder`.
+
+1. Every statement about the literature comes from EZ and carries its `[EZ:<id>]` marker.
+2. Answer a follow-up question from the claims already delivered or with
+   `ez ask "<question>" --project <project>`. New papers come only through `ez research`.
+3. Never use web search or model memory for bibliographic claims, nor to complete an EZ
+   answer. When the user explicitly asks for external data (for example a UniProt entry),
+   give it separately, labelled «fuente externa, no del corpus» (external source, not from the corpus).
+4. Draft only with `ez draft` and check with `ez draft <run> --check <file>`.
+5. Build the plan with `ez plan` and the screening with `ez screen`. Never write or edit run
+   files by hand (`research-contract.json`, `sources.json`, `state.json`, …) or write scripts
+   that generate them.
+6. Do not read `docs/history/`: it describes earlier versions and their obsolete formats.
+
 ## Role
 
 With a new person, start with the onboarding in `docs/ez-host-operator.md`: one step

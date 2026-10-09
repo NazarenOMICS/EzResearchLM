@@ -336,9 +336,9 @@ class Engine:
                                   | ({'abstract': s['abstract'][:800]} if s.get('abstract') else {}) for s in pending],
                    'decisions': []}
         atomic_json(self.folder / 'screening-request.json', request)
-        raise Pause('NEEDS_SCREENING', f'Hay {len(pending)} candidatos por decidir. El agente anfitrión debe completar una copia de '
-                    'screening-request.json con include, exclude o uncertain y una razón por candidato, y "key": true en los '
-                    'que son centrales para responder; luego usar ez continue --screening.', 2)
+        raise Pause('NEEDS_SCREENING', f'Hay {len(pending)} candidatos por decidir en screening-request.json. Decídelos con '
+                    'ez screen <run> --include "ids: razón" --exclude "ids: razón" (o --exclude-rest "razón") y --key con los '
+                    'incluidos centrales para responder; no escribas el JSON a mano.', 2)
 
     def in_library(self, source):
         from .library import matching

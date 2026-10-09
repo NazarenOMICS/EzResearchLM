@@ -122,6 +122,15 @@ Hecho y validado offline:
 10. Carpetas por proyecto: bandeja de PDFs que EZ toma sola, informes con su `.bib` e índice `README.md` (`docs/carpetas.md`).
 11. Elección de proyecto ante cada pregunta (`ez projects --suggest`) y biblioteca del proyecto: PDFs verificados reutilizados sin descargar, respuesta solo con lo que ya hay (`reuse_only`).
 
+12. Enlaces al DOI en cada lista de artículos, opciones para elegir con un clic (`choices`) y
+    carpetas en inglés (`inbox/`, `reports/`, `README.md`) con migración de las anteriores.
+13. Preguntas de seguimiento con `ez ask`, respondidas solo con la biblioteca del proyecto.
+14. Barandas contra la deriva del agente (2026-10-09), tras una prueba con Codex en Windows en
+    la que, después de compactar el contexto, el agente respondió con búsqueda web y sin el
+    corpus: reglas fijas al inicio de AGENTS.md, CLAUDE.md y la guía; `operator_reminder` en
+    cada salida JSON; `ez plan` y `ez screen` para que el agente no escriba JSON a mano;
+    aviso en `docs/history/`.
+
 Ciclo de iteración desde ahora:
 
 1. Correr M1, M2 y M3 sin abrir el gold set.
