@@ -48,7 +48,8 @@ If you do not use agents in a terminal, there is an
 ~/.ezresearch/projects/<your project>/
 ├── README.md     index of your researches, with links
 ├── inbox/        drop your PDFs here
-└── reports/      each report and its bibliography (.bib)
+├── reports/      each report and its bibliography (.bib)
+└── notes/        Obsidian vault: cited passages per article, claims per research
 ```
 
 More in [where everything goes](docs/carpetas.md)

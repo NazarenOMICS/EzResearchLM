@@ -135,6 +135,12 @@ Hecho y validado offline:
     ronda de cribado; `ez ask` informa `evidence` y, si la biblioteca no alcanza, ofrece
     buscar artículos nuevos en vez de dejar que el agente complete. Falta medirlo en vivo
     contra el gold set de M2.
+16. Memoria del proyecto (2026-10-09): en cada entrega EZ reescribe `projects/<p>/notes/`,
+    un vault de Obsidian con los pasajes citados por fuente y las afirmaciones por
+    investigación, y `ez recall` busca en ellos sin consultar NotebookLM. Los marcadores
+    `[EZ:<corrida>/<id>]` permiten citar afirmaciones de otras investigaciones del proyecto
+    y `ez draft --check` los resuelve. Reemplaza la búsqueda con QMD de la versión anterior.
+    Falta medir cuántos seguimientos resuelve sin consultar NotebookLM.
 
 Ciclo de iteración desde ahora:
 

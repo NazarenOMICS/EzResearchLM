@@ -11,8 +11,9 @@ These hold for the whole conversation, including after context compaction. Every
 answer from `ez` repeats them in `operator_reminder`.
 
 1. Every statement about the literature comes from EZ and carries its `[EZ:<id>]` marker.
-2. Answer a follow-up question from the claims already delivered or with
-   `ez ask "<question>" --project <project>`. New papers come only through `ez research`.
+2. Answer a follow-up question from the claims already delivered, then with
+   `ez recall "<question>" --project <project>` (claims and passages already verified in the
+   project, no NotebookLM query), then with `ez ask`. New papers come only through `ez research`.
 3. Never use web search or model memory for bibliographic claims, nor to complete an EZ
    answer. When the user explicitly asks for external data (for example a UniProt entry),
    give it separately, labelled «fuente externa, no del corpus» (external source, not from the corpus).

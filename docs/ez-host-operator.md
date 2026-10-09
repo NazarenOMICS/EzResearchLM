@@ -12,8 +12,8 @@ Valen durante toda la conversación, también después de que se compacte el con
 Cada salida JSON de `ez` las repite en `operator_reminder`.
 
 1. Toda afirmación sobre la literatura sale de EZ y lleva su marcador `[EZ:<id>]`.
-2. Una pregunta de seguimiento se responde con las afirmaciones ya entregadas o con
-   `ez ask "<pregunta>" --project <proyecto>`. Artículos nuevos, solo con `ez research`.
+2. Una pregunta de seguimiento se responde con las afirmaciones ya entregadas, después con
+   `ez recall` y, si no alcanza, con `ez ask "<pregunta>" --project <proyecto>`. Artículos nuevos, solo con `ez research`.
 3. Nunca usar búsqueda web ni la memoria del modelo para afirmaciones bibliográficas, ni
    para completar una respuesta de EZ. Si el usuario pide explícitamente un dato externo
    (por ejemplo, una entrada de UniProt), va aparte y rotulado «fuente externa, no del corpus».
@@ -93,9 +93,16 @@ Nunca respondas con tu memoria como si fuera evidencia:
 
 1. Si las afirmaciones entregadas ya responden, contesta solo con ellas y sus marcas
    `[EZ:<id>]`, y dilo.
-2. Si no alcanzan, corre `ez ask "<pregunta>" --project <proyecto>`: NotebookLM responde con
-   los PDFs ya verificados del proyecto, sin buscar ni descargar, en uno o dos minutos.
-   Contesta con sus afirmaciones y marcas. `evidence` dice si alcanzó:
+2. Si no alcanzan, corre `ez recall "<pregunta>" --project <proyecto>`: busca en segundos,
+   sin consultar NotebookLM, entre todas las afirmaciones ya entregadas en el proyecto y sus
+   pasajes. Cada resultado trae su marcador con la corrida (`[EZ:<corrida>/<id>]`), la
+   pregunta en la que se obtuvo y los pasajes literales con página y fuente. Con `evidence:
+   sufficient`, responde con esas afirmaciones y marcadores. Usa cada una para lo que su
+   pasaje dice: si responder exige afirmar algo que el pasaje no dice literalmente, sigue
+   con el paso 3. Con `partial`, responde lo cubierto y sigue con el paso 3 para el resto.
+3. Si `ez recall` no alcanza, corre `ez ask "<pregunta>" --project <proyecto>`: NotebookLM
+   responde con los PDFs ya verificados del proyecto, sin buscar ni descargar, en uno o dos
+   minutos. Contesta con sus afirmaciones y marcas. `evidence` dice si alcanzó:
    1. `sufficient`: responde con eso; no busques artículos nuevos.
    2. `partial` o `insufficient`: di qué responde el corpus y qué no, sin completar con tu
       memoria ni con la web, y ofrece buscar artículos nuevos con `choices` («Buscar
@@ -103,7 +110,7 @@ Nunca respondas con tu memoria como si fuera evidencia:
       proyecto (`ez research … --plan-only` y `ez plan`): reutiliza los PDFs que ya tiene y
       busca solo lo que falta. Un artículo puntual que la persona nombra y no está en el
       corpus («¿qué dice Smith 2019?») es el caso típico.
-3. Si la persona pide razonamiento propio (hipótesis, diseño experimental, interpretación),
+4. Si la persona pide razonamiento propio (hipótesis, diseño experimental, interpretación),
    separa siempre dos partes con título: «Lo que dice el corpus», con marcas, y «Mi
    razonamiento (no es evidencia del corpus)». No cites enlaces, artículos ni datos que no
    estén en el corpus. Si un artículo externo parece necesario, propón sumarlo al proyecto

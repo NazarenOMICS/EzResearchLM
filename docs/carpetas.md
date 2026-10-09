@@ -10,9 +10,10 @@ EZ necesita para poder verificar cada resultado.
 │   └── <proyecto>/
 │       ├── README.md               índice: cada investigación, su estado y enlaces
 │       ├── inbox/                  deja aquí tus PDFs
-│       └── reports/
-│           ├── 2026-10-08-<pregunta>-<id>.md    el informe de evidencia
-│           └── 2026-10-08-<pregunta>-<id>.bib   su bibliografía para Zotero
+│       ├── reports/
+│       │   ├── 2026-10-08-<pregunta>-<id>.md    el informe de evidencia
+│       │   └── 2026-10-08-<pregunta>-<id>.bib   su bibliografía para Zotero
+│       └── notes/                  vault de Obsidian: pasajes por fuente y afirmaciones por investigación
 ├── runs/                           ← registro de trabajo de EZ, no editar
 │   └── ez-<id>/                    una carpeta por investigación
 ├── contexts/                       preferencias de cada proyecto
@@ -30,6 +31,13 @@ EZ necesita para poder verificar cada resultado.
    artículo, te lo pregunta. Tus archivos no se mueven ni se borran: EZ guarda una copia.
 3. **`reports/` (informes).** Una copia de cada informe, con nombre por fecha y pregunta, y su
    bibliografía en BibTeX. Puedes moverlos, compartirlos o editarlos sin afectar nada.
+4. **`notes/` (notas).** La memoria del proyecto, lista para abrir como vault de Obsidian.
+   `sources/` tiene una nota por artículo con todos los pasajes que NotebookLM citó de él,
+   su página y las afirmaciones que respaldan; `researches/` tiene una nota por
+   investigación con sus afirmaciones enlazadas a los artículos. EZ la reescribe en cada
+   entrega a partir de las investigaciones verificables, así que no conviene editarla.
+   Con esto mismo EZ responde preguntas de seguimiento sin volver a consultar NotebookLM
+   (`ez recall`).
 
 ## Lo que usa EZ
 
