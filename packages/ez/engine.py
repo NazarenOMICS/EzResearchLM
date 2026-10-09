@@ -60,8 +60,23 @@ def routes_tried(source):
 
 
 class Pause(Exception):
-    def __init__(self, reason, message, code=2):
-        self.reason, self.message, self.code = reason, message, code
+    def __init__(self, reason, message, code=2, choices=None):
+        self.reason, self.message, self.code, self.choices = reason, message, code, choices or []
+
+
+# Answers the user can pick with one click when the agent's interface offers options.
+PDF_CHOICES = [{'label': 'Ya dejé los PDFs en la bandeja', 'action': 'ez continue'},
+               {'label': 'Seguir sin ellos', 'action': 'ez continue --skip-missing'},
+               {'label': 'Abrir la bandeja', 'action': 'open the inbox_link'}]
+DELIVERY_CHOICES = [{'label': 'Verificar lo central para redactar', 'action': 'ez continue --verify'},
+                    {'label': 'Exportar la bibliografía a Zotero', 'action': 'ez export'},
+                    {'label': 'Redactar un párrafo con estas citas', 'action': 'ez draft'},
+                    {'label': 'Hacer otra pregunta en este proyecto', 'action': 'ez ask'}]
+
+
+def doi_link(doi):
+    return f'[{doi}](https://doi.org/{doi})' if doi else 'sin DOI registrado'
+
 
 
 class Engine:
@@ -454,16 +469,17 @@ class Engine:
                  'proxy), el préstamo interbibliotecario de tu biblioteca, o pedírselo por correo a los autores, que '
                  'suelen enviarlo.', '']
         for row in rows:
-            link = f'[https://doi.org/{row["doi"]}](https://doi.org/{row["doi"]})' if row.get('doi') else 'sin DOI registrado'
             detail = ', '.join(str(row[k]) for k in ('journal', 'year') if row.get(k))
-            lines.append(f'- **{row.get("title") or row["source_id"]}**' + (f' ({detail})' if detail else '') + f' — {link}')
+            lines.append(f'- **{row.get("title") or row["source_id"]}**' + (f' ({detail})' if detail else '') + f' — DOI {doi_link(row.get("doi"))}')
         lines += ['', f'Cuando los tengas, guárdalos en la bandeja de tu proyecto: [{paths["inbox"]}]({paths["inbox_link"]}) y dile '
                   'a EZ que siga. Si no puedes conseguirlos, dile que siga sin ellos.']
         atomic_json(self.folder / 'key-pdfs.json', {'schema_version': '1.0', 'closed_access': rows})
         (self.folder / 'key-pdfs.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
-        raise Pause('NEEDS_KEY_PDFS', f'{len(closed)} artículos clave no tienen acceso abierto; la lista con título y enlace al DOI está '
-                    f'en key-pdfs.md. Muéstrasela al usuario con el enlace a su bandeja ({paths["inbox_link"]}). Cuando deje '
-                    'los PDFs ahí, continúa: EZ los toma solo. Si no los consigue, continúa con ez continue --skip-missing.', 2)
+        self.checkpoint(missing_pdfs=[dict(r, doi_url=f'https://doi.org/{r["doi"]}' if r.get('doi') else None) for r in rows])
+        raise Pause('NEEDS_KEY_PDFS', f'{len(closed)} artículos clave no tienen acceso abierto. Muéstrale al usuario la lista de '
+                    'key-pdfs.md tal cual: título completo sin traducir ni resumir y el DOI de cada uno como enlace. Agrega el '
+                    f'enlace a su bandeja ({paths["inbox_link"]}). Cuando deje los PDFs ahí, continúa: EZ los toma solo. Si '
+                    'no los consigue, continúa con ez continue --skip-missing.', 2, PDF_CHOICES)
 
     def request_pdfs(self):
         """Ask once, before anything is uploaded, for the included works EZ could not download."""
@@ -482,13 +498,15 @@ class Engine:
                  f'de tu proyecto: [{paths["inbox"]}]({paths["inbox_link"]}) y dile a EZ que siga. Si no, EZ sigue sin '
                  'ellos y lo dice en el informe.', '']
         for row in rows:
-            link = f' https://doi.org/{row["doi"]}' if row.get('doi') else ''
-            lines.append(f'- {row.get("title") or row["source_id"]}' + (f' ({row["year"]})' if row.get('year') else '') + link)
+            lines.append(f'- **{row.get("title") or row["source_id"]}**' + (f' ({row["year"]})' if row.get('year') else '')
+                         + f' — DOI {doi_link(row.get("doi"))}')
         atomic_json(self.folder / 'pdf-request.json', {'schema_version': '1.0', 'missing': rows})
         (self.folder / 'pdf-request.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
-        raise Pause('NEEDS_USER_PDFS', f'{len(missing)} artículos incluidos no tienen PDF de acceso abierto; la lista está en '
-                    f'pdf-request.md. Si el usuario los tiene, que los deje en su bandeja ({paths["inbox_link"]}) y continúa: '
-                    'EZ los toma solo. Si no, continúa con ez continue --skip-missing.', 2)
+        self.checkpoint(missing_pdfs=[dict(r, doi_url=f'https://doi.org/{r["doi"]}' if r.get('doi') else None) for r in rows])
+        raise Pause('NEEDS_USER_PDFS', f'{len(missing)} artículos incluidos no tienen PDF de acceso abierto. Muéstrale al usuario la '
+                    'lista de pdf-request.md tal cual: título completo sin traducir ni resumir y el DOI de cada uno como enlace. '
+                    f'Agrega el enlace a su bandeja ({paths["inbox_link"]}). Si los consigue y los deja ahí, continúa: EZ los toma '
+                    'solo. Si no, continúa con ez continue --skip-missing.', 2, PDF_CHOICES)
 
     def upload(self):
         verified = [s for s in self.sources if s.get('validation_status') == 'valid' and s.get('identity_status') == 'verified'
@@ -1038,6 +1056,7 @@ class Engine:
                             'El corpus todavía no respalda una respuesta entregable. Revisa QA y fuentes.')
 
     def publish(self, report, delivered, result, review_key, next_action):
+        self.state['choices'] = DELIVERY_CHOICES if delivered else []
         self.state.update(result, review_hash=review_key, phase='done' if delivered else 'audit',
                           execution={'status': 'completed' if delivered else 'waiting_user'}, next_action=next_action)
         self.store.commit(self.state, {'answer.json': report})
@@ -1148,7 +1167,7 @@ class Engine:
             if self.state.get('sources_hash') and digest(self.sources) != self.state['sources_hash']:
                 raise Pause('NEEDS_TRACEABILITY_REPAIR', 'El manifiesto de fuentes cambió fuera del registro.', 4)
             self.checkpoint(execution={'status': 'running'}, integrity={'status': 'pending'}, legacy_signals=[],
-                            blockers=[],
+                            blockers=[], choices=[],
                             next_action='La investigación está en curso; el estado muestra el último punto guardado.')
             self.discover()
             self.screen(screening)
@@ -1172,7 +1191,8 @@ class Engine:
                             integrity={'status': 'unknown'}, next_action='No se pudo interpretar o guardar un artefacto: ' + str(exc), answer={'status': 'unavailable'})
             return 4
         except Pause as exc:
-            self.checkpoint(execution={'status': 'blocked_integrity' if exc.code == 4 else 'waiting_service' if exc.code == 3 else 'waiting_user'},
+            self.checkpoint(choices=exc.choices,
+                            execution={'status': 'blocked_integrity' if exc.code == 4 else 'waiting_service' if exc.code == 3 else 'waiting_user'},
                             integrity={'status': 'fail' if exc.code == 4 else 'pending'},
                             legacy_signals=[exc.reason], next_action=exc.message, answer={'status': 'unavailable'})
             return exc.code

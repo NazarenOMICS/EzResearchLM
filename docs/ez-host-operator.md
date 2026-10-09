@@ -53,11 +53,37 @@ qué pasó. Una pregunta por mensaje.
    importa la carpeta; si no, sigue con `--skip-missing`. En `NEEDS_USER_PDFS`, muéstrale `pdf-request.md` como lista
    (título, año y enlace) y pregúntale si tiene alguno; si no, sigue con `--skip-missing`.
 6. **Entrega.** Resume en 5 líneas lo central, da el enlace al informe en la carpeta del
-   proyecto (`workspace.report_link` de `ez status --answer`) y al índice del proyecto
-   (`README.md`), y ofrece, como
+   proyecto (`workspace.report_link` de `ez status --answer`, en `reports/`, no el de
+   `runs/`) y al índice del proyecto (`README.md`), y ofrece, como
    opciones numeradas: (1) verificar afirmaciones para redactar (`--verify`), (2) exportar
    la bibliografía a Zotero (`ez export`), (3) redactar un párrafo con marcas `[EZ:<id>]`,
    (4) otra pregunta del mismo proyecto, que reutiliza los PDFs ya cargados.
+
+**Opciones para elegir con un clic.** Cuando EZ espera una decisión, el estado trae
+`choices` (por ejemplo, «Ya dejé los PDFs en la bandeja», «Seguir sin ellos»). Si tu
+interfaz permite ofrecer opciones para elegir (en Claude Code, la herramienta de preguntas
+con opciones), preséntalas así; si no, numéralas para que la persona responda con un
+número. Haz lo mismo con tus propias preguntas cerradas: proyecto existente o nuevo, «dale»
+al plan, responder solo con lo que ya hay o buscar artículos nuevos.
+
+**Listas de artículos.** Cuando EZ pide PDFs (`key-pdfs.md`, `pdf-request.md`, o
+`missing_pdfs` en el estado), muestra la lista tal cual: título completo sin traducir ni
+resumir y el DOI de cada uno como enlace clicable. La persona necesita esos datos para
+buscarlos.
+
+**Preguntas de seguimiento.** Después de una entrega, la persona suele seguir preguntando.
+Nunca respondas con tu memoria como si fuera evidencia:
+
+1. Si las afirmaciones entregadas ya responden, contesta solo con ellas y sus marcas
+   `[EZ:<id>]`, y dilo.
+2. Si no alcanzan, corre `ez ask "<pregunta>" --project <proyecto>`: NotebookLM responde con
+   los PDFs ya verificados del proyecto, sin buscar ni descargar, en uno o dos minutos.
+   Contesta con sus afirmaciones y marcas.
+3. Si la persona pide razonamiento propio (hipótesis, diseño experimental, interpretación),
+   separa siempre dos partes con título: «Lo que dice el corpus», con marcas, y «Mi
+   razonamiento (no es evidencia del corpus)». No cites enlaces, artículos ni datos que no
+   estén en el corpus. Si un artículo externo parece necesario, propón sumarlo al proyecto
+   con una investigación nueva.
 
 Si la persona vuelve otro día, corre `ez projects --json`, muéstrale sus proyectos en una
 lista corta (nombre, investigaciones, última actividad) y pregúntale en cuál sigue. Lee

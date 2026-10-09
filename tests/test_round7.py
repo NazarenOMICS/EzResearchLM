@@ -69,7 +69,9 @@ class KeyPdfTests(unittest.TestCase):
         self.assertEqual(state['legacy_signals'], ['NEEDS_KEY_PDFS'])
         text = (self.folder / 'key-pdfs.md').read_text(encoding='utf-8')
         self.assertIn('**Artículo central pago**', text)
-        self.assertIn('[https://doi.org/10.1/paid](https://doi.org/10.1/paid)', text)
+        self.assertIn('**Artículo central pago** (2005) — DOI [10.1/paid](https://doi.org/10.1/paid)', text)
+        self.assertEqual(state['missing_pdfs'][0]['doi_url'], 'https://doi.org/10.1/paid')
+        self.assertEqual([c['label'] for c in state['choices']][:2], ['Ya dejé los PDFs en la bandeja', 'Seguir sin ellos'])
         self.assertIn('préstamo interbibliotecario', text)
         self.assertEqual(self.acquired, [])
         output = StringIO()
@@ -195,6 +197,28 @@ class ProjectLibraryTests(unittest.TestCase):
         sources = read_json(folder / 'sources.json')
         self.assertEqual([s['doi'] for s in sources], ['10.1/s1'])
         self.assertEqual(Store(folder).state()['phase'], 'audit')
+
+    def test_a_follow_up_question_is_answered_from_the_project_library(self):
+        import test_v6_rules
+        self.second_run()
+        service = self.service
+        def answering(args, **kwargs):
+            result = service(args, **kwargs)
+            if args[1] == 'ask':
+                value = json.loads(result.stdout); value['answer'] = test_v6_rules.ANSWER
+                from ez.process import Result
+                return Result(0, json.dumps(value), '', None)
+            return result
+        uploads = self.service.upload_count
+        output = StringIO()
+        with redirect_stdout(output), patch('ez.cli.load_environment'), \
+                patch('ez.engine.Engine.__init__.__defaults__', (answering,)), patch('ez.engine.executable', return_value='notebooklm'):
+            code = main(['--root', self.temp.name, 'ask', '¿Qué dice la fuente?', '--json'])
+        value = json.loads(output.getvalue())
+        self.assertEqual((code, value['kind'], value['claims'][0]['marker']), (0, 'ask', '[EZ:ask1-1]'))
+        self.assertEqual(self.service.upload_count, uploads)
+        self.assertFalse(any(a[1:3] in (['-m', 'ez.discovery'], ['-m', 'ez.acquisition']) for a in self.service.calls[-6:]))
+        self.assertEqual([c['label'] for c in value['choices']][0], 'Verificar lo central para redactar')
 
     def test_projects_are_listed_and_ranked_against_a_new_question(self):
         self.second_run()

@@ -132,6 +132,11 @@ def ez_projects(question: str | None = None):
     return ez('projects', *(['--suggest', question] if question else []), seconds=120)
 
 
+def ez_ask(question: str, project: str = 'general'):
+    """Pregunta de seguimiento respondida por NotebookLM solo con los PDFs ya verificados del proyecto (uno o dos minutos)."""
+    return ez('ask', question, '--project', project, seconds=900)
+
+
 def ez_context(project: str = 'general', settings: dict | None = None):
     """Lee o guarda preferencias del proyecto (idioma, disciplina, objetivo, inclusiones, exclusiones, período)."""
     arguments = ['context', '--project', project]
@@ -265,7 +270,7 @@ def ez_doctor(run: str):
     return ez('doctor', str(run_folder(run)), seconds=120)
 
 
-TOOLS = (ez_guide, ez_setup, ez_login, ez_projects, ez_context, ez_research, ez_submit, ez_continue, ez_status, ez_read,
+TOOLS = (ez_guide, ez_setup, ez_login, ez_projects, ez_ask, ez_context, ez_research, ez_submit, ez_continue, ez_status, ez_read,
          ez_rescue, ez_draft, ez_verify, ez_export, ez_open_folder, ez_doctor)
 
 

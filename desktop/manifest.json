@@ -44,6 +44,10 @@
       "description": "Proyectos guardados y cuál se relaciona con una pregunta"
     },
     {
+      "name": "ez_ask",
+      "description": "Pregunta de seguimiento sobre los PDFs del proyecto"
+    },
+    {
       "name": "ez_context",
       "description": "Preferencias del proyecto"
     },

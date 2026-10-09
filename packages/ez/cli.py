@@ -211,6 +211,29 @@ def verify_command(folder, args):
     return 0
 
 
+def ask_command(root, args):
+    """A follow-up question answered by NotebookLM from the project's verified PDFs: no search, no download."""
+    from .library import project_sources
+    if not project_sources(root, args.project):
+        raise ContractError(f'El proyecto «{args.project}» todavía no tiene PDFs verificados. Empieza con ez research.')
+    cpath = context_path(root, args.project)
+    context = read_json(cpath) if cpath.exists() else {'language': 'es', 'project': args.project}
+    contract = draft(args.question, dict(context, project=args.project))
+    contract['plan'].update(status='ready', delivery='direct', discovery_mode='reuse_only', queries=[],
+                            notebook_questions=[{'id': 'ask1', 'scope_ids': ['sq1'], 'text': args.question}],
+                            stop_rule='Pregunta de seguimiento respondida solo con la biblioteca del proyecto.')
+    folder, _ = create_run(root, args.question, contract['context'], contract)
+    with lock(folder):
+        engine = Engine(folder)
+        code = engine.execute()
+        state = engine.state
+    answer = read_json(folder / 'answer.json') if (folder / 'answer.json').exists() else {}
+    emit(dict(state, path=str(folder), kind='ask',
+              claims=[{'id': c['id'], 'text': c['text'], 'marker': f'[EZ:{c["id"]}]'} for c in answer.get('claims', [])],
+              uncited_statements=answer.get('uncited_statements', [])), args.json)
+    return code
+
+
 def export_command(folder, args):
     """Read-only: write bibliography.bib or bibliography.ris next to the report."""
     from .deliver import bibliography, export_bibliography
@@ -276,6 +299,8 @@ def main(argv=None):
                    'sin IDS, las 10 respaldadas por más fuentes; o IDs separados por comas.')
     p = sub.add_parser('status', help='Ver el avance y el siguiente paso.'); p.add_argument('run'); p.add_argument('--answer', action='store_true')
     p = sub.add_parser('draft', help='Ver las afirmaciones verificadas para redactar o comprobar un borrador.'); p.add_argument('run'); p.add_argument('--check', type=Path, metavar='BORRADOR')
+    p = sub.add_parser('ask', help='Pregunta de seguimiento respondida solo con los PDFs ya verificados del proyecto.')
+    p.add_argument('question'); p.add_argument('--project', default='general')
     p = sub.add_parser('projects', help='Ver los proyectos y cuál se relaciona con una pregunta.')
     p.add_argument('--suggest', metavar='PREGUNTA', help='Ordenar los proyectos según su relación con esta pregunta.')
     p = sub.add_parser('export', help='Exportar la bibliografía a BibTeX o RIS.'); p.add_argument('run')
@@ -335,6 +360,8 @@ def main(argv=None):
             from .workspace import ensure
             emit(dict(context, research_history=history(root, args.project), workspace=ensure(root, args.project)), args.json)
             return 0
+        if args.command == 'ask':
+            return ask_command(root, args)
         if args.command == 'research':
             cpath = context_path(root, args.project)
             context = read_json(cpath) if cpath.exists() else {'language': 'es', 'project': args.project}
