@@ -32,7 +32,6 @@ def main():
     assert guide.is_file(), 'Installed host guide is missing'
     assert (runtime_root() / 'docs/ez-user-guide.md').is_file(), 'Installed user guide is missing'
     assert (runtime_root() / 'SETUP.md').is_file(), 'Installed setup reference is missing'
-    assert (runtime_root() / 'scripts/run_external.py').is_file(), 'Installed supervisor is missing'
 
     def invoke(argv, expected):
         output = StringIO()
@@ -59,7 +58,7 @@ def main():
     report = {'status': 'passed', 'version': metadata.version('ezresearchlm'), 'python': sys.version,
               'isolated_python': bool(sys.flags.isolated), 'installed_module': str(Path(ez.__file__).resolve()),
               'host_guide_sha256': sha256(guide.read_bytes()).hexdigest(),
-              'checks': ['installed_imports', 'four_schemas', 'host_guide', 'welcome', 'offline_user_guide', 'supervisor', 'context', 'research', 'continue_needs_plan', 'doctor'],
+              'checks': ['installed_imports', 'four_schemas', 'host_guide', 'welcome', 'offline_user_guide', 'context', 'research', 'continue_needs_plan', 'doctor'],
               'authenticated_e2e': False, 'clean_windows_machine': False}
     if args.report:
         args.report.parent.mkdir(parents=True, exist_ok=True)

@@ -27,7 +27,7 @@ answer from `ez` repeats them in `operator_reminder`.
 With a new person, start with the onboarding in `docs/ez-host-operator.md`: one step
 and one question at a time, no commands or JSON shown to them. For new work, follow the
 host guide to clarify natural questions, retain context,
-prepare contract proposals, run the pipeline, review NotebookLM QA and explain
+build the plan with `ez plan`, run the pipeline, review NotebookLM QA and explain
 partial results. The agent prepares structured files; the user does not need to.
 Missing sources retain only the scopes defined by their policies. Do not apply a
 global binary required-source gate to an EZ v2 contract.
@@ -41,5 +41,3 @@ engine; QMD and local search are recall helpers, not evidence.
   `NEEDS_QA_REVIEW`, `NEEDS_MORE_QA`) and its next action; do not bypass `ez`.
 - Deliver `report.md` first; draft text only from `ez draft` claims with their markers.
 - Do not commit `.env`, PDFs, NotebookLM exports, run artifacts, cookies, or tokens.
-
-Las corridas antiguas con wrappers PowerShell se operan según `docs/legacy-operator.md`.

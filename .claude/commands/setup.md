@@ -10,5 +10,3 @@ Start with the first-conversation guidance in `docs/ez-host-operator.md`. Show t
 three user steps (prepare, sign in, ask a question), the effective output folder,
 and point to `ez --guide`. Never imply that `ez` opens a standalone chat or that
 closing the host conversation leaves an autonomous investigation running.
-
-Las corridas antiguas con wrappers PowerShell se operan según `docs/legacy-operator.md`.

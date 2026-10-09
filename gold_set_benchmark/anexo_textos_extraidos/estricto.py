@@ -1,7 +1,7 @@
 import json, os, re, sys, time, unicodedata, urllib.request, urllib.parse, html
 D = os.path.dirname(os.path.abspath(__file__))
 rows = json.load(open(os.path.join(D, "inventario_final.json"), encoding="utf-8"))
-UA = {"User-Agent": "tesis-goldset/1.0 (mailto:nazarenocabrerati@gmail.com)"}
+UA = {"User-Agent": "tesis-goldset/1.0 (mailto:" + os.environ.get("GOLDSET_CONTACT_EMAIL", "you@example.com") + ")"}
 def get(u):
     for _ in range(3):
         try:

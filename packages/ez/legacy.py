@@ -23,7 +23,7 @@ def inspect_run(path):
     gate = bool(state.get('stop_if_missing_must_have')) if state.get('must_have_gate_version') == 2 else True
     return {'format': 'legacy', 'run_dir': str(path.resolve()), 'state': state,
             'conflicts': conflicts, 'legacy_effective_gate': 'block_all_required' if gate else 'report_missing',
-            'answer': {'status': 'unavailable'}, 'next_action': 'Revisar y migrar el contrato antes de continuar con EZ; los wrappers originales siguen disponibles.'}
+            'answer': {'status': 'unavailable'}, 'next_action': 'Corrida creada con los wrappers PowerShell de versiones anteriores: se puede inspeccionar y migrar con ez doctor --migration-preview, pero no continuar sin migrarla.'}
 
 
 def preview(path):

@@ -114,8 +114,6 @@ probablemente no sabe de terminales. Hazlo tú, sin pedirle comandos:
 3. [Contratos y estados](docs/ez-contracts.md) y [configuración](docs/configuration.md):
    detalles técnicos.
 4. [Hoja de ruta](docs/roadmap.md): qué está hecho, qué falta y en qué orden.
-5. [Referencia legacy](docs/legacy-reference.md): corridas creadas con los wrappers
-   PowerShell anteriores.
 
 ## Licencia
 

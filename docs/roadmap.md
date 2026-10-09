@@ -170,7 +170,7 @@ Recién entonces sigue A3.
 | ID | Tarea | Dueño | Puerta |
 |---|---|---|---|
 | C1 | Instalación en un Windows limpio siguiendo solo el README | usuario | Lista de pasos que fallaron, o ninguno |
-| C2 | **Hecho:** informes viejos y planes superados en `docs/history/`. `Rules_Of_Writing.md` sigue en la raíz porque AGENTS.md lo usa | código | Raíz con README, AGENTS, CLAUDE y SETUP |
+| C2 | **Hecho:** informes viejos y planes superados en `docs/history/`. El 2026-10-09 se quitó la capa de wrappers PowerShell (scripts `.ps1`, `notebooklm/scripts`, `examples/`, guías legacy) y `Rules_Of_Writing.md`, cuyas reglas generales pasaron a AGENTS.md | código | Raíz con README, AGENTS, CLAUDE y SETUP |
 | C3 | Publicar en el README los resultados de A1 a A3 y los tiempos reales | código | Números con fecha y versión |
 | C4 | Mergear `NazarenOMICS/EzResearchLM#1` a `main` y etiquetar la versión | usuario | Etiqueta `v0.x` |
 

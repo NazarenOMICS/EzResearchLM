@@ -22,7 +22,7 @@ extras = ["radmacher_2005_ethambutol_cglutamicum", "kwon_2018_MIC_ethambutol_MAC
 for e in extras:
     names.setdefault(e, ["fuera_de_bloque"])
 
-UA = {"User-Agent": "tesis-goldset/1.0 (mailto:nazarenocabrerati@gmail.com)"}
+UA = {"User-Agent": "tesis-goldset/1.0 (mailto:" + os.environ.get("GOLDSET_CONTACT_EMAIL", "you@example.com") + ")"}
 def get(url):
     for i in range(3):
         try:

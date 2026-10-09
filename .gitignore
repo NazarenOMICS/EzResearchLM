@@ -24,12 +24,6 @@ dist/
 ready
 runs/*
 !runs/.gitkeep
-Search/*
-!Search/.gitkeep
-Notes/*
-!Notes/.gitkeep
-Research/Papers/*
-!Research/Papers/.gitkeep
 
 # Source exports and large files
 **/QA/answers/

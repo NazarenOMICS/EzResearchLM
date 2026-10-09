@@ -116,8 +116,6 @@ The detailed guides are in Spanish for now.
 3. [Contracts and states](docs/ez-contracts.md) and [configuration](docs/configuration.md):
    technical details.
 4. [Roadmap](docs/roadmap.md): what is done, what is missing and in which order.
-5. [Legacy reference](docs/legacy-reference.md): runs created with the earlier PowerShell
-   wrappers.
 
 ## License
 
