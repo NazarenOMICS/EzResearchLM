@@ -1,5 +1,5 @@
 """Bounded, provenance-preserving public acquisition. No access-control bypass."""
-from hashlib import sha256, md5
+from hashlib import md5
 import ipaddress
 import io
 import json
@@ -7,7 +7,6 @@ import os
 from pathlib import Path
 import re
 import socket
-import sys
 import tarfile
 import time
 import unicodedata

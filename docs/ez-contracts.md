@@ -196,5 +196,5 @@ Un corpus remoto desconocido se detiene antes de subir nuevos archivos.
 El flag legacy anterior a v2 siempre bloqueaba, incluso si guardaba `false`:
 ese gate efectivo se conserva. La versión corregida hereda su bool real. Una
 fuente histórica de Anna conserva su procedencia, pero EZ no vuelve a usar esa vía. Rutas relativas ambiguas
-no se adivinan. Para volver al flujo anterior, usar los originales con los wrappers
-compatibles; no convertir la corrida nueva sobrescribiendo los archivos anteriores.
+no se adivinan. Los archivos originales nunca se sobrescriben; los wrappers que los
+crearon ya no forman parte del repositorio.

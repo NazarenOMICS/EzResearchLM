@@ -1,3 +1,3 @@
-﻿from .config import load_env_file
+from .config import load_env_file
 
 load_env_file()

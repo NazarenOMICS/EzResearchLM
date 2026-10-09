@@ -177,7 +177,8 @@ Recién entonces sigue A3.
 | C1 | Instalación en un Windows limpio siguiendo solo el README | usuario | Lista de pasos que fallaron, o ninguno |
 | C2 | **Hecho:** informes viejos y planes superados en `docs/history/`. El 2026-10-09 se quitó la capa de wrappers PowerShell (scripts `.ps1`, `notebooklm/scripts`, `examples/`, guías legacy) y `Rules_Of_Writing.md`, cuyas reglas generales pasaron a AGENTS.md | código | Raíz con README, AGENTS, CLAUDE y SETUP |
 | C3 | Publicar en el README los resultados de A1 a A3 y los tiempos reales | código | Números con fecha y versión |
-| C4 | Mergear `NazarenOMICS/EzResearchLM#1` a `main` y etiquetar la versión | usuario | Etiqueta `v0.x` |
+| C4 | Etiquetar la versión: `NazarenOMICS/EzResearchLM#1` y `NazarenOMICS/EzResearchLM#2` ya están en `main`; falta igualar la versión del paquete (`0.2.0a3`) y la de la extensión (`0.3.0`) y fijar la extensión a esa etiqueta en vez de `@main` | usuario | Etiqueta `v0.x` |
+| C5 | **Hecho (2026-10-09):** limpieza de código muerto. `search_topic.py` quedó en lo que EZ usa (búsqueda y deduplicación; de 1.096 a 187 líneas); salieron `unpaywall.py`, `base_search.py` (importaba un módulo inexistente), los métodos de descarga y lectura de los buscadores, `ez/upload.py` e importaciones sin uso | código | `pyflakes` sin avisos |
 
 ### Fase D. Usuarios sin terminal
 
@@ -186,6 +187,17 @@ Recién entonces sigue A3.
 | D1 | **Hecho:** `ez_continue` y `ez_submit` corren en segundo plano y `ez_status` informa la operación | código |
 | D2 | Prueba real de la extensión en Claude Desktop, incluido el login | usuario |
 | D3 | Migrar a `mcp` 2.x cuando su API se estabilice | código |
+
+### Deuda técnica conocida
+
+| ID | Tema | Dueño |
+|---|---|---|
+| T1 | QMD: `ez setup` lo comprueba y la documentación lo menciona, pero ningún comando de EZ lo usa. Decidir entre recuperar la búsqueda local sobre un vault de notas o quitarlo | decisión |
+| T2 | `legacy_signals` nombra las señales vigentes (`NEEDS_SCREENING`, …): renombrarlo cambia el esquema de estado y requiere migración | código |
+| T3 | `engine.py` (≈1.300 líneas) y `main()` de `cli.py` concentran casi toda la lógica; partirlos por etapa facilitaría mantenerlos | código |
+| T4 | `paper_search_mcp` lee su propio `.env` desde la carpeta actual, además del que carga EZ | código |
+| T5 | Las guías del usuario y del agente están solo en español, y los mensajes del programa también | código |
+| T6 | La ampliación por citas y el pedido de 25 resultados no se midieron en vivo | usuario |
 
 ### Fase E. Mejoras de uso (después del lanzamiento)
 

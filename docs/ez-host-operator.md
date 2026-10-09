@@ -317,8 +317,8 @@ legacy son señales compatibles, no un veredicto único sobre toda la investigac
 
 Los contratos, fuentes, manifiestos QA y respuestas se vinculan por hash y por
 transacciones en `events.jsonl`. Un archivo alterado requiere diagnóstico; no
-regenerar hashes para aceptar cambios desconocidos. Las corridas antiguas se
-inspeccionan sin modificarlas y sus wrappers siguen disponibles.
+regenerar hashes para aceptar cambios desconocidos. Las corridas creadas con los
+wrappers de versiones anteriores se inspeccionan y migran con `ez doctor`, sin modificarlas.
 
 La salida final queda en `answer.json`. La prueba con servicios simulados verifica
 comportamiento del programa; el lanzamiento exige las corridas reales y la beta

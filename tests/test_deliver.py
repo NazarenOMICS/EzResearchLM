@@ -7,7 +7,6 @@ from unittest.mock import patch
 
 from ez.cli import main
 from ez.doctor import diagnose
-from ez.state import Store, read_json
 import test_engine
 
 

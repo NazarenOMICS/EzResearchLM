@@ -2,7 +2,6 @@
 
 The service double models NotebookLM's documented JSON envelope, not real auth.
 """
-from copy import deepcopy
 from hashlib import sha256
 import json
 from pathlib import Path

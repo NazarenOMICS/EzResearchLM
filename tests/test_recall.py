@@ -1,5 +1,4 @@
 """Recall beyond keywords (citation expansion) and when a follow-up question needs new sources."""
-import json
 import unittest
 
 from ez.cli import sufficiency

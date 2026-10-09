@@ -1,4 +1,4 @@
-﻿from typing import List, Optional
+from typing import List
 from datetime import datetime
 import requests
 import logging
@@ -152,25 +152,6 @@ class OpenAlexSearcher(PaperSource):
             logger.error(f"OpenAlex search error: {e}")
 
         return papers
-
-    def download_pdf(self, paper_id: str, save_path: str) -> str:
-        """
-        OpenAlex does not host PDFs natively, it only links to open access versions.
-        """
-        raise NotImplementedError(
-            "OpenAlex does not provide direct PDF downloads natively. "
-            "Please use the extracted 'pdf_url' if available, or DOI for fallback."
-        )
-
-    def read_paper(self, paper_id: str, save_path: str = "./downloads") -> str:
-        """
-        Not implemented for OpenAlex.
-        """
-        return (
-            "OpenAlex papers cannot be read directly through this aggregator. "
-            "Please use the paper's DOI or pdf_url to access the full text."
-        )
-
 
 if __name__ == "__main__":
     searcher = OpenAlexSearcher()

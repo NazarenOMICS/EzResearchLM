@@ -19,36 +19,3 @@ class PaperSource(ABC):
             List of Paper objects.
         """
 
-    def download_pdf(self, paper_id: str, save_path: str) -> str:
-        """Download the PDF for a given paper.
-
-        Args:
-            paper_id: Platform-specific paper identifier.
-            save_path: Directory to save the downloaded PDF.
-
-        Returns:
-            Path to the saved PDF file.
-
-        Raises:
-            NotImplementedError: If the source does not support PDF downloads.
-        """
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not support PDF downloads."
-        )
-
-    def read_paper(self, paper_id: str, save_path: str = "./downloads") -> str:
-        """Download and extract text from a paper PDF.
-
-        Args:
-            paper_id: Platform-specific paper identifier.
-            save_path: Directory where the PDF is/will be saved.
-
-        Returns:
-            Extracted text content of the paper.
-
-        Raises:
-            NotImplementedError: If the source does not support paper reading.
-        """
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not support reading paper content."
-        )

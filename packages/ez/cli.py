@@ -2,7 +2,6 @@
 import argparse
 from hashlib import sha256
 import json
-import os
 from pathlib import Path
 import sys
 from uuid import uuid4
@@ -14,7 +13,6 @@ from .doctor import diagnose
 from .legacy import inspect_run, preview, migrate
 from .paths import data_root, contained, load_environment, runtime_root, load_user_config
 from .imports import import_folder, import_pdf
-from .process import run
 from .state import Store, atomic_json, lock, read_json
 from .setup import prepare
 from .presenter import render, welcome

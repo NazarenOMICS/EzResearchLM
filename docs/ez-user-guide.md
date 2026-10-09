@@ -161,8 +161,8 @@ respaldan; la investigación original queda intacta. Las investigaciones de un m
 proyecto comparten su notebook en NotebookLM, así que los PDFs ya cargados no se
 vuelven a subir ni a procesar.
 
-Si ya trabajabas con los wrappers anteriores, sus corridas siguen disponibles.
-La migración se previsualiza y crea una copia lateral. Los originales no se borran.
+Si ya trabajabas con los wrappers de versiones anteriores, EZ puede leer y migrar esas
+corridas: la migración se previsualiza y crea una copia lateral. Los originales no se borran.
 
 ## Qué puedes esperar de una respuesta
 
