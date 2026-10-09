@@ -47,12 +47,28 @@ Si no usas agentes en la terminal, hay una [extensión experimental para Claude 
 
 ## Instalación (para el agente)
 
-```powershell
-python -m venv .venv
-.venv\Scripts\python -m pip install -c requirements.lock .
-ez setup --check
-ez setup --install-notebooklm
-```
+**Si te pasaron solo el enlace de este repositorio**, la persona quiere usar EZ y
+probablemente no sabe de terminales. Hazlo tú, sin pedirle comandos:
+
+1. Comprueba que estén Git y Python 3.10 o más nuevo (`git --version`, `python --version`).
+   Si falta alguno, explícale cómo instalarlo en una frase (en Windows:
+   `winget install Git.Git Python.Python.3.12`) y espera.
+2. Clona el repositorio en su carpeta de documentos. Si el enlace apunta a una rama
+   (`.../tree/<rama>`), clona esa rama.
+3. Instala EZ en un entorno aislado dentro del repositorio:
+
+   ```powershell
+   cd $env:USERPROFILE\Documents\EZresearchLM
+   python -m venv .venv
+   .venv\Scripts\python -m pip install -c requirements.lock .
+   .venv\Scripts\ez setup --check --json
+   ```
+
+   En macOS o Linux, `.venv/bin/python` y `.venv/bin/ez`. Usa siempre el `ez` del entorno.
+4. Lee `AGENTS.md` y `docs/ez-host-operator.md` y empieza el onboarding de esa guía: un
+   paso y una pregunta por vez, sin mostrarle comandos ni JSON. `ez setup --check` dice qué
+   falta (instalar NotebookLM con `ez setup --install-notebooklm`, iniciar sesión, correo
+   para Unpaywall).
 
 El agente sigue [la guía operativa](docs/ez-host-operator.md). Comandos principales:
 `ez setup`, `ez context`, `ez research`, `ez continue`, `ez status`, `ez rescue`,
