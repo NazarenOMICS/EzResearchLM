@@ -27,11 +27,9 @@ acquisition from reasoning so that local code never becomes the truth engine.
 2. PMC OA PDF or archive
 3. EuropePMC/OpenAlex source-native OA
 4. Unpaywall
-5. optional Anna's Archive fallback
 
-Anna fallback is disabled unless requested through the wrapper or source target
-configuration. Anna is acquisition only. It never answers questions and never
-removes the need for NotebookLM citation checks.
+Anna's Archive is not supported. Sources that fail every open-access route stay
+`manual_needed` until the user imports a PDF.
 
 ## Required Source Gate
 

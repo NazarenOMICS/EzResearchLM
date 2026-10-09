@@ -56,7 +56,7 @@ class OpenAlexSearcher(PaperSource):
         try:
             params = {
                 "search": query,
-                "per_page": min(max_results, 200),
+                "per_page": min(max_results, 100),
             }
 
             response = self.session.get(self.BASE_URL, params=params, timeout=30)

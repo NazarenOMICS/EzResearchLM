@@ -16,6 +16,7 @@ import json
 import os
 import shutil
 import subprocess
+from ez.process import run as run_bounded
 import sys
 from pathlib import Path
 
@@ -60,7 +61,7 @@ def wrap_windows_cli(cmd: list[str]) -> list[str]:
 def run_cmd(cmd: list[str], label: str) -> tuple[int, str]:
     print(f'\n[{label}]', file=sys.stderr)
     real_cmd = wrap_windows_cli(cmd)
-    result = subprocess.run(real_cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
+    result = run_bounded(real_cmd, timeout=int(os.environ.get('EZRESEARCH_RESEARCH_TIMEOUT_SECONDS', '600')))
     if result.stderr.strip():
         print(result.stderr.rstrip(), file=sys.stderr)
     if result.returncode != 0:

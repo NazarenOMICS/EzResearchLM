@@ -43,25 +43,15 @@ The pipeline syncs the search copy into the run directory.
 - `paywall`
 - `network`
 - `no_match`
-- `anna_failed`
 - `upload_failed`
 
-## Anna Provenance
+## Sources Without Open Access
 
-When Anna's Archive is used, the source must remain visibly marked:
+Anna's Archive is not supported. A paywalled source stays `manual_needed`; the
+user can import a PDF they already have with `ez rescue <run> --source <id>
+--import <pdf>`, which records its origin. Older runs may still show
+`pdf_source: "anna_archive"`; that provenance is kept as history.
 
-```json
-{
-  "pdf_source": "anna_archive",
-  "acquisition_policy": "non_oa_fallback",
-  "fallback_after": ["direct", "pmc_oa", "europepmc_openalex", "unpaywall", "core_openaire_semantic"]
-}
-```
-
-If Anna fails, keep the source as `manual_needed`; do not convert it into an
-uncited answer.
-
-Anna attempts are bounded by `PAPER_SEARCH_MCP_ANNA_TIMEOUT_SECONDS` (default
-`120`). Search writes `candidate-sources.json`, `source-rescue.json`, and
+Search writes `candidate-sources.json`, `source-rescue.json`, and
 `missing-sources.md` before acquisition starts and after each candidate, so a
 timeout or crash still leaves a recoverable rescue queue.

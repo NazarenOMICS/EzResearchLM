@@ -17,6 +17,7 @@ import os
 import re
 import shutil
 import subprocess
+from ez.process import run as run_bounded
 import sys
 from pathlib import Path
 
@@ -44,12 +45,8 @@ def _powershell_quote(text: str) -> str:
 def run_notebooklm(args: list[str], timeout: int = 60) -> subprocess.CompletedProcess[str]:
     command = ["notebooklm", *args]
     if shutil.which("notebooklm"):
-        return subprocess.run(
+        return run_bounded(
             command,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
             timeout=timeout,
         )
 
@@ -57,12 +54,8 @@ def run_notebooklm(args: list[str], timeout: int = 60) -> subprocess.CompletedPr
         vault_win = _to_windows_path(VAULT)
         ps_args = " ".join(_powershell_quote(part) for part in command)
         wrapped = f"Set-Location {_powershell_quote(vault_win)}; & {ps_args}"
-        return subprocess.run(
+        return run_bounded(
             ["powershell.exe", "-NoProfile", "-Command", wrapped],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
             timeout=timeout,
         )
 
@@ -70,12 +63,8 @@ def run_notebooklm(args: list[str], timeout: int = 60) -> subprocess.CompletedPr
         vault_win = _to_windows_path(VAULT)
         quoted = subprocess.list2cmdline(command)
         wrapped = f"cd /d {vault_win} && {quoted}"
-        return subprocess.run(
+        return run_bounded(
             ["cmd.exe", "/C", wrapped],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
             timeout=timeout,
         )
 

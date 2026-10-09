@@ -27,7 +27,7 @@ if (Test-Path -LiteralPath $ENV_FILE) {
 $AUTORESEARCH = $EZRESEARCH_ROOT
 if (-not $SearchRoot) { $SearchRoot = Join-Path $EZRESEARCH_ROOT "Search" }
 $RUN_DIR = Join-Path (Join-Path (Join-Path $AUTORESEARCH "runs") $Project) $Slug
-$SAVE_DIR = Join-Path (Join-Path $SearchRoot $Project) "$Slug-papers"
+$SAVE_DIR = Join-Path (Join-Path (Join-Path $SearchRoot $Project) $Slug) "papers"
 $STATUS = Join-Path $RUN_DIR "STATUS.md"
 $RUN_STATE = Join-Path $RUN_DIR "run-state.json"
 $SOURCE_RESCUE = Join-Path $RUN_DIR "source-rescue.json"
@@ -37,7 +37,7 @@ $TMP_SOURCES = Join-Path $RUN_DIR "tmp-sources-$Slug.json"
 $QUESTIONS_FILE = Join-Path $RUN_DIR "questions-$Slug.json"
 $UPLOAD_LOG = Join-Path $RUN_DIR "upload-log-$Slug.txt"
 
-if (-not $VaultSlug) { $VaultSlug = "$Project/$Slug" }
+$explicitVaultSlug = -not [string]::IsNullOrWhiteSpace($VaultSlug)
 
 function Read-JsonOrNull {
     param([string]$Path)
@@ -73,15 +73,38 @@ function Get-NotebookId {
     return ""
 }
 
+function Get-StatusValue {
+    param([string]$StatusPath, [string]$Label)
+    if (-not (Test-Path -LiteralPath $StatusPath)) { return "" }
+    $text = Get-Content -LiteralPath $StatusPath -Raw -Encoding utf8
+    $escaped = [regex]::Escape($Label)
+    $match = [regex]::Match($text, "(?m)^${escaped}:\s*(.+?)\s*$")
+    if ($match.Success) { return $match.Groups[1].Value.Trim() }
+    return ""
+}
+
 function Get-ResumeCommand {
-    param([object]$RunState, [string]$NotebookId)
-    if ($RunState -and $RunState.resume_command) { return [string]$RunState.resume_command }
+    param(
+        [object]$RunState,
+        [string]$NotebookId,
+        [string]$EffectiveVaultSlug,
+        [string]$EffectiveSaveDir
+    )
+    $goal = if ($RunState -and $RunState.goal) { [string]$RunState.goal } else { Get-StatusValue -StatusPath $STATUS -Label "Goal" }
+    $queriesFile = if ($RunState -and $RunState.queries_file) { [string]$RunState.queries_file } else { "" }
+    $notebookTitle = if ($RunState -and $RunState.PSObject.Properties.Name -contains "notebook_title") { [string]$RunState.notebook_title } else { Get-StatusValue -StatusPath $STATUS -Label "Notebook title" }
+    $dashboard = if ($RunState -and $RunState.PSObject.Properties.Name -contains "dashboard") { [string]$RunState.dashboard } else { Get-StatusValue -StatusPath $STATUS -Label "Dashboard" }
     $parts = @(
         "powershell.exe -ExecutionPolicy Bypass -File `"$AUTORESEARCH\scripts\run_hermes_pipeline.ps1`"",
         "-Slug `"$Slug`"",
         "-Project `"$Project`""
     )
-    if ($VaultSlug) { $parts += "-VaultSlug `"$VaultSlug`"" }
+    if ($EffectiveVaultSlug) { $parts += "-VaultSlug `"$EffectiveVaultSlug`"" }
+    if ($goal) { $parts += "-Goal `"$goal`"" }
+    if ($queriesFile) { $parts += "-QueriesFile `"$queriesFile`"" }
+    if ($notebookTitle) { $parts += "-NotebookTitle `"$notebookTitle`"" }
+    if ($dashboard) { $parts += "-Dashboard `"$dashboard`"" }
+    if ($EffectiveSaveDir) { $parts += "-SaveDir `"$EffectiveSaveDir`"" }
     if ($NotebookId) {
         $parts += "-SkipSearch"
         $parts += "-FromExistingQuestions"
@@ -90,7 +113,41 @@ function Get-ResumeCommand {
     return ($parts -join " ")
 }
 
+function Get-MarkdownStatus {
+    param([string]$Path)
+    if (-not (Test-Path -LiteralPath $Path)) { return "" }
+    $text = Get-Content -LiteralPath $Path -Raw -Encoding utf8
+    $match = [regex]::Match($text, "(?m)^status:\s*([A-Za-z_-]+)\s*$")
+    if ($match.Success) { return $match.Groups[1].Value.ToLowerInvariant() }
+    $match = [regex]::Match($text, "(?m)^-\s*Status:\s*([A-Za-z_-]+)\s*$")
+    if ($match.Success) { return $match.Groups[1].Value.ToLowerInvariant() }
+    return ""
+}
+
 $runState = Read-JsonOrNull $RUN_STATE
+$questions = Read-JsonOrNull $QUESTIONS_FILE
+
+if ($runState -and $runState.save_dir) {
+    $SAVE_DIR = [string]$runState.save_dir
+}
+
+if ($explicitVaultSlug) {
+    $VaultSlug = ($VaultSlug -replace "\\", "/").Trim("/")
+} elseif ($questions -and $questions.vault_slug) {
+    $VaultSlug = ([string]$questions.vault_slug -replace "\\", "/").Trim("/")
+} elseif ($runState -and $runState.vault_slug) {
+    $VaultSlug = ([string]$runState.vault_slug -replace "\\", "/").Trim("/")
+} else {
+    $VaultSlug = "$Project/$Slug"
+}
+
+$stateDrift = $false
+if ($questions -and $questions.vault_slug -and $runState -and $runState.vault_slug) {
+    $questionVault = ([string]$questions.vault_slug -replace "\\", "/").Trim("/")
+    $runStateVault = ([string]$runState.vault_slug -replace "\\", "/").Trim("/")
+    $stateDrift = ($questionVault -ne $runStateVault)
+}
+
 $rescue = Read-JsonOrNull $SOURCE_RESCUE
 if (-not $rescue) {
     $searchRescue = Join-Path $SAVE_DIR "source-rescue.json"
@@ -104,7 +161,6 @@ if (-not $candidates) {
     if ($candidates) { $CANDIDATE_SOURCES = $searchCandidates }
 }
 $sources = Read-JsonOrNull $TMP_SOURCES
-$questions = Read-JsonOrNull $QUESTIONS_FILE
 $notebookId = Get-NotebookId -RunState $runState -StatusPath $STATUS -Questions $questions
 
 $rescueSources = if ($rescue -and $rescue.sources) { @($rescue.sources) } else { @() }
@@ -125,11 +181,19 @@ $qaSummaries = if (Test-Path -LiteralPath $qaDir) {
 $citationAudits = if (Test-Path -LiteralPath $qaDir) {
     @(Get-ChildItem -LiteralPath $qaDir -Filter "*Citation Audit.md" -File -ErrorAction SilentlyContinue)
 } else { @() }
+$latestCitationAudit = @($citationAudits | Sort-Object LastWriteTime -Descending | Select-Object -First 1)
+$latestCitationAuditStatus = if ($latestCitationAudit.Count -gt 0) { Get-MarkdownStatus -Path $latestCitationAudit[0].FullName } else { "" }
 
 Write-Host "Hermes Doctor" -ForegroundColor Cyan
 Write-Host "Run dir: $RUN_DIR"
 Write-Host "Search dir: $SAVE_DIR"
+Write-Host "Effective vault slug: $VaultSlug"
 Write-Host "Stage/status: $($runState.stage) / $($runState.status)"
+if ($stateDrift) {
+    Write-Host "STATE_DRIFT: questions.vault_slug differs from run-state.vault_slug" -ForegroundColor Yellow
+    Write-Host "- questions.vault_slug: $($questions.vault_slug)"
+    Write-Host "- run-state.vault_slug: $($runState.vault_slug)"
+}
 Write-Host ""
 Write-Host "Discovered candidates: $(Count-Items $candidates @('candidates', 'papers'))"
 Write-Host "Downloaded PDFs: $($downloaded.Count)"
@@ -149,6 +213,10 @@ Write-Host "Upload failures: $($failedUploads.Count)"
 Write-Host "Filled questions: $(if ($questions -and $questions.questions) { @($questions.questions | Where-Object { $_.question -and $_.question.Trim().Length -gt 0 }).Count } else { 0 })"
 Write-Host "QA summaries: $($qaSummaries.Count)"
 Write-Host "Citation audits: $($citationAudits.Count)"
+if ($latestCitationAudit.Count -gt 0) {
+    Write-Host "Latest citation audit: $($latestCitationAudit[0].FullName)"
+    Write-Host "Latest citation audit status: $latestCitationAuditStatus"
+}
 Write-Host ""
 Write-Host "Artifacts:"
 Write-Host "- run-state: $RUN_STATE"
@@ -161,6 +229,8 @@ if (-not $hasAnyRunArtifact) {
     Write-Host "Recommended next state: no run artifacts found" -ForegroundColor Yellow
 } elseif ($missingMustHave.Count -gt 0) {
     Write-Host "Recommended next state: NEEDS_SOURCE_RESCUE" -ForegroundColor Yellow
+} elseif ($latestCitationAuditStatus -eq "fail") {
+    Write-Host "Recommended next state: NEEDS_SOURCE_RESCUE / traceability repair" -ForegroundColor Yellow
 } elseif (-not $questions -or -not $questions.questions -or @($questions.questions | Where-Object { $_.question -and $_.question.Trim().Length -gt 0 }).Count -eq 0) {
     Write-Host "Recommended next state: NEEDS_QUESTIONS" -ForegroundColor Yellow
 } elseif ($qaSummaries.Count -eq 0) {
@@ -169,4 +239,4 @@ if (-not $hasAnyRunArtifact) {
     Write-Host "Recommended next state: inspect QA summaries/citation audit" -ForegroundColor Green
 }
 Write-Host "Resume command:"
-Write-Host (Get-ResumeCommand -RunState $runState -NotebookId $notebookId)
+Write-Host (Get-ResumeCommand -RunState $runState -NotebookId $notebookId -EffectiveVaultSlug $VaultSlug -EffectiveSaveDir $SAVE_DIR)

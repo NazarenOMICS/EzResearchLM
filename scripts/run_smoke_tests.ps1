@@ -10,15 +10,26 @@ $Root = Split-Path -Parent $PSScriptRoot
 $TempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("ezresearch-smoke-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Force -Path $TempRoot | Out-Null
 
+$smokePreviousEnvironment = @{}
+foreach ($name in @('EZRESEARCH_RUNS_ROOT', 'EZRESEARCH_SEARCH_ROOT', 'EZRESEARCH_VAULT')) {
+    $smokePreviousEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
+}
+try {
+    $env:EZRESEARCH_RUNS_ROOT = Join-Path $TempRoot 'runs'
+    $env:EZRESEARCH_SEARCH_ROOT = Join-Path $TempRoot 'search'
+    $env:EZRESEARCH_VAULT = Join-Path $TempRoot 'vault'
+
 function Invoke-SmokeStep {
     param(
         [string]$Name,
         [scriptblock]$Command,
-        [int[]]$AllowedExitCodes = @(0)
+        [int[]]$AllowedExitCodes = @(0),
+        [string]$ExpectedOutputPattern = ""
     )
     $started = Get-Date
     $output = ""
     $exitCode = 0
+    $exceptionRaised = $false
     $oldErrorActionPreference = $ErrorActionPreference
     try {
         $ErrorActionPreference = "Continue"
@@ -26,12 +37,14 @@ function Invoke-SmokeStep {
         $output = & $Command 2>&1 | Out-String
         $exitCode = if ($null -ne $global:LASTEXITCODE) { [int]$global:LASTEXITCODE } else { 0 }
     } catch {
+        $exceptionRaised = $true
         $output = ($_ | Out-String)
         $exitCode = if ($null -ne $global:LASTEXITCODE -and $global:LASTEXITCODE -ne 0) { [int]$global:LASTEXITCODE } else { 1 }
     } finally {
         $ErrorActionPreference = $oldErrorActionPreference
     }
-    $ok = $AllowedExitCodes -contains $exitCode
+    $ok = (-not $exceptionRaised) -and ($AllowedExitCodes -contains $exitCode)
+    if ($ExpectedOutputPattern -and $output -notmatch $ExpectedOutputPattern) { $ok = $false }
     [pscustomobject]@{
         name = $Name
         status = if ($ok) { "pass" } else { "fail" }
@@ -45,7 +58,7 @@ function Invoke-SmokeStep {
 $results = New-Object System.Collections.Generic.List[object]
 
 $results.Add((Invoke-SmokeStep "setup-search-only" {
-    powershell.exe -ExecutionPolicy Bypass -File (Join-Path $Root "scripts\setup_ezresearch.ps1") -InitEnv -SkipNotebookLM -SkipQmd -Json
+    powershell.exe -ExecutionPolicy Bypass -File (Join-Path $Root "scripts\setup_ezresearch.ps1") -SkipNotebookLM -SkipQmd -Json
 }))
 
 if ($IncludeClaude) {
@@ -132,7 +145,7 @@ if ($IncludeFullPipelinePreflight) {
             -SaveDir $emptyPdfDir `
             -SkipSearch `
             -SkipBatch
-    } @(1, 2)))
+    } @(1, 2) 'NotebookLM auth failed|No PDFs found'))
 }
 
 $summary = [pscustomobject]@{
@@ -164,3 +177,9 @@ if ($ReportPath) {
 }
 
 exit ($(if ($summary.failed -eq 0) { 0 } else { 1 }))
+
+} finally {
+    foreach ($name in $smokePreviousEnvironment.Keys) {
+        [Environment]::SetEnvironmentVariable($name, $smokePreviousEnvironment[$name], 'Process')
+    }
+}

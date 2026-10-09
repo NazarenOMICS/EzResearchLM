@@ -13,6 +13,8 @@ environment variables win over `.env` values.
 - `EZRESEARCH_SEARCH_ROOT`: where search metadata and downloaded/acquired PDFs
   are written. Defaults to `Search/` under the repository.
 - `NOTEBOOKLM_STORAGE_STATE`: NotebookLM browser auth storage path.
+- `SEMANTIC_SCHOLAR_API_KEY`: optional. Without it Semantic Scholar often answers
+  HTTP 429; EZ records that query as failed and continues with the other providers.
 
 Example:
 
@@ -35,13 +37,5 @@ powershell.exe -ExecutionPolicy Bypass -File ".\scripts\run_search_topic.ps1" `
 - `PAPER_SEARCH_MCP_UNPAYWALL_EMAIL`: enables Unpaywall lookup.
 - `NCBI_EMAIL`: polite PubMed/NCBI email.
 - `NCBI_API_KEY`: optional NCBI API key.
-- `PAPER_SEARCH_MCP_PLAYWRIGHT_CHROMIUM`: optional Chromium executable for Anna fallback.
-- `PAPER_SEARCH_MCP_ANNA_TIMEOUT_SECONDS`: per-identifier Anna fallback timeout;
-  defaults to `120`.
-
-## Optional Model Keys
-
-- `GEMINI_API_KEY`
-- `ANTHROPIC_API_KEY`
 
 Do not commit `.env`.

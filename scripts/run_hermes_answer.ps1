@@ -4,8 +4,8 @@
 
 .DESCRIPTION
     Role split:
-    - gpt-5.4 main agent decides strategy and final synthesis.
-    - gpt-5.4-mini cheap subagent writes/curates corpus queries.
+    - EZ host agent decides strategy and final synthesis.
+    - The same EZ host agent writes and reviews corpus queries.
     - This script only screens QMD, writes run scaffolding, and executes
       NotebookLM mechanics when enough corpus already exists.
 
@@ -60,6 +60,7 @@ $pythonCandidates = @(
     "python"
 ) | Where-Object { $_ }
 $VENV_PY = @($pythonCandidates | Where-Object { $_ -eq "python" -or (Test-Path -LiteralPath $_) } | Select-Object -First 1)[0]
+$EXTERNAL = Join-Path $EZRESEARCH_ROOT "scripts\run_external.py"
 $SCRIPTS = Join-Path $EZRESEARCH_ROOT "notebooklm\scripts"
 $UPLOADER = Join-Path $EZRESEARCH_ROOT "scripts\upload_sources_parallel.ps1"
 $paperSearchPath = Join-Path $EZRESEARCH_ROOT "packages\paper_search"
@@ -98,7 +99,7 @@ function Get-NotebookSourcesJson {
 
     $oldErrorActionPreference = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
-    $raw = & notebooklm source list --notebook $NotebookId --json 2>&1
+    $raw = & $VENV_PY $EXTERNAL --timeout 180 -- notebooklm source list --notebook $NotebookId --json 2>&1
     $sourceListExitCode = $LASTEXITCODE
     $ErrorActionPreference = $oldErrorActionPreference
     if ($sourceListExitCode -ne 0) {
@@ -139,7 +140,7 @@ function Remove-NotebookSourcesByStatus {
         $title = if ($source.title) { [string]$source.title } elseif ($source.name) { [string]$source.name } else { "" }
         $id = if ($source.id) { [string]$source.id } elseif ($source.source_id) { [string]$source.source_id } else { "" }
         if ($id) {
-            $deleteOutput = & notebooklm source delete --notebook $NotebookId $id -y 2>&1
+            $deleteOutput = & $VENV_PY $EXTERNAL --timeout 180 -- notebooklm source delete --notebook $NotebookId $id -y 2>&1
             if ($LASTEXITCODE -eq 0) {
                 $removed++
                 Add-Content -Path $STATUS -Value "- Dropped NotebookLM errored source: $title [$status]"
@@ -343,8 +344,14 @@ Question: $Question
 Write-Host "=== QMD recall ===" -ForegroundColor Cyan
 Push-Location $VAULT
 try {
-    $qmdOutput = & qmd search $Question -c notes -n $TopN 2>&1
-    if ($LASTEXITCODE -ne 0) { Fail "qmd search failed: $($qmdOutput | Out-String)" }
+    $qmdOutput = @()
+    if (Get-Command qmd -ErrorAction SilentlyContinue) {
+        $qmdOutput = & $VENV_PY $EXTERNAL --timeout 120 -- qmd search $Question -c notes -n $TopN 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Add-Content -Path $STATUS -Value "QMD recall unavailable. Corpus discovery remains available."
+            $qmdOutput = @()
+        }
+    }
 } finally {
     Pop-Location
 }
@@ -355,7 +362,8 @@ foreach ($hit in @($allHits | Select-Object -First ([Math]::Min($TopN, 5)))) {
     Write-Host ("Score {0}% :: {1}" -f $hit.Score, $hit.Path)
     if ($snippet) { Write-Host "  $snippet" }
 }
-$hits = @($allHits | Where-Object { $_.Score -ge $MinScore })
+# Retrieval scores rank recall candidates; they cannot establish evidence sufficiency.
+$hits = @($allHits | Sort-Object Score -Descending | Select-Object -First $TopN)
 
 $sourcePaths = New-Object System.Collections.Generic.HashSet[string]
 foreach ($hit in $hits) {
@@ -384,11 +392,11 @@ foreach ($asset in $assets) {
     if ($key -and $seen.Add($key)) { $uniqueAssets += $asset }
 }
 
-if ($uniqueAssets.Count -lt $MinSources) {
+if ($uniqueAssets.Count -eq 0) {
     Set-Content -Path $CORPUS_PLANNER_PROMPT -Encoding utf8 -Value @"
 # Corpus Planner Subagent Task
 
-Use model: gpt-5.4-mini.
+Operator: EZ, using the existing host agent; no additional model API.
 
 Return JSON only. Do not run tools. Do not answer the research question.
 
@@ -421,19 +429,19 @@ Rules:
         @($Question) | ConvertTo-Json -Depth 5 | Set-Content -Path $QUERIES_FILE -Encoding utf8
     } else {
         @(
-            "REPLACE_WITH_GPT_5_4_MINI_CURATED_QUERY_1",
-            "REPLACE_WITH_GPT_5_4_MINI_CURATED_QUERY_2",
-            "REPLACE_WITH_GPT_5_4_MINI_CURATED_QUERY_3"
+            "REPLACE_WITH_EZ_HOST_CURATED_QUERY_1",
+            "REPLACE_WITH_EZ_HOST_CURATED_QUERY_2",
+            "REPLACE_WITH_EZ_HOST_CURATED_QUERY_3"
         ) | ConvertTo-Json -Depth 5 | Set-Content -Path $QUERIES_FILE -Encoding utf8
     }
     Add-Content -Path $STATUS -Value "`n## NEEDS_CORPUS`n- QMD hits above threshold: $($hits.Count)`n- Recoverable sources: $($uniqueAssets.Count)`n- Queries file: $QUERIES_FILE"
     Write-Host "`nNEEDS_CORPUS" -ForegroundColor Yellow
-    Write-Host "Recoverable sources: $($uniqueAssets.Count); required: $MinSources"
+    Write-Host "No recoverable corpus was found. Retrieval scores do not decide academic sufficiency."
     Write-Host "Queries file: $QUERIES_FILE"
     Write-Host "Subagent prompt: $CORPUS_PLANNER_PROMPT"
     Write-Host "`nSuggested corpus queries:" -ForegroundColor Cyan
     Get-Content -LiteralPath $QUERIES_FILE -Raw -Encoding utf8 | Write-Host
-    Write-Host "Use gpt-5.4-mini with the subagent prompt to replace these placeholders before launching corpus."
+    Write-Host "Ask the EZ host agent to use the planning prompt to replace these placeholders before launching corpus."
     Write-Host "Queries quality controls source quality."
     Write-Host "Confirm corpus creation, then run:"
     Write-Host "powershell.exe -ExecutionPolicy Bypass -File `"$AUTORESEARCH\scripts\run_hermes_pipeline.ps1`" -Slug `"$Slug-corpus`" -Goal `"$Question`" -QueriesFile `"$QUERIES_FILE`" -NotebookTitle `"Corpus - $NOTEBOOK_TITLE`" -Dashboard `"$Dashboard`""
@@ -445,7 +453,7 @@ if ($Mode -eq "thesis" -and -not $FromExistingQuestions) {
     Set-Content -Path $QUESTION_PLANNER_PROMPT -Encoding utf8 -Value @"
 # Thesis NotebookLM Question Planner Subagent Task
 
-Use model: gpt-5.4-mini.
+Operator: EZ, using the existing host agent; no additional model API.
 
 Return JSON only. Do not run tools. Do not answer the questions.
 
@@ -505,9 +513,9 @@ Rules:
 }
 
 Write-Host "`n=== Create NotebookLM question notebook ===" -ForegroundColor Cyan
-$listOutput = & notebooklm list 2>&1
+$listOutput = & $VENV_PY $EXTERNAL --timeout 180 -- notebooklm list 2>&1
 if ($LASTEXITCODE -ne 0) { Fail "notebooklm list failed; run scripts\auto_login.ps1" }
-$createOutput = & notebooklm create $NOTEBOOK_TITLE 2>&1
+$createOutput = & $VENV_PY $EXTERNAL --timeout 180 -- notebooklm create $NOTEBOOK_TITLE 2>&1
 if ($LASTEXITCODE -ne 0) { Fail "notebooklm create failed: $($createOutput | Out-String)" }
 $NOTEBOOK_ID = Get-NotebookIdFromText $createOutput
 if (-not $NOTEBOOK_ID) { Fail "Could not parse NotebookLM notebook ID" }
@@ -522,7 +530,7 @@ foreach ($asset in $uniqueAssets) {
         Copy-Item -LiteralPath $asset.Pdf -Destination $dest -Force
         $pdfsToUpload += (Get-Item -LiteralPath $dest)
     } elseif ($asset.Url) {
-        & notebooklm source add --notebook $NOTEBOOK_ID $asset.Url
+        & $VENV_PY $EXTERNAL --timeout 180 -- notebooklm source add --notebook $NOTEBOOK_ID $asset.Url
         if ($LASTEXITCODE -ne 0) { Write-Host "[WARN] URL upload failed: $($asset.Url)" -ForegroundColor Yellow }
     }
 }
@@ -535,11 +543,11 @@ Add-Content -Path $STATUS -Value "- Recoverable sources uploaded: $($uniqueAsset
 
 Write-Host "`n=== Export sources ===" -ForegroundColor Cyan
 $UVPY = $VENV_PY
-& $UVPY (Join-Path $SCRIPTS "list_sources_to_json.py") --notebook $NOTEBOOK_ID --out $TMP_SOURCES --title $NOTEBOOK_TITLE
+& $VENV_PY $EXTERNAL --timeout 180 -- $UVPY (Join-Path $SCRIPTS "list_sources_to_json.py") --notebook $NOTEBOOK_ID --out $TMP_SOURCES --title $NOTEBOOK_TITLE
 if ($LASTEXITCODE -ne 0) { Fail "list_sources_to_json.py failed" }
 $removedErrored = Remove-NotebookSourcesByStatus -NotebookId $NOTEBOOK_ID
 if ($removedErrored -gt 0) {
-    & $UVPY (Join-Path $SCRIPTS "list_sources_to_json.py") --notebook $NOTEBOOK_ID --out $TMP_SOURCES --title $NOTEBOOK_TITLE
+    & $VENV_PY $EXTERNAL --timeout 180 -- $UVPY (Join-Path $SCRIPTS "list_sources_to_json.py") --notebook $NOTEBOOK_ID --out $TMP_SOURCES --title $NOTEBOOK_TITLE
     if ($LASTEXITCODE -ne 0) { Fail "list_sources_to_json.py failed after dropping errored sources" }
 }
 Assert-NotebookSourcesReady $NOTEBOOK_ID
@@ -547,7 +555,7 @@ Assert-NotebookSourcesReady $NOTEBOOK_ID
 Write-Host "`n=== Import sources and ask NotebookLM ===" -ForegroundColor Cyan
 Push-Location $VAULT
 try {
-    & $VENV_PY (Join-Path $SCRIPTS "import_sources.py") `
+    & $VENV_PY $EXTERNAL --timeout 1200 -- $VENV_PY (Join-Path $SCRIPTS "import_sources.py") `
         --sources $TMP_SOURCES `
         --slug $Slug `
         --dashboard $Dashboard `
@@ -596,7 +604,7 @@ try {
     }
 
     $blockTitle = if ($Mode -eq "thesis") { "$Dashboard - thesis evidence" } else { "$Dashboard - answer evidence" }
-    & $VENV_PY (Join-Path $SCRIPTS "batch_ask.py") `
+    & $VENV_PY $EXTERNAL --timeout 3600 -- $VENV_PY (Join-Path $SCRIPTS "batch_ask.py") `
         --questions $QUESTIONS_FILE `
         --sources $TMP_SOURCES `
         --notebook-id $NOTEBOOK_ID `
@@ -604,8 +612,18 @@ try {
         --block-summary-title $blockTitle
     if ($LASTEXITCODE -ne 0) { Fail "batch_ask.py failed" }
 
-    & qmd update
-    if ($LASTEXITCODE -ne 0) { Fail "qmd update failed" }
+    $postBatchQuestions = Get-Content -LiteralPath $QUESTIONS_FILE -Raw -Encoding utf8 | ConvertFrom-Json
+    if ($postBatchQuestions.traceability_status -notin @("pass", "warn")) {
+        if ($postBatchQuestions.citation_audit_note) {
+            Write-Host "Citation audit: $($postBatchQuestions.citation_audit_note)" -ForegroundColor Yellow
+        }
+        Fail "Latest citation audit failed; fix missing source notes or QA links before treating this answer as traceable." 2
+    }
+
+    if (Get-Command qmd -ErrorAction SilentlyContinue) {
+        & $VENV_PY $EXTERNAL --timeout 120 -- qmd update
+        if ($LASTEXITCODE -ne 0) { Add-Content -Path $STATUS -Value 'QMD indexing pending; NotebookLM QA exports were preserved.' }
+    }
 } finally {
     Pop-Location
 }
@@ -618,4 +636,6 @@ foreach ($field in @("qa_summary_note", "source_curation_note", "block_summary_n
         Write-Host "${field}: $($updatedQuestions.$field)"
     }
 }
-Write-Host "`nDone. NotebookLM evidence exported under Notes/NotebookLM/$Slug" -ForegroundColor Green
+$outputVaultSlug = if ($updatedQuestions.vault_slug) { [string]$updatedQuestions.vault_slug } else { $Slug }
+Write-Host "`nDone. NotebookLM evidence exported under Notes/NotebookLM/$outputVaultSlug" -ForegroundColor Green
+exit 0

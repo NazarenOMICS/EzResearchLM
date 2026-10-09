@@ -15,9 +15,9 @@ def main() -> None:
     parser.add_argument("--min-oa", action="store_true")
     parser.add_argument("--stdout-json", action="store_true")
     parser.add_argument("--must-have-file")
-    parser.add_argument("--allow-anna-fallback", action="store_true")
     parser.add_argument("--scout-only", action="store_true")
     parser.add_argument("--resolve-only", action="store_true")
+    parser.add_argument("--review-before-acquisition", action="store_true")
     args = parser.parse_args()
 
     queries_path = Path(args.queries_file)
@@ -38,23 +38,26 @@ def main() -> None:
         save_dir=save_dir,
         target_config=target_config,
         min_oa=args.min_oa,
-        allow_anna_fallback=args.allow_anna_fallback,
         scout_only=args.scout_only,
         resolve_only=args.resolve_only,
+        review_before_acquisition=args.review_before_acquisition,
     )
     records = payload["papers"]
     oa_available = sum(1 for item in records if item.get("is_oa"))
 
     print(f"Papers encontrados: {len(records)} (deduplicados)")
     print(f"PDFs descargados: {payload['stats']['downloaded']} / {oa_available} OA disponibles")
-    print(f"Anna fallback downloads: {payload['stats'].get('anna_downloaded', 0)}")
     print(f"Guardados en: {save_dir}")
     print(f"Metadata: {paths['output']}")
     print(f"Candidate sources: {paths['candidate']}")
     print(f"Source rescue: {paths['rescue']}")
     print(f"Missing sources: {paths['missing']}")
+    print(f"Download plan: {paths['download_plan']}")
     print(f"Manual needed: {payload['stats']['manual_needed']} papers identificados sin PDF OA descargable")
     print(f"Sin PDF/DOI util: {payload['stats']['no_pdf']} papers")
+    if args.review_before_acquisition:
+        print("NEEDS_SOURCE_REVIEW")
+        raise SystemExit(3)
     if args.stdout_json:
         print(json.dumps(payload, ensure_ascii=False))
 

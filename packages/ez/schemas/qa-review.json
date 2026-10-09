@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "contract_hash", "corpus_hash", "reviewer", "coverage", "claims"],
+  "properties": {
+    "schema_version": {"const": "2.0"},
+    "contract_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "corpus_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "reviewer": {"type": "object", "additionalProperties": false, "required": ["kind", "name"], "properties": {"kind": {"enum": ["host_agent", "human"]}, "name": {"type": "string", "pattern": "\\S"}}},
+    "coverage": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["scope_id", "status", "rationale", "limitations"], "properties": {
+      "scope_id": {"type": "string"}, "status": {"enum": ["sufficient", "insufficient", "unknown"]},
+      "rationale": {"type": "string", "pattern": "\\S"}, "limitations": {"type": "array", "items": {"type": "string", "pattern": "\\S"}}
+    }}},
+    "claims": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["id", "text", "scope_ids", "question_id", "citation_numbers"], "properties": {
+      "id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"}, "text": {"type": "string", "pattern": "\\S", "maxLength": 10000},
+      "scope_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+      "question_id": {"type": "string"}, "citation_numbers": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "integer", "minimum": 1}}
+    }}}
+  }
+}

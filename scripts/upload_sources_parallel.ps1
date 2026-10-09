@@ -17,56 +17,14 @@ param(
     [Parameter(Mandatory)][string]$NotebookId,
     [Parameter(Mandatory)][string]$PdfsDir,
     [Parameter(Mandatory)][string]$PdfList,
-    [int]$Workers = 4,
+    [ValidateRange(1, 8)][int]$Workers = 4,
     [string]$LogFile = "C:\tmp\upload_parallel.log"
 )
 
-$pdfs   = @(Get-Content -LiteralPath $PdfList -Encoding utf8 | Where-Object { $_.Trim() -ne "" })
-$total  = $pdfs.Count
-$script:ok   = 0
-$script:fail = 0
-$mutex  = [System.Threading.Mutex]::new($false)
-
-Set-Content -Path $LogFile -Value "[$(Get-Date -Format 'HH:mm:ss')] Starting parallel upload: $total PDFs, $Workers workers"
-Write-Host "Uploading $total PDFs with $Workers parallel workers..."
-
-# Split into batches for each worker
-$batches = @()
-for ($i = 0; $i -lt $Workers; $i++) { $batches += ,@() }
-for ($i = 0; $i -lt $pdfs.Count; $i++) { $batches[$i % $Workers] += $pdfs[$i] }
-
-$jobs = @()
-foreach ($batch in $batches) {
-    if ($batch.Count -eq 0) { continue }
-    $jobs += Start-Job -ScriptBlock {
-        param($nb, $dir, $filesText, $log)
-        $results = @()
-        $files = @($filesText -split "\|" | Where-Object { $_ })
-        foreach ($fname in $files) {
-            $path   = Join-Path $dir $fname
-            $result = & notebooklm source add --notebook $nb --type file --mime-type application/pdf $path 2>&1
-            $status = if ($LASTEXITCODE -eq 0) { "OK" } else { "FAIL" }
-            $msg    = "[$(Get-Date -Format 'HH:mm:ss')] $status - $fname"
-            if ($status -eq "FAIL") {
-                $msg = "$msg :: $(($result | Out-String).Trim())"
-            }
-            Add-Content -Path $log -Value $msg
-            $results += "$status|$fname"
-        }
-        return $results
-    } -ArgumentList $NotebookId, $PdfsDir, ($batch -join "|"), $LogFile
-}
-
-# Wait for all jobs
-$allResults = $jobs | Wait-Job | Receive-Job
-$jobs | Remove-Job
-
-# Tally
-foreach ($line in $allResults) {
-    if ($line -match "^OK\|")   { $script:ok++ }
-    if ($line -match "^FAIL\|") { $script:fail++ }
-}
-
-$summary = "DONE: $($script:ok) OK, $($script:fail) FAIL (of $total)"
-Add-Content -Path $LogFile -Value "[$(Get-Date -Format 'HH:mm:ss')] $summary"
-Write-Host $summary
+$ErrorActionPreference = "Stop"
+$repoRoot = Split-Path -Parent $PSScriptRoot
+$pythonCandidates = @($env:EZRESEARCH_PYTHON, (Join-Path $repoRoot ".venv\Scripts\python.exe"), "python") | Where-Object { $_ }
+$python = @($pythonCandidates | Where-Object { $_ -eq "python" -or (Test-Path -LiteralPath $_) } | Select-Object -First 1)[0]
+$external = Join-Path $PSScriptRoot "run_external.py"
+& $python $external --timeout 1815 -- $python -m ez.upload --notebook $NotebookId --directory $PdfsDir --list $PdfList --workers $Workers --log $LogFile
+exit $LASTEXITCODE

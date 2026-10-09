@@ -1,0 +1,105 @@
+{
+  "manifest_version": "0.4",
+  "name": "ezresearchlm",
+  "display_name": "EZ — investigación con NotebookLM",
+  "version": "0.3.0",
+  "description": "Busca artículos, los carga en tu NotebookLM y entrega solo afirmaciones verificadas, con su pasaje y su PDF.",
+  "author": {
+    "name": "NazarenOMICS",
+    "url": "https://github.com/NazarenOMICS/EzResearchLM"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NazarenOMICS/EzResearchLM"
+  },
+  "license": "MIT",
+  "server": {
+    "type": "uv",
+    "entry_point": "src/server.py",
+    "mcp_config": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "${__dirname}",
+        "src/server.py"
+      ]
+    }
+  },
+  "tools": [
+    {
+      "name": "ez_guide",
+      "description": "Guía operativa de EZ"
+    },
+    {
+      "name": "ez_setup",
+      "description": "Comprobar o preparar el entorno"
+    },
+    {
+      "name": "ez_login",
+      "description": "Abrir el inicio de sesión de NotebookLM en el navegador"
+    },
+    {
+      "name": "ez_projects",
+      "description": "Proyectos guardados y cuál se relaciona con una pregunta"
+    },
+    {
+      "name": "ez_context",
+      "description": "Preferencias del proyecto"
+    },
+    {
+      "name": "ez_research",
+      "description": "Crear o actualizar una investigación"
+    },
+    {
+      "name": "ez_submit",
+      "description": "Enviar contrato, cribado o revisión preparados por el agente"
+    },
+    {
+      "name": "ez_continue",
+      "description": "Retomar una investigación"
+    },
+    {
+      "name": "ez_status",
+      "description": "Estado, respuesta e informe"
+    },
+    {
+      "name": "ez_read",
+      "description": "Leer archivos de trabajo de una investigación"
+    },
+    {
+      "name": "ez_rescue",
+      "description": "Fuentes pendientes e importación de PDFs propios"
+    },
+    {
+      "name": "ez_draft",
+      "description": "Redactar solo con afirmaciones verificadas"
+    },
+    {
+      "name": "ez_verify",
+      "description": "Revisión humana de afirmaciones"
+    },
+    {
+      "name": "ez_export",
+      "description": "Bibliografía en BibTeX o RIS para Zotero o Mendeley"
+    },
+    {
+      "name": "ez_open_folder",
+      "description": "Abre la bandeja de PDFs, los informes o la carpeta del proyecto"
+    },
+    {
+      "name": "ez_doctor",
+      "description": "Diagnóstico de integridad"
+    }
+  ],
+  "compatibility": {
+    "platforms": [
+      "win32",
+      "darwin",
+      "linux"
+    ],
+    "runtimes": {
+      "python": ">=3.10,<3.14"
+    }
+  }
+}
