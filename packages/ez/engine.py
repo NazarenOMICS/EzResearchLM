@@ -176,8 +176,17 @@ class Engine:
         if self.state.get('discovery_complete'):
             return
         if self.contract['plan'].get('discovery_mode') == 'reuse_only':
-            if not self.state.get('reused_from') or not self.sources:
-                raise ContractError('El plan requiere evidencia reutilizada, pero no hay una copia verificada de origen.')
+            if not self.sources:
+                # Answer from what the project already has: every verified PDF of its earlier researches.
+                from .library import adopt
+                for entry in self.library():
+                    if not any(s.get('content_sha256') == entry['content_sha256'] for s in self.sources):
+                        self.sources.append(adopt(self.folder, entry, {'screening': 'include',
+                                                                       'screening_reason': 'Biblioteca del proyecto.'}))
+                if self.sources:
+                    self.save_sources()
+            if not self.sources:
+                raise ContractError('El plan requiere evidencia reutilizada, pero el proyecto todavía no tiene PDFs verificados.')
             self.checkpoint(discovery_complete=True)
             return
         self.checkpoint('discover')
@@ -265,6 +274,33 @@ class Engine:
         self.save_sources()
         self.checkpoint(discovery_complete=True)
 
+    def project(self):
+        return self.contract.get('context', {}).get('project') or 'general'
+
+    def library(self):
+        """Verified PDFs of the project's earlier researches (cached for this execution)."""
+        if '_library' not in self.__dict__:
+            from .library import project_sources
+            self._library = project_sources(self.folder.parent, self.project(), self.state['run_id'])
+        return self._library
+
+    def reuse_library(self):
+        """Included works already verified in another research of the project are copied, not downloaded again."""
+        from .library import adopt, matching
+        changed = False
+        for index, source in enumerate(self.sources):
+            if source.get('validation_status') == 'valid' or source.get('screening', 'include') != 'include':
+                continue
+            entry = matching(self.library(), source)
+            if not entry or any(s.get('content_sha256') == entry['content_sha256'] for s in self.sources):
+                continue
+            keep = {k: source[k] for k in ('source_id', 'screening', 'screening_reason', 'key', 'open_access', 'queries', 'sources')
+                    if k in source}
+            self.sources[index] = adopt(self.folder, entry, keep)
+            changed = True
+        if changed:
+            self.save_sources()
+
     def max_sources(self):
         from .contracts import DEFAULT_MAX_SOURCES
         return self.contract['budgets'].get('max_sources', DEFAULT_MAX_SOURCES)
@@ -281,12 +317,17 @@ class Engine:
                    'already_included': sum(s.get('screening', 'include') == 'include' for s in self.sources),
                    'candidates': [{k: s.get(k) for k in ('source_id', 'title', 'authors', 'year', 'journal', 'doi', 'pmid',
                                                          'pmcid', 'sources', 'queries', 'open_access') if s.get(k)}
+                                  | ({'in_project': True} if self.in_library(s) else {})
                                   | ({'abstract': s['abstract'][:800]} if s.get('abstract') else {}) for s in pending],
                    'decisions': []}
         atomic_json(self.folder / 'screening-request.json', request)
         raise Pause('NEEDS_SCREENING', f'Hay {len(pending)} candidatos por decidir. El agente anfitrión debe completar una copia de '
                     'screening-request.json con include, exclude o uncertain y una razón por candidato, y "key": true en los '
                     'que son centrales para responder; luego usar ez continue --screening.', 2)
+
+    def in_library(self, source):
+        from .library import matching
+        return matching(self.library(), source) is not None
 
     def open_access(self, pending):
         """Mark each candidate as open access or not, so screening can prefer PDFs EZ will be able to download."""
@@ -1110,6 +1151,7 @@ class Engine:
                             next_action='La investigación está en curso; el estado muestra el último punto guardado.')
             self.discover()
             self.screen(screening)
+            self.reuse_library()
             self.request_key_pdfs()
             self.acquire()
             self.request_pdfs()

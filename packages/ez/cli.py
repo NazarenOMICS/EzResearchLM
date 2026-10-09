@@ -276,6 +276,8 @@ def main(argv=None):
                    'sin IDS, las 10 respaldadas por más fuentes; o IDs separados por comas.')
     p = sub.add_parser('status', help='Ver el avance y el siguiente paso.'); p.add_argument('run'); p.add_argument('--answer', action='store_true')
     p = sub.add_parser('draft', help='Ver las afirmaciones verificadas para redactar o comprobar un borrador.'); p.add_argument('run'); p.add_argument('--check', type=Path, metavar='BORRADOR')
+    p = sub.add_parser('projects', help='Ver los proyectos y cuál se relaciona con una pregunta.')
+    p.add_argument('--suggest', metavar='PREGUNTA', help='Ordenar los proyectos según su relación con esta pregunta.')
     p = sub.add_parser('export', help='Exportar la bibliografía a BibTeX o RIS.'); p.add_argument('run')
     p.add_argument('--format', choices=['bibtex', 'ris'], default='bibtex'); p.add_argument('--all', action='store_true', help='Todo el corpus, no solo lo citado.')
     p = sub.add_parser('verify', help='Revisar en persona afirmaciones entregadas.'); p.add_argument('run'); p.add_argument('--claim'); p.add_argument('--judgement', choices=['supported', 'partial', 'unsupported']); p.add_argument('--note')
@@ -300,6 +302,21 @@ def main(argv=None):
             return 0
         if args.command == 'setup':
             emit(prepare(root, args.check, args.install_notebooklm, args.unpaywall_email), args.json)
+            return 0
+        if args.command == 'projects':
+            from .workspace import projects
+            rows = projects(root, args.suggest)
+            related = [r for r in rows if r.get('relatedness', 0) >= 0.3]
+            if not args.suggest:
+                hint = 'Proyectos guardados.' if rows else 'Todavía no hay proyectos; la primera pregunta crea uno.'
+            elif related:
+                top = related[0]
+                hint = (f'La pregunta parece parte del proyecto «{top["project"]}» ({top["researches"]} investigaciones, '
+                        f'{top["library_pdfs"]} PDFs verificados). Pregúntale al usuario si la suma ahí, reutilizando su '
+                        'notebook y sus PDFs, o si prefiere un proyecto nuevo.')
+            else:
+                hint = 'Ningún proyecto existente se parece a esta pregunta. Propón un proyecto nuevo con un nombre corto.'
+            emit({'kind': 'projects', 'projects': rows, 'next_action': hint}, args.json)
             return 0
         if args.command == 'context':
             path = context_path(root, args.project)

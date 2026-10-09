@@ -151,6 +151,63 @@ class PublishTests(unittest.TestCase):
         self.assertEqual(Store(case.folder).state()['workspace']['report_link'], reports[0].as_uri())
 
 
+class ProjectLibraryTests(unittest.TestCase):
+    setUp = test_engine.EngineTests.setUp
+    run_engine = test_engine.EngineTests.run_engine
+
+    def second_run(self, plan=None):
+        from ez.cli import create_run
+        from ez.contracts import digest
+        with lock(self.folder):
+            store = Store(self.folder); state = store.state()
+            sources = read_json(self.folder / 'sources.json')
+            sources[0]['doi'] = '10.1/s1'
+            state['sources_hash'] = digest(sources)
+            store.commit(state, {'sources.json': sources})
+        self.run_engine()
+        contract = read_json(self.folder / 'research-contract.json')
+        contract['plan'].update(plan or {})
+        folder, _ = create_run(Path(self.temp.name), 'Otra pregunta del mismo proyecto', {}, contract)
+        return folder
+
+    def execute(self, folder, screening=None):
+        with lock(folder), patch('ez.engine.executable', return_value='notebooklm'):
+            return Engine(folder, runner=self.service).execute(screening=screening)
+
+    def test_a_work_already_verified_in_the_project_is_copied_not_downloaded(self):
+        folder = self.second_run()
+        self.service.discovery_records = [{'title': 'Fuente de prueba', 'doi': '10.1/s1'}]
+        self.assertEqual(self.execute(folder), 2)
+        request = read_json(folder / 'screening-request.json')
+        self.assertTrue(request['candidates'][0]['in_project'])
+        screening = {'schema_version': '2.0', 'sources_hash': request['sources_hash'],
+                     'decisions': [{'source_id': request['candidates'][0]['source_id'], 'decision': 'include', 'reason': 'Clave'}]}
+        self.execute(folder, screening)
+        source = read_json(folder / 'sources.json')[0]
+        self.assertEqual((source['identity_status'], source['reused_from']['project_library']), ('verified', True))
+        self.assertTrue(Path(source['pdf_path']).is_relative_to(folder))
+        self.assertFalse(any(a[1:3] == ['-m', 'ez.acquisition'] for a in self.service.calls))
+        self.assertEqual(self.service.upload_count, 1)
+
+    def test_a_reuse_only_plan_answers_from_the_project_library(self):
+        folder = self.second_run({'discovery_mode': 'reuse_only', 'queries': []})
+        self.assertEqual(self.execute(folder), 2)
+        sources = read_json(folder / 'sources.json')
+        self.assertEqual([s['doi'] for s in sources], ['10.1/s1'])
+        self.assertEqual(Store(folder).state()['phase'], 'audit')
+
+    def test_projects_are_listed_and_ranked_against_a_new_question(self):
+        self.second_run()
+        output = StringIO()
+        with redirect_stdout(output), patch('ez.cli.load_environment'):
+            main(['--root', self.temp.name, 'projects', '--suggest', 'Pregunta de prueba sobre fuentes', '--json'])
+        value = json.loads(output.getvalue())
+        row = value['projects'][0]
+        self.assertEqual((row['project'], row['researches'], row['library_pdfs']), ('general', 2, 1))
+        self.assertGreaterEqual(row['relatedness'], 0.3)
+        self.assertIn('parece parte del proyecto «general»', value['next_action'])
+
+
 class PageTests(unittest.TestCase):
     def test_a_passage_is_found_on_its_page_despite_hyphenation_and_spacing(self):
         from ez.pages import find_page, page_text

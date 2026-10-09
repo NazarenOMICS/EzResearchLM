@@ -115,6 +115,13 @@ def render(value):
             lines.append(f'Oraciones sin marcador para revisar: {value["unmarked_count"]}')
             lines += ['- ' + s for s in value['unmarked_sentences'][:10]]
         return '\n'.join(lines + ['Siguiente paso: ' + value['next_action']])
+    if value.get('kind') == 'projects':
+        lines = ['Proyectos:'] if value['projects'] else []
+        for row in value['projects']:
+            related = f' — relación con la pregunta: {round(row["relatedness"] * 100)} %' if 'relatedness' in row else ''
+            lines.append(f'- {row["project"]}: {row["researches"]} investigaciones, {row["library_pdfs"]} PDFs verificados, '
+                         f'última actividad {row["last_activity"] or "—"}{related}')
+        return '\n'.join(lines + ['Siguiente paso: ' + value['next_action']])
     if value.get('kind') == 'check':
         return ('Comprobación sin cambios: ' + {'contract': 'la propuesta es válida', 'review': 'la revisión es válida',
                                                 'screening': 'el cribado es válido'}[value['target']] + '.\n'

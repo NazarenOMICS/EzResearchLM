@@ -92,3 +92,48 @@ def write_index(runs_root, project):
     lines += ['', 'Este índice lo regenera EZ en cada entrega. Las carpetas de trabajo (`runs/ez-…`) son el registro '
               'verificable de cada investigación; no las edites a mano.', '']
     (folder / 'LEEME.md').write_text('\n'.join(lines), encoding='utf-8')
+
+
+def projects(runs_root, question=None):
+    """Every project with its researches, library and folders; with a question, ranked by how related it is."""
+    from .context import history
+    from .library import project_sources
+    from .state import read_json
+    runs_root = Path(runs_root)
+    names = set()
+    for path in runs_root.glob('ez-*/research-contract.json'):
+        try:
+            names.add(read_json(path).get('context', {}).get('project') or 'general')
+        except (OSError, ValueError):
+            continue
+    names |= {p.stem for p in (runs_root.parent / 'contexts').glob('*.json')}
+    words = topic_words(question) if question else set()
+    result = []
+    for name in sorted(names):
+        runs = history(runs_root, name, limit=500)
+        library = project_sources(runs_root, name)
+        context_file = runs_root.parent / 'contexts' / (name + '.json')
+        context = read_json(context_file) if context_file.exists() else {}
+        notebooks = runs_root / 'projects' / slug(name) / 'notebooks.json'
+        notebook = (read_json(notebooks).get('notebooks') or [None])[-1] if notebooks.exists() else None
+        folder = project_dir(runs_root, name)
+        row = {'project': name, 'researches': len(runs), 'last_activity': runs[0]['updated_at'][:10] if runs else None,
+               'recent_questions': [r['question'] for r in runs[:3]], 'goal': context.get('goal'),
+               'library_pdfs': len(library), 'notebooklm_sources': len(notebook['sources']) if notebook else 0,
+               'inbox_pdfs': len(list((folder / 'bandeja').glob('*.pdf'))), 'folder_link': link(folder)}
+        if words:
+            texts = [r['question'] for r in runs] + [context.get('goal') or ''] + [s.get('title') or '' for s in library]
+            row['relatedness'] = round(max((len(words & topic_words(t)) / len(words) for t in texts if t), default=0.0), 2)
+        result.append(row)
+    if words:
+        result.sort(key=lambda r: -r['relatedness'])
+    return result
+
+
+STOPWORDS = {'que', 'qué', 'como', 'cómo', 'sobre', 'para', 'entre', 'desde', 'cual', 'cuál', 'cuales', 'cuáles', 'what',
+             'which', 'with', 'from', 'this', 'that', 'efecto', 'efectos', 'se', 'sabe', 'conoce', 'según', 'segun'}
+
+
+def topic_words(text):
+    from .acquisition import plain_words
+    return {w for w in plain_words(text) if len(w) > 3 and w not in STOPWORDS}
