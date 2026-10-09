@@ -69,7 +69,7 @@ NotebookLM ni modificar investigaciones. `ez --help` enumera las acciones.
 | «Continuemos» | Retoma la investigación identificada en la conversación |
 | «Tengo este PDF; incorpóralo» | Conserva su origen, comprueba el documento y continúa el alcance afectado |
 | «Esto es para mi proyecto de tesis» | Suma la investigación a ese proyecto y reutiliza sus artículos y su notebook |
-| «Y ¿qué concentraciones se usaron?» (seguimiento) | Responde con las citas ya entregadas o hace una pregunta rápida a NotebookLM sobre tus PDFs; lo que sea razonamiento propio del agente aparece separado y marcado |
+| «Y ¿qué concentraciones se usaron?» (seguimiento) | Responde con las citas ya entregadas; si no alcanzan, busca en segundos entre todo lo ya verificado del proyecto, y solo si eso tampoco alcanza le pregunta a NotebookLM sobre tus PDFs. Lo que sea razonamiento propio del agente aparece separado y marcado |
 | «Responde solo con lo que ya tengo» | Contesta con los PDFs ya verificados del proyecto, sin buscar ni descargar |
 | «¿Qué proyectos tengo?» | Lista tus proyectos con sus investigaciones y su última actividad |
 | «¿Qué artículos clave me faltan?» | Antes de descargar, lista los centrales que son pagos, con título y enlace al DOI para que los consigas por tu biblioteca o los autores |

@@ -4,6 +4,7 @@
         README.md     index of researches, with a link to each report
         inbox/        the user drops PDFs here; EZ takes them when a work is missing
         reports/      a copy of each report and its bibliography (.bib)
+        notes/        one note per source with its cited passages, one per research (see vault.py)
 
 Folders created by earlier versions with Spanish names (proyectos/, bandeja/, informes/,
 LEEME.md) are renamed in place the first time EZ touches the project.
@@ -98,7 +99,9 @@ def publish(runs_root, run_folder, contract, state, answer):
     if cited:
         (Path(paths['reports']) / (name + '.bib')).write_text(export_bibliography(cited), encoding='utf-8')
     write_index(runs_root, project)
-    return dict(paths, report=str(target), report_link=link(target))
+    from .vault import write
+    notes = write(runs_root, project)
+    return dict(paths, report=str(target), report_link=link(target), notes=notes['notes'], notes_link=link(notes['notes']))
 
 
 def write_index(runs_root, project):
@@ -109,7 +112,8 @@ def write_index(runs_root, project):
     labels = {'complete': 'complete', 'partial': 'partial', 'unavailable': 'running or no answer yet'}
     lines = [f'# Project: {project}', '',
              f'- Inbox for your PDFs: [inbox/]({link(folder / "inbox")})',
-             f'- Reports: [reports/]({link(folder / "reports")})', '',
+             f'- Reports: [reports/]({link(folder / "reports")})',
+             f'- Notes (Obsidian vault): [notes/]({link(folder / "notes")})', '',
              '## Researches', '', '| Date | Question | Answer | Report | Working folder |', '|---|---|---|---|---|']
     for row in history(Path(runs_root), project, limit=200):
         report = next(iter(sorted((folder / 'reports').glob(f'*-{row["run_id"][3:9]}.md'))), None)

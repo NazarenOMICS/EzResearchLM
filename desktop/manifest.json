@@ -44,6 +44,10 @@
       "description": "Proyectos guardados y cuál se relaciona con una pregunta"
     },
     {
+      "name": "ez_recall",
+      "description": "Buscar en lo ya verificado del proyecto, sin consultar NotebookLM"
+    },
+    {
       "name": "ez_ask",
       "description": "Pregunta de seguimiento sobre los PDFs del proyecto"
     },

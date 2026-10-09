@@ -15,7 +15,7 @@ METHOD = {'verified': '**Cómo se verificó:** cada afirmación proviene de una 
                     'con los pasajes que NotebookLM citó para ella. No pasó una segunda verificación por afirmación: lee el '
                     'pasaje antes de usarla en tu texto.'}
 PER_SCOPE = 10
-MARKER = re.compile(r'\[EZ:\s*([A-Za-z0-9_,\s-]+)\]')
+MARKER = re.compile(r'\[EZ:\s*([A-Za-z0-9_,/\s-]+)\]')
 
 
 def bibliography(answer):
@@ -173,17 +173,30 @@ def report_markdown(answer, contract, state):
     return '\n'.join(lines)
 
 
-def check_draft(answer, text):
-    """Every marker must name a delivered claim; sentences without a marker are listed for review."""
-    delivered = {c['id'] for c in answer.get('claims', [])}
-    withheld = {c['id'] for c in answer.get('withheld_claims', [])}
-    used, unknown, refused = set(), set(), set()
+def check_draft(answer, text, other_run=None):
+    """Every marker must name a delivered claim; sentences without a marker are listed for review.
+
+    [EZ:<id>] names a claim of this run; [EZ:<run_id>/<id>] a claim of another research of the
+    project, found by ez recall or ez ask. other_run(run_id) returns that run's answer or None.
+    """
+    def claims_of(value):
+        return {c['id'] for c in value.get('claims', [])}, {c['id'] for c in value.get('withheld_claims', [])}
+    delivered, withheld = claims_of(answer)
+    used, unknown, refused, others = set(), set(), set(), {}
     for group in MARKER.findall(text):
         for claim_id in (x.strip() for x in group.split(',') if x.strip()):
             used.add(claim_id)
-            if claim_id in withheld:
+            run_id, _, local = claim_id.rpartition('/')
+            if run_id:
+                if run_id not in others:
+                    other = other_run(run_id) if other_run else None
+                    others[run_id] = claims_of(other) if other else (set(), set())
+                known, held = others[run_id]
+            else:
+                known, held = delivered, withheld
+            if local in held:
                 refused.add(claim_id)
-            elif claim_id not in delivered:
+            elif local not in known:
                 unknown.add(claim_id)
     unmarked = []
     for line in text.splitlines():
@@ -193,7 +206,7 @@ def check_draft(answer, text):
             plain = MARKER.sub('', sentence).strip()
             if len(plain) >= 40 and not MARKER.search(sentence):
                 unmarked.append(plain)
-    return {'kind': 'draft_check', 'valid': not unknown and not refused, 'claims_used': sorted(used & delivered),
+    return {'kind': 'draft_check', 'valid': not unknown and not refused, 'claims_used': sorted(used - unknown - refused),
             'unknown_markers': sorted(unknown), 'withheld_markers': sorted(refused),
             'unmarked_sentences': unmarked[:50], 'unmarked_count': len(unmarked),
             'next_action': ('El borrador solo cita afirmaciones verificadas. Revisa las oraciones sin marcador: si afirman '

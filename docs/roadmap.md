@@ -1,6 +1,6 @@
 # Hoja de ruta de EZ
 
-Actualizada: 2026-10-08. Este es el **único plan vigente**. Reemplaza a la
+Actualizada: 2026-10-09. Este es el **único plan vigente**. Reemplaza a la
 auditoría P1–P14, al plan v2 por fases (0–7), a la lista de mejoras pendientes y a
 `docs/history/plan-refactor-v6.md`. Esos documentos quedan como registro del porqué de cada
 cambio. `docs/history/ez-refurbish-implementation-plan.md` y `docs/history/refurbish-progress.md` son
@@ -106,6 +106,30 @@ Unpaywall configurado:
 
 ## 4. Pendiente, en orden
 
+### Próxima sesión (desde 2026-10-09)
+
+Todo lo anterior está en `main`. El orden para retomar:
+
+1. **Prueba real en Windows con Codex**, desde un clon nuevo de `main` y con
+   `~/.ezresearch` borrado. Repetir la pregunta del etambutol y comprobar:
+   1. plan con `ez plan` y cribado con `ez screen`, sin JSON ni scripts escritos por el agente;
+   2. segunda ronda de cribado por citas y cuántos artículos agrega;
+   3. seguimientos en orden: afirmaciones entregadas, `ez recall`, `ez ask`, `ez research`;
+   4. «¿qué dice Smith 2019?» (no está en el corpus): debe ofrecer buscar, no responder de memoria;
+   5. un párrafo de tesis con marcadores y `ez draft --check`;
+   6. alargar la charla hasta que el agente compacte el contexto y repetir un seguimiento.
+2. **Puntuar la corrida** con `gold_set_benchmark/puntuar.py --mision M2` y anotar en
+   `gold_set_benchmark/` cuántos de los 10 artículos clave entraron, en especial los dos de
+   proteómica de *M. smegmatis* (T6).
+3. **Medir `ez recall`**: en cuántos seguimientos alcanzó sin consultar NotebookLM y si
+   alguna vez dio por suficiente algo que no lo era. Ajustar el umbral de cobertura (0,6,
+   puesto sin medición) según eso.
+4. **A3**: comparación con ChatGPT con búsqueda y con NotebookLM manual.
+5. **C1 y D2**: instalación en un Windows limpio solo con el README, y prueba de la extensión
+   de Claude Desktop.
+6. **C4**: igualar versiones, fijar la extensión a una etiqueta y publicar `v0.3.0`.
+7. Deuda técnica T2 a T5, después del lanzamiento.
+
 ### Ronda 7 (2026-10-08): mejoras iterativas antes de la comparación
 
 Hecho y validado offline:
@@ -135,6 +159,12 @@ Hecho y validado offline:
     ronda de cribado; `ez ask` informa `evidence` y, si la biblioteca no alcanza, ofrece
     buscar artículos nuevos en vez de dejar que el agente complete. Falta medirlo en vivo
     contra el gold set de M2.
+16. Memoria del proyecto (2026-10-09): en cada entrega EZ reescribe `projects/<p>/notes/`,
+    un vault de Obsidian con los pasajes citados por fuente y las afirmaciones por
+    investigación, y `ez recall` busca en ellos sin consultar NotebookLM. Los marcadores
+    `[EZ:<corrida>/<id>]` permiten citar afirmaciones de otras investigaciones del proyecto
+    y `ez draft --check` los resuelve. Reemplaza la búsqueda con QMD de la versión anterior.
+    Falta medir cuántos seguimientos resuelve sin consultar NotebookLM.
 
 Ciclo de iteración desde ahora:
 

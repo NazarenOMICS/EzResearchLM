@@ -215,7 +215,7 @@ class ProjectLibraryTests(unittest.TestCase):
                 patch('ez.engine.Engine.__init__.__defaults__', (answering,)), patch('ez.engine.executable', return_value='notebooklm'):
             code = main(['--root', self.temp.name, 'ask', '¿Qué dice la fuente?', '--json'])
         value = json.loads(output.getvalue())
-        self.assertEqual((code, value['kind'], value['claims'][0]['marker']), (0, 'ask', '[EZ:ask1-1]'))
+        self.assertEqual((code, value['kind'], value['claims'][0]['marker']), (0, 'ask', f'[EZ:{value["run_id"]}/ask1-1]'))
         self.assertEqual(self.service.upload_count, uploads)
         self.assertFalse(any(a[1:3] in (['-m', 'ez.discovery'], ['-m', 'ez.acquisition']) for a in self.service.calls[-6:]))
         self.assertEqual([c['label'] for c in value['choices']][0], 'Verificar lo central para redactar')

@@ -21,7 +21,7 @@ from . import __version__
 
 # Repeated in every JSON answer: a host agent whose context was compacted, or a small model, still sees the rules on each call.
 OPERATOR_REMINDER = ('Reglas de EZ: responde solo con afirmaciones de EZ y sus marcadores [EZ:<id>]. Una pregunta de seguimiento '
-                     'se responde con esas afirmaciones o con ez ask; artículos nuevos, con ez research; un borrador, con ez draft '
+                     'se responde con esas afirmaciones, después con ez recall y si no alcanza con ez ask; artículos nuevos, con ez research; un borrador, con ez draft '
                      'y ez draft --check. No uses búsqueda web ni tu memoria para afirmaciones bibliográficas; un dato externo que '
                      'el usuario pida explícitamente va rotulado «fuente externa, no del corpus». El plan se arma con ez plan y el '
                      'cribado con ez screen; no edites archivos de la corrida ni leas docs/history.')
@@ -307,6 +307,22 @@ def verify_command(folder, args):
     return 0
 
 
+def recall_command(root, args):
+    """Search the project's delivered claims and their passages; no NotebookLM query, no new text."""
+    from .vault import recall
+    result = recall(root, args.project, args.question, args.limit)
+    if result['evidence'] == 'sufficient':
+        hint = ('Lo ya verificado en el proyecto responde la pregunta. Responde solo con estas afirmaciones y sus pasajes, con '
+                'el marcador de cada una; si una respuesta exige afirmar algo que el pasaje no dice literalmente, usa ez ask.')
+    elif result['hits']:
+        hint = ('Lo ya verificado responde solo en parte (faltan: ' + ', '.join(result['missing_words'][:8]) + '). Di qué '
+                'cubre, con marcadores, y corre ez ask "<pregunta>" --project ' + args.project + ' para el resto.')
+    else:
+        hint = 'Nada de lo ya verificado en el proyecto responde esto. Corre ez ask "<pregunta>" --project ' + args.project + '.'
+    emit(dict(result, kind='recall', project=args.project, next_action=hint), args.json)
+    return 0
+
+
 def ask_command(root, args):
     """A follow-up question answered by NotebookLM from the project's verified PDFs: no search, no download."""
     from .library import project_sources
@@ -339,7 +355,8 @@ def ask_command(root, args):
         extra['next_action'] = ('La biblioteca del proyecto responde la pregunta. Responde solo con estas afirmaciones y sus '
                                 'marcadores [EZ:<id>]; no hace falta buscar artículos nuevos.')
     emit(dict(state, path=str(folder), kind='ask', evidence=evidence,
-              claims=[{'id': c['id'], 'text': c['text'], 'marker': f'[EZ:{c["id"]}]'} for c in answer.get('claims', [])],
+              claims=[{'id': c['id'], 'text': c['text'], 'marker': f'[EZ:{state["run_id"]}/{c["id"]}]'}
+                      for c in answer.get('claims', [])],
               uncited_statements=answer.get('uncited_statements', []), **extra), args.json)
     return code
 
@@ -390,7 +407,20 @@ def draft_command(folder, args):
             or answer.get('support_protocol') not in CURRENT_PROTOCOLS:
         raise ContractError('La respuesta guardada no corresponde a la versión vigente; usa ez continue.')
     if args.check:
-        result = check_draft(answer, Path(args.check).read_text(encoding='utf-8-sig'))
+        project = read_json(folder / 'research-contract.json').get('context', {}).get('project') or 'general'
+
+        def other_run(run_id):
+            # Only researches of the same project, still valid for their corpus.
+            from .vault import valid_answer
+            try:
+                other = contained(folder.parent, run_id)
+                contract = read_json(other / 'research-contract.json')
+            except (ContractError, OSError, ValueError):
+                return None
+            if (contract.get('context', {}).get('project') or 'general') != project:
+                return None
+            return valid_answer(other)[0]
+        result = check_draft(answer, Path(args.check).read_text(encoding='utf-8-sig'), other_run)
         emit(result, args.json)
         return 0 if result['valid'] else 4
     emit({'kind': 'draft_material', 'report_path': str(folder / 'report.md'),
@@ -440,6 +470,9 @@ def main(argv=None):
     p = sub.add_parser('draft', help='Ver las afirmaciones verificadas para redactar o comprobar un borrador.'); p.add_argument('run'); p.add_argument('--check', type=Path, metavar='BORRADOR')
     p = sub.add_parser('ask', help='Pregunta de seguimiento respondida solo con los PDFs ya verificados del proyecto.')
     p.add_argument('question'); p.add_argument('--project', default='general')
+    p = sub.add_parser('recall', help='Buscar en lo ya verificado del proyecto, sin consultar NotebookLM.')
+    p.add_argument('question'); p.add_argument('--project', default='general')
+    p.add_argument('--limit', type=int, default=8, help='Afirmaciones a devolver (8 por defecto).')
     p = sub.add_parser('projects', help='Ver los proyectos y cuál se relaciona con una pregunta.')
     p.add_argument('--suggest', metavar='PREGUNTA', help='Ordenar los proyectos según su relación con esta pregunta.')
     p = sub.add_parser('export', help='Exportar la bibliografía a BibTeX o RIS.'); p.add_argument('run')
@@ -501,6 +534,8 @@ def main(argv=None):
             return 0
         if args.command == 'ask':
             return ask_command(root, args)
+        if args.command == 'recall':
+            return recall_command(root, args)
         if args.command == 'research':
             cpath = context_path(root, args.project)
             context = read_json(cpath) if cpath.exists() else {'language': 'es', 'project': args.project}

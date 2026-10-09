@@ -49,7 +49,8 @@ Si no usas agentes en la terminal, hay una
 ~/.ezresearch/projects/<tu proyecto>/
 ├── README.md     índice de tus investigaciones, con enlaces
 ├── inbox/        deja aquí tus PDFs
-└── reports/      cada informe y su bibliografía (.bib)
+├── reports/      cada informe y su bibliografía (.bib)
+└── notes/        vault de Obsidian: pasajes citados por artículo, afirmaciones por investigación
 ```
 
 Más detalle en [dónde queda cada cosa](docs/carpetas.md).
