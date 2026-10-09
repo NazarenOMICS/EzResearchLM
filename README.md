@@ -1,53 +1,88 @@
 # EZresearchLM
 
-> **Versión preliminar en validación.** No uses sus resultados en una tesis o un artículo
-> sin revisar cada cita contra el PDF original. Las afirmaciones son oraciones de NotebookLM
-> con los pasajes que él mismo citó; la verificación opcional por afirmación también la hace
-> NotebookLM. Nada de eso es una revisión humana.
+**EZ busca artículos científicos sobre tu pregunta, los carga en tu NotebookLM y te entrega
+lo que dicen, con el pasaje y la página de cada cita.** No responde de memoria: cada
+afirmación sale de un PDF que puedes abrir.
 
-EZ es un asistente de investigación bibliográfica para quien necesita afirmaciones que
-pueda defender: cada afirmación que entrega viene con el pasaje exacto, el artículo
-(título, DOI o PMID) y el PDF del que salió. Busca artículos en PubMed, Europe PMC,
-OpenAlex, Crossref y Semantic Scholar, descarga los de acceso abierto, los carga en
-tu NotebookLM y le pregunta solo sobre esos documentos. Al final recibes un informe
-de evidencia (`report.md`) con lo que se pudo responder, lo que no y por qué.
+> **Versión preliminar.** Funciona de punta a punta, pero falta la validación externa
+> (comparación con otras herramientas e instalación en equipos limpios). Revisa cada
+> pasaje en su PDF antes de citarlo en una tesis o un artículo.
 
-## Cómo se usa
+## Empezar
 
-Se opera conversando con un agente que ya uses en tu computadora (Claude Code o
-Codex), abierto en esta carpeta. No hay una aplicación gráfica todavía.
+Necesitas un agente en tu computadora, por ejemplo Codex o Claude Code, y una cuenta de
+Google para NotebookLM. Pégale a tu agente este mensaje:
 
-1. Escribe: «EZ, ayúdame a empezar. Prepara mi entorno. Quiero investigar [tu pregunta]
-   para [tu objetivo]».
-2. Inicia sesión en NotebookLM en tu navegador cuando EZ te lo pida.
-3. EZ arma la búsqueda, elige qué artículos son relevantes y te consulta solo los dudosos.
-4. Si un artículo importante es pago, EZ te lo dice: puedes entregarle tu PDF.
-5. Recibes el informe de evidencia en cuanto NotebookLM responde. Si vas a redactar,
-   pide la verificación por afirmación: EZ vuelve a consultar cada afirmación, redacta
-   solo con las que pasan y marca de dónde sale cada una.
+> Quiero usar esto para investigar: https://github.com/NazarenOMICS/EzResearchLM
 
-Tus informes, tu bandeja de PDFs y el índice de cada proyecto quedan en
-`~/.ezresearch/proyectos/` ([dónde queda cada cosa](docs/carpetas.md)).
+El agente instala EZ y te guía paso a paso, con una pregunta por vez. No necesitas
+escribir comandos.
 
-Más detalle en la [guía de primer uso](docs/ez-user-guide.md). Estado y próximos pasos: [hoja de ruta](docs/roadmap.md).
+Si no usas agentes en la terminal, hay una
+[extensión experimental para Claude Desktop](desktop/README.md).
 
-Si no usas agentes en la terminal, hay una [extensión experimental para Claude Desktop](desktop/README.md).
+## Cómo es una investigación
 
-## Qué tienes que saber antes de usarlo
+1. **Preparar.** EZ instala lo que falta. Tú entras a NotebookLM con tu cuenta de Google
+   en el navegador y, si quieres, das un correo de contacto para buscar más artículos
+   gratuitos.
+2. **Preguntar.** Cuentas qué quieres investigar y para qué. EZ te pregunta si es parte de
+   un proyecto que ya tienes o si abre uno nuevo.
+3. **Plan.** EZ te muestra en pocas líneas qué va a buscar y cuánto va a tardar, y espera tu
+   visto bueno.
+4. **Bibliografía.** EZ busca en PubMed, Europe PMC, OpenAlex y Crossref, elige los artículos
+   relevantes y te avisa **antes de descargar nada** si alguno clave es pago. Te da el
+   título y el enlace al DOI para que lo consigas por tu biblioteca o pidiéndolo a los
+   autores. Lo dejas en la bandeja del proyecto y EZ lo toma solo.
+5. **Respuesta.** EZ carga los PDFs en tu NotebookLM, le hace las preguntas y te entrega un
+   informe: lo central primero, cada afirmación con su pasaje y su página, lo que no se pudo
+   responder y por qué.
+6. **Después.** Puedes pedir que verifique las afirmaciones una por una antes de redactar,
+   exportar la bibliografía a Zotero o hacer otra pregunta en el mismo proyecto, que
+   reutiliza los artículos ya cargados.
 
-- **NotebookLM gratuito:** admite hasta 50 fuentes por notebook. EZ usa 40 como máximo
-  por investigación y un notebook por proyecto: las preguntas siguientes del mismo
-  proyecto reutilizan los PDFs ya cargados. Cada pregunta a NotebookLM consume tu cuota.
-- **Tus PDFs se suben a tu cuenta de Google**, dentro de NotebookLM.
-- **EZ usa `notebooklm-py`, una librería no oficial.** Si Google cambia NotebookLM, EZ
-  puede dejar de funcionar hasta que se actualice.
-- **Solo acceso abierto o PDFs tuyos.** EZ no usa Anna's Archive, Sci-Hub ni evade
-  controles de acceso. Un artículo pago queda pendiente hasta que importes tu copia.
-- **La verificación es automática.** Revisa los pasajes en el PDF antes de citarlos.
+## Dónde queda todo
+
+```
+~/.ezresearch/proyectos/<tu proyecto>/
+├── LEEME.md      índice de tus investigaciones, con enlaces
+├── bandeja/      deja aquí tus PDFs
+└── informes/     cada informe y su bibliografía (.bib)
+```
+
+Más detalle en [dónde queda cada cosa](docs/carpetas.md).
+
+## Qué se midió
+
+Corridas reales de octubre de 2026 sobre la pregunta de prueba del proyecto (efecto del
+etambutol en *Corynebacterium glutamicum*):
+
+| Medida | Resultado |
+|---|---|
+| Investigación desde cero (búsqueda, descarga, 4 preguntas) | 6,5 minutos |
+| Pregunta en un proyecto con los PDFs ya cargados (5 preguntas) | entre 6 y 7 minutos |
+| Afirmaciones respaldadas por su pasaje, en 20 revisadas a mano | 18 respaldadas, 2 parciales, 0 sin respaldo |
+
+Cada pregunta a NotebookLM tarda alrededor de un minuto, igual que en su web. La muestra de
+20 es chica: la precisión real está, con 95 % de confianza, entre 70 % y 97 %. El detalle
+está en `gold_set_benchmark/` y el plan pendiente en la [hoja de ruta](docs/roadmap.md).
+
+## Límites
+
+1. **NotebookLM gratuito** admite 50 fuentes por notebook y tiene una cuota de uso; cada
+   pregunta la consume.
+2. **Tus PDFs se suben a tu cuenta de Google**, dentro de NotebookLM.
+3. **EZ usa `notebooklm-py`, una librería no oficial.** Si Google cambia NotebookLM, EZ
+   puede dejar de funcionar hasta que se actualice.
+4. **Solo acceso abierto o PDFs tuyos.** EZ no usa Anna's Archive ni Sci-Hub ni evade
+   controles de acceso.
+5. **La comprobación es automática.** Las afirmaciones son oraciones de NotebookLM con los
+   pasajes que él mismo citó; la verificación opcional también la hace NotebookLM. Ninguna
+   de las dos es una revisión humana.
 
 ## Instalación (para el agente)
 
-**Si te pasaron solo el enlace de este repositorio**, la persona quiere usar EZ y
+Si te pasaron solo el enlace de este repositorio, la persona quiere usar EZ y
 probablemente no sabe de terminales. Hazlo tú, sin pedirle comandos:
 
 1. Comprueba que estén Git y Python 3.10 o más nuevo (`git --version`, `python --version`).
@@ -70,16 +105,16 @@ probablemente no sabe de terminales. Hazlo tú, sin pedirle comandos:
    falta (instalar NotebookLM con `ez setup --install-notebooklm`, iniciar sesión, correo
    para Unpaywall).
 
-El agente sigue [la guía operativa](docs/ez-host-operator.md). Comandos principales:
-`ez setup`, `ez context`, `ez research`, `ez continue`, `ez status`, `ez rescue`,
-`ez draft` y `ez doctor`. Detalles técnicos en [contratos y estados](docs/ez-contracts.md)
-y [configuración](docs/configuration.md); estado de validación en
-[preparación de lanzamiento](docs/release-readiness.md).
+## Documentación
 
-Las corridas creadas con los wrappers PowerShell anteriores siguen documentadas en la
-[referencia legacy](docs/legacy-reference.md).
+1. [Guía de primer uso](docs/ez-user-guide.md): qué puedes pedirle a EZ.
+2. [Guía del agente](docs/ez-host-operator.md): el recorrido completo que sigue el agente.
+3. [Contratos y estados](docs/ez-contracts.md) y [configuración](docs/configuration.md):
+   detalles técnicos.
+4. [Hoja de ruta](docs/roadmap.md): qué está hecho, qué falta y en qué orden.
+5. [Referencia legacy](docs/legacy-reference.md): corridas creadas con los wrappers
+   PowerShell anteriores.
 
-
-## License
+## Licencia
 
 MIT.
