@@ -59,7 +59,10 @@ def import_folder(folder, store, sources, directory, args):
     pending = [s for s in sources if s.get('validation_status') != 'valid' and s.get('screening', 'include') == 'include'
                and not s.get('notebook_source_id')]
     imported, to_confirm, unmatched, ambiguous = [], [], [], []
-    for path in sorted(Path(directory).glob('*.pdf')):
+    from .workspace import pdfs
+    if not Path(directory).is_dir():
+        raise ContractError(f'No existe la carpeta {directory}.')
+    for path in pdfs(directory):
         if path.is_symlink() or validate_pdf_bounded(path.resolve())['status'] != 'valid':
             unmatched.append(path.name)
             continue

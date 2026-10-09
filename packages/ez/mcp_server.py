@@ -247,12 +247,17 @@ def ez_open_folder(project: str = 'general', which: str = 'bandeja'):
     target = {'bandeja': paths['inbox'], 'informes': paths['reports'], 'proyecto': paths['project']}.get(which)
     if not target:
         return {'error': 'which_invalid', 'next_action': 'Usa bandeja, informes o proyecto.'}
-    if os.name == 'nt':
-        os.startfile(target)  # noqa: S606 - opens the user's own folder in Explorer
-    else:
-        subprocess.Popen(['open' if sys.platform == 'darwin' else 'xdg-open', target], stdin=subprocess.DEVNULL,
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    reveal(target)
     return {'opened': target, 'link': Path(target).as_uri()}
+
+
+def reveal(path):
+    """Open a folder in the system's file explorer."""
+    if os.name == 'nt':
+        os.startfile(path)  # noqa: S606 - opens the user's own folder in Explorer
+    else:
+        subprocess.Popen(['open' if sys.platform == 'darwin' else 'xdg-open', path], stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
 
 
 def ez_doctor(run: str):

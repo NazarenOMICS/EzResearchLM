@@ -34,6 +34,12 @@ def project_dir(runs_root, project):
     return home(runs_root) / 'proyectos' / slug(project)
 
 
+def pdfs(folder):
+    """PDF files directly inside a folder, whatever the case of their extension (.pdf, .PDF)."""
+    folder = Path(folder)
+    return sorted(p for p in folder.iterdir() if p.is_file() and p.suffix.lower() == '.pdf') if folder.is_dir() else []
+
+
 def link(path):
     """A file:// link the user can click to open the folder or file on their computer."""
     return Path(path).resolve().as_uri()
@@ -120,7 +126,7 @@ def projects(runs_root, question=None):
         row = {'project': name, 'researches': len(runs), 'last_activity': runs[0]['updated_at'][:10] if runs else None,
                'recent_questions': [r['question'] for r in runs[:3]], 'goal': context.get('goal'),
                'library_pdfs': len(library), 'notebooklm_sources': len(notebook['sources']) if notebook else 0,
-               'inbox_pdfs': len(list((folder / 'bandeja').glob('*.pdf'))), 'folder_link': link(folder)}
+               'inbox_pdfs': len(pdfs(folder / 'bandeja')), 'folder_link': link(folder)}
         if words:
             texts = [r['question'] for r in runs] + [context.get('goal') or ''] + [s.get('title') or '' for s in library]
             row['relatedness'] = round(max((len(words & topic_words(t)) / len(words) for t in texts if t), default=0.0), 2)

@@ -419,7 +419,8 @@ class Engine:
         """Take PDFs the user left in the project's inbox for any included work still without one."""
         from .imports import INBOX_ORIGIN, import_folder
         paths = self.workspace()
-        if not any(Path(paths['inbox']).glob('*.pdf')):
+        from .workspace import pdfs
+        if not pdfs(paths['inbox']):
             return paths
         summary = import_folder(self.folder, self.store, self.sources, paths['inbox'], INBOX_ORIGIN)
         if summary['imported'] or summary['needs_identity_confirmation']:
