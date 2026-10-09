@@ -119,7 +119,7 @@ Hecho y validado offline:
 7. Guía para escribir preguntas QA.
 8. Medidor `gold_set_benchmark/puntuar.py`.
 9. Pedido de artículos clave sin acceso abierto antes de descargar (`NEEDS_KEY_PDFS`, `key-pdfs.md` con enlaces al DOI).
-10. Carpetas por proyecto: bandeja de PDFs que EZ toma sola, informes con su `.bib` e índice `LEEME.md` (`docs/carpetas.md`).
+10. Carpetas por proyecto: bandeja de PDFs que EZ toma sola, informes con su `.bib` e índice `README.md` (`docs/carpetas.md`).
 11. Elección de proyecto ante cada pregunta (`ez projects --suggest`) y biblioteca del proyecto: PDFs verificados reutilizados sin descargar, respuesta solo con lo que ya hay (`reuse_only`).
 
 Ciclo de iteración desde ahora:

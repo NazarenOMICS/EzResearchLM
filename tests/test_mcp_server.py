@@ -68,8 +68,8 @@ class McpServerTests(unittest.TestCase):
 
     def test_the_project_inbox_opens_in_the_file_explorer(self):
         with patch('ez.mcp_server.reveal') as reveal:
-            opened = mcp_server.ez_open_folder('tesis', 'bandeja')
-        self.assertTrue(opened['opened'].endswith(str(Path('proyectos', 'tesis', 'bandeja'))))
+            opened = mcp_server.ez_open_folder('tesis', 'inbox')
+        self.assertTrue(opened['opened'].endswith(str(Path('projects', 'tesis', 'inbox'))))
         reveal.assert_called_once_with(opened['opened'])
         self.assertEqual(mcp_server.ez_open_folder('tesis', 'otra')['error'], 'which_invalid')
 

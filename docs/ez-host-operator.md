@@ -54,7 +54,7 @@ qué pasó. Una pregunta por mensaje.
    (título, año y enlace) y pregúntale si tiene alguno; si no, sigue con `--skip-missing`.
 6. **Entrega.** Resume en 5 líneas lo central, da el enlace al informe en la carpeta del
    proyecto (`workspace.report_link` de `ez status --answer`) y al índice del proyecto
-   (`LEEME.md`), y ofrece, como
+   (`README.md`), y ofrece, como
    opciones numeradas: (1) verificar afirmaciones para redactar (`--verify`), (2) exportar
    la bibliografía a Zotero (`ez export`), (3) redactar un párrafo con marcas `[EZ:<id>]`,
    (4) otra pregunta del mismo proyecto, que reutiliza los PDFs ya cargados.

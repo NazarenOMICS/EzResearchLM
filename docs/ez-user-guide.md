@@ -42,8 +42,8 @@ El recorrido es:
    una, redacta solo con las que pasan y comprueba que cada una conserve su marca. Una
    búsqueda sin suficiente evidencia no se convierte en una respuesta inventada.
 
-**Dónde queda todo.** Cada proyecto tiene su carpeta en `~/.ezresearch/proyectos/` con un
-índice (`LEEME.md`), una bandeja para tus PDFs y los informes con su bibliografía. El
+**Dónde queda todo.** Cada proyecto tiene su carpeta en `~/.ezresearch/projects/` con un
+índice (`README.md`), una bandeja para tus PDFs y los informes con su bibliografía. El
 detalle está en [carpetas.md](carpetas.md).
 
 **Cuánto tarda.** Cada pregunta a NotebookLM tarda alrededor de un minuto, lo mismo

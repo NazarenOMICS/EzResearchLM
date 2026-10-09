@@ -46,10 +46,10 @@ Si no usas agentes en la terminal, hay una
 ## Dónde queda todo
 
 ```
-~/.ezresearch/proyectos/<tu proyecto>/
-├── LEEME.md      índice de tus investigaciones, con enlaces
-├── bandeja/      deja aquí tus PDFs
-└── informes/     cada informe y su bibliografía (.bib)
+~/.ezresearch/projects/<tu proyecto>/
+├── README.md     índice de tus investigaciones, con enlaces
+├── inbox/        deja aquí tus PDFs
+└── reports/      cada informe y su bibliografía (.bib)
 ```
 
 Más detalle en [dónde queda cada cosa](docs/carpetas.md).

@@ -97,10 +97,10 @@ class WorkspaceTests(unittest.TestCase):
     def test_each_project_gets_an_inbox_reports_and_an_index(self):
         state = Store(self.folder).state()
         inbox = Path(state['workspace']['inbox'])
-        self.assertEqual(inbox, Path(self.temp.name).resolve() / 'proyectos' / 'general' / 'bandeja')
-        self.assertTrue((inbox / 'LEEME.md').exists())
+        self.assertEqual(inbox, Path(self.temp.name).resolve() / 'projects' / 'general' / 'inbox')
+        self.assertTrue((inbox / 'README.md').exists())
         self.assertTrue(state['workspace']['inbox_link'].startswith('file://'))
-        self.assertIn('Bandeja para tus PDFs', (inbox.parent / 'LEEME.md').read_text(encoding='utf-8'))
+        self.assertIn('Inbox for your PDFs', (inbox.parent / 'README.md').read_text(encoding='utf-8'))
 
     def test_a_pdf_left_in_the_inbox_is_taken_before_downloading(self):
         from PyPDF2 import PdfWriter
@@ -115,7 +115,7 @@ class WorkspaceTests(unittest.TestCase):
         self.assertNotIn('NEEDS_KEY_PDFS', state['legacy_signals'])
         self.assertEqual([i['file'] for i in state['inbox_import']['imported']], ['articulo-central.pdf'])
         paid = next(s for s in read_json(self.folder / 'sources.json') if s.get('doi') == '10.1/paid')
-        self.assertEqual((paid['identity_status'], paid['provenance']['origin']), ('verified', 'bandeja del proyecto'))
+        self.assertEqual((paid['identity_status'], paid['provenance']['origin']), ('verified', 'project inbox'))
         self.assertEqual(len(self.acquired), 1)
         self.assertTrue((inbox / 'articulo-central.pdf').exists())
 
@@ -140,13 +140,13 @@ class PublishTests(unittest.TestCase):
         case.setUp()
         self.addCleanup(case.temp.cleanup)
         self.assertEqual(case.run_engine()[0], 0)
-        project = Path(case.temp.name).resolve() / 'proyectos' / 'general'
-        reports = sorted((project / 'informes').glob('*.md'))
+        project = Path(case.temp.name).resolve() / 'projects' / 'general'
+        reports = sorted((project / 'reports').glob('*.md'))
         self.assertEqual(len(reports), 1)
         self.assertEqual(reports[0].read_text(encoding='utf-8'), (case.folder / 'report.md').read_text(encoding='utf-8'))
         self.assertTrue(reports[0].with_suffix('.bib').exists())
-        index = (project / 'LEEME.md').read_text(encoding='utf-8')
-        self.assertIn('[abrir](' + reports[0].as_uri() + ')', index)
+        index = (project / 'README.md').read_text(encoding='utf-8')
+        self.assertIn('[open](' + reports[0].as_uri() + ')', index)
         self.assertIn('Pregunta de prueba', index)
         self.assertEqual(Store(case.folder).state()['workspace']['report_link'], reports[0].as_uri())
 
@@ -206,6 +206,23 @@ class ProjectLibraryTests(unittest.TestCase):
         self.assertEqual((row['project'], row['researches'], row['library_pdfs']), ('general', 2, 1))
         self.assertGreaterEqual(row['relatedness'], 0.3)
         self.assertIn('parece parte del proyecto «general»', value['next_action'])
+
+
+class MigrationTests(unittest.TestCase):
+    def test_spanish_folders_of_earlier_versions_are_renamed_in_place(self):
+        import tempfile
+        from ez.workspace import ensure
+        with tempfile.TemporaryDirectory() as temp:
+            old = Path(temp) / 'proyectos' / 'tesis'
+            (old / 'bandeja').mkdir(parents=True); (old / 'informes').mkdir()
+            (old / 'bandeja' / 'mio.pdf').write_bytes(b'%PDF-1.4')
+            (old / 'LEEME.md').write_text('viejo', encoding='utf-8')
+            paths = ensure(Path(temp) / 'runs', 'tesis')
+            new = Path(temp).resolve() / 'projects' / 'tesis'
+            self.assertEqual(Path(paths['inbox']), new / 'inbox')
+            self.assertTrue((new / 'inbox' / 'mio.pdf').exists())
+            self.assertTrue((new / 'README.md').exists())
+            self.assertFalse((Path(temp) / 'proyectos').exists())
 
 
 class PageTests(unittest.TestCase):

@@ -240,13 +240,13 @@ def ez_export(run: str, format: str = 'bibtex', all_sources: bool = False):
     return result
 
 
-def ez_open_folder(project: str = 'general', which: str = 'bandeja'):
-    """Abre en el explorador de archivos del usuario la bandeja, los informes o la carpeta del proyecto."""
+def ez_open_folder(project: str = 'general', which: str = 'inbox'):
+    """Abre en el explorador de archivos del usuario la bandeja (inbox), los informes (reports) o la carpeta del proyecto."""
     from .workspace import ensure
     paths = ensure(root(), project)
-    target = {'bandeja': paths['inbox'], 'informes': paths['reports'], 'proyecto': paths['project']}.get(which)
+    target = {'inbox': paths['inbox'], 'reports': paths['reports'], 'project': paths['project']}.get(which)
     if not target:
-        return {'error': 'which_invalid', 'next_action': 'Usa bandeja, informes o proyecto.'}
+        return {'error': 'which_invalid', 'next_action': 'Usa inbox, reports o project.'}
     reveal(target)
     return {'opened': target, 'link': Path(target).as_uri()}
 

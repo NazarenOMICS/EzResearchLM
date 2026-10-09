@@ -45,13 +45,13 @@ If you do not use agents in a terminal, there is an
 ## Where everything goes
 
 ```
-~/.ezresearch/proyectos/<your project>/
-├── LEEME.md      index of your researches, with links
-├── bandeja/      drop your PDFs here (inbox)
-└── informes/     each report and its bibliography (.bib)
+~/.ezresearch/projects/<your project>/
+├── README.md     index of your researches, with links
+├── inbox/        drop your PDFs here
+└── reports/      each report and its bibliography (.bib)
 ```
 
-Folder names are in Spanish for now. More in [where everything goes](docs/carpetas.md)
+More in [where everything goes](docs/carpetas.md)
 (Spanish).
 
 ## What was measured
