@@ -333,12 +333,77 @@ class Engine:
                    'candidates': [{k: s.get(k) for k in ('source_id', 'title', 'authors', 'year', 'journal', 'doi', 'pmid',
                                                          'pmcid', 'sources', 'queries', 'open_access') if s.get(k)}
                                   | ({'in_project': True} if self.in_library(s) else {})
+                                  | ({'linked_to_included': len({l['seed'] for l in s['citation_links']})} if s.get('citation_links') else {})
                                   | ({'abstract': s['abstract'][:800]} if s.get('abstract') else {}) for s in pending],
                    'decisions': []}
         atomic_json(self.folder / 'screening-request.json', request)
-        raise Pause('NEEDS_SCREENING', f'Hay {len(pending)} candidatos por decidir en screening-request.json. Decídelos con '
+        round_note = ('Segunda ronda: son artículos que citan a los incluidos o que ellos citan (linked_to_included dice a '
+                      'cuántos). ') if all(s.get('discovery_origin') == 'citations' for s in pending) else ''
+        raise Pause('NEEDS_SCREENING', round_note + f'Hay {len(pending)} candidatos por decidir en screening-request.json. Decídelos con '
                     'ez screen <run> --include "ids: razón" --exclude "ids: razón" (o --exclude-rest "razón") y --key con los '
                     'incluidos centrales para responder; no escribas el JSON a mano.', 2)
+
+    CITATION_SEEDS = 15
+    CITATION_CANDIDATES = 40
+
+    def expand_citations(self):
+        """Second screening round with the works the included sources cite or are cited by. Runs once per run."""
+        plan = self.contract['plan']
+        if not plan.get('citation_expansion') or plan.get('discovery_mode') == 'reuse_only' or self.state.get('citation_expansion'):
+            return
+        included = [s for s in self.sources if s.get('screening', 'include') == 'include' and (s.get('pmid') or s.get('doi'))]
+        seeds = ([s for s in included if s.get('key')] + [s for s in included if not s.get('key')])[:self.CITATION_SEEDS]
+        if not seeds:
+            self.checkpoint(citation_expansion={'status': 'skipped', 'seeds': 0})
+            return
+        request, output = self.folder / 'discovery' / 'citations-request.json', self.folder / 'discovery' / 'citations.json'
+        request.parent.mkdir(parents=True, exist_ok=True)
+        atomic_json(request, [{k: s.get(k) for k in ('source_id', 'doi', 'pmid')} for s in seeds])
+        result = self.call([sys.executable, '-m', 'ez.citations', '--input', str(request), '--output', str(output)], 300)
+        if result.returncode or not output.exists():
+            # Expansion improves recall; its failure must not stop the research.
+            self.checkpoint(citation_expansion={'status': 'failed', 'seeds': len(seeds), 'reason': result.reason or 'provider_error'})
+            return
+        import search_topic
+        from .acquisition import normalize_doi
+        from .workspace import topic_words
+        found = read_json(output)
+        words = topic_words(' '.join([self.contract['question']['original']] + [q['text'] for q in plan['queries']]
+                                     + [q['text'] for q in plan['notebook_questions']]))
+        merged = []
+        for record in found.get('records', []):
+            record['doi'] = normalize_doi(record.get('doi'))
+            if any(search_topic.same_identity(s, record) for s in self.sources):
+                continue
+            match = next((m for m in merged if search_topic.same_identity(m, record)), None)
+            if match is None:
+                merged.append(record)
+                continue
+            match['links'] += record['links']
+            for key, value in record.items():
+                if value and not match.get(key):
+                    match[key] = value
+        ranked = []
+        for record in merged:
+            linked = len({link['seed'] for link in record['links']})
+            overlap = len(words & topic_words(record['title'] + ' ' + (record.get('abstract') or '')))
+            # Pointed to by two relevant papers, or about the same topic as the question.
+            if linked >= 2 or overlap >= 2:
+                ranked.append((linked * 2 + overlap, record))
+        ranked.sort(key=lambda item: -item[0])
+        chosen = [record for _, record in ranked[:self.CITATION_CANDIDATES]]
+        for record in chosen:
+            key = record.get('doi') or record.get('pmid') or record['title']
+            links = record.pop('links')
+            self.sources.append(dict(record, source_id='src-' + sha256(key.lower().encode()).hexdigest()[:20],
+                                     discovery_origin='citations', citation_links=links, acquisition_status='pending',
+                                     identity_status='unknown', validation_status='unknown', notebook_status='pending',
+                                     screening='pending'))
+        if chosen:
+            self.save_sources()
+        self.checkpoint(citation_expansion={'status': 'complete', 'seeds': len(seeds), 'found': len(merged), 'added': len(chosen),
+                                            'failed_requests': found.get('failures', 0)})
+        self.screen()
 
     def in_library(self, source):
         from .library import matching
@@ -1171,6 +1236,7 @@ class Engine:
                             next_action='La investigación está en curso; el estado muestra el último punto guardado.')
             self.discover()
             self.screen(screening)
+            self.expand_citations()
             self.reuse_library()
             self.request_key_pdfs()
             self.acquire()

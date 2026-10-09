@@ -208,7 +208,9 @@ def plan_command(folder, args):
     contract['scope'] = scopes
     contract['plan'] = dict(contract['plan'], status='ready', delivery=args.delivery or contract['plan'].get('delivery', 'direct'),
                             discovery_mode='reuse_only' if args.reuse_only else 'search',
-                            queries=[{'id': f'q{i}', 'provider': p, 'text': t, 'scope_ids': ids} for i, (p, t) in enumerate(queries, 1)],
+                            citation_expansion=not args.reuse_only and not args.no_citations,
+                            queries=[{'id': f'q{i}', 'provider': p, 'text': t, 'scope_ids': ids, 'max_results': args.max_results}
+                                     for i, (p, t) in enumerate(queries, 1)],
                             notebook_questions=[{'id': f'qa{i}', 'scope_ids': [f'sq{i}'], 'text': t} for i, t in enumerate(questions, 1)],
                             stop_rule=args.stop_rule or DEFAULT_STOP_RULE)
     for policy in contract['source_policies']:
@@ -324,10 +326,39 @@ def ask_command(root, args):
         code = engine.execute()
         state = engine.state
     answer = read_json(folder / 'answer.json') if (folder / 'answer.json').exists() else {}
-    emit(dict(state, path=str(folder), kind='ask',
+    evidence = sufficiency(answer)
+    extra = {}
+    if evidence != 'sufficient':
+        command = f'ez research "{args.question}" --project {args.project} --plan-only'
+        extra['choices'] = [{'label': 'Buscar artículos nuevos sobre esto', 'action': command + ' y luego ez plan'},
+                            {'label': 'Quedarme con lo que hay', 'action': 'ninguna'}]
+        extra['next_action'] = (
+            ('La biblioteca del proyecto no responde esta pregunta. ' if evidence == 'insufficient' else
+             'La biblioteca responde solo en parte: NotebookLM dice que a sus fuentes les falta algo. ')
+            + 'Dile al usuario qué responde el corpus (con marcadores) y qué no, sin completar con memoria ni búsqueda web, y '
+            'ofrécele buscar artículos nuevos con las opciones de choices.')
+    else:
+        extra['next_action'] = ('La biblioteca del proyecto responde la pregunta. Responde solo con estas afirmaciones y sus '
+                                'marcadores [EZ:<id>]; no hace falta buscar artículos nuevos.')
+    emit(dict(state, path=str(folder), kind='ask', evidence=evidence,
               claims=[{'id': c['id'], 'text': c['text'], 'marker': f'[EZ:{c["id"]}]'} for c in answer.get('claims', [])],
-              uncited_statements=answer.get('uncited_statements', [])), args.json)
+              uncited_statements=answer.get('uncited_statements', []), **extra), args.json)
     return code
+
+
+# NotebookLM says so in an uncited sentence when its sources lack what was asked.
+MISSING_PHRASES = ('no se menciona', 'no mencionan', 'no menciona', 'no contiene', 'no contienen', 'no se describe',
+                   'no describen', 'no hay información', 'no proporciona', 'no proporcionan', 'no se encontr', 'no incluye',
+                   'no incluyen', 'no aborda', 'no abordan', 'not mention', 'no information', 'not described', 'not provide',
+                   'do not contain', 'does not contain', 'not discussed', 'not addressed')
+
+
+def sufficiency(answer):
+    """insufficient: no cited claim; partial: claims, but NotebookLM states its sources lack part of it; else sufficient."""
+    if not answer.get('claims'):
+        return 'insufficient'
+    notes = ' '.join(n.get('text', '') for n in answer.get('uncited_statements', [])).casefold()
+    return 'partial' if any(phrase in notes for phrase in MISSING_PHRASES) else 'sufficient'
 
 
 def export_command(folder, args):
@@ -398,6 +429,9 @@ def main(argv=None):
     p.add_argument('--query', action='append', metavar='PROVEEDOR:TEXTO', help='Búsqueda, p. ej. pubmed:"ethambutol glutamicum" (repetible).')
     p.add_argument('--delivery', choices=['direct', 'verified']); p.add_argument('--stop-rule')
     p.add_argument('--reuse-only', action='store_true', help='Responder solo con los PDFs ya verificados, sin buscar.')
+    p.add_argument('--max-results', type=int, default=25, choices=range(1, 101), metavar='1-100',
+                   help='Resultados por búsqueda y proveedor (25 por defecto).')
+    p.add_argument('--no-citations', action='store_true', help='No ampliar con los artículos que citan a los incluidos o que ellos citan.')
     p.add_argument('--accept-policy-change', action='store_true')
     p = sub.add_parser('screen', help='Decidir los candidatos del cribado sin escribir JSON.'); p.add_argument('run')
     p.add_argument('--include', action='append', metavar='"IDS: RAZÓN"'); p.add_argument('--exclude', action='append', metavar='"IDS: RAZÓN"')

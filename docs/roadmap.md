@@ -130,6 +130,11 @@ Hecho y validado offline:
     corpus: reglas fijas al inicio de AGENTS.md, CLAUDE.md y la guía; `operator_reminder` en
     cada salida JSON; `ez plan` y `ez screen` para que el agente no escriba JSON a mano;
     aviso en `docs/history/`.
+15. Cobertura (2026-10-09): `ez plan` pide 25 resultados por búsqueda y proveedor (antes, sin
+    `max_results`, eran 5); ampliación por citas en Europe PMC y OpenAlex con una segunda
+    ronda de cribado; `ez ask` informa `evidence` y, si la biblioteca no alcanza, ofrece
+    buscar artículos nuevos en vez de dejar que el agente complete. Falta medirlo en vivo
+    contra el gold set de M2.
 
 Ciclo de iteración desde ahora:
 

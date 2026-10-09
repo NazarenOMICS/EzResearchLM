@@ -43,6 +43,8 @@ class PlanTests(unittest.TestCase):
         proposal = read_json(result['proposal'])
         self.assertEqual([q['scope_ids'] for q in proposal['plan']['notebook_questions']], [['sq1'], ['sq2']])
         self.assertEqual(proposal['plan']['queries'][0]['provider'], 'pubmed')
+        self.assertEqual((proposal['plan']['queries'][0]['max_results'], proposal['plan']['citation_expansion']), (25, True))
+        self.assertIn('segunda ronda', result['estimate']['text'])
         self.assertEqual(before, (Path(self.run) / 'events.jsonl').read_bytes())
         self.assertEqual(read_json(Path(self.run) / 'research-contract.json')['plan']['status'], 'needs_host_plan')
         self.assertIn('--contract', result['choices'][0]['action'])

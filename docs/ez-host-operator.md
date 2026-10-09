@@ -95,7 +95,14 @@ Nunca respondas con tu memoria como si fuera evidencia:
    `[EZ:<id>]`, y dilo.
 2. Si no alcanzan, corre `ez ask "<pregunta>" --project <proyecto>`: NotebookLM responde con
    los PDFs ya verificados del proyecto, sin buscar ni descargar, en uno o dos minutos.
-   Contesta con sus afirmaciones y marcas.
+   Contesta con sus afirmaciones y marcas. `evidence` dice si alcanzó:
+   1. `sufficient`: responde con eso; no busques artículos nuevos.
+   2. `partial` o `insufficient`: di qué responde el corpus y qué no, sin completar con tu
+      memoria ni con la web, y ofrece buscar artículos nuevos con `choices` («Buscar
+      artículos nuevos sobre esto»). Con su visto bueno, abre una investigación en el mismo
+      proyecto (`ez research … --plan-only` y `ez plan`): reutiliza los PDFs que ya tiene y
+      busca solo lo que falta. Un artículo puntual que la persona nombra y no está en el
+      corpus («¿qué dice Smith 2019?») es el caso típico.
 3. Si la persona pide razonamiento propio (hipótesis, diseño experimental, interpretación),
    separa siempre dos partes con título: «Lo que dice el corpus», con marcas, y «Mi
    razonamiento (no es evidencia del corpus)». No cites enlaces, artículos ni datos que no
@@ -164,7 +171,8 @@ Las preguntas QA definen la respuesta. Plantea entre 3 y 5, una por subpregunta:
    `locked_by_user: true`.
 5. Armar el plan con `ez plan <corrida> --qa "<pregunta>" … --query proveedor:"<texto>" … --json`
    (`--delivery verified` si va a redactar; `--reuse-only` sin queries para responder solo con
-   la biblioteca del proyecto). Cada `--qa` es una subpregunta; los proveedores son `pubmed`,
+   la biblioteca del proyecto). Cada búsqueda trae 25 resultados por proveedor
+   (`--max-results`, hasta 100); `--no-citations` omite la ampliación por citas. Cada `--qa` es una subpregunta; los proveedores son `pubmed`,
    `europepmc`, `openalex`, `semantic` y `crossref`. `ez plan` valida sin escribir en la
    corrida ni consultar servicios, guarda la propuesta en `proposals/` y devuelve la
    estimación. Con el visto bueno del usuario, importar con el comando que indica:
@@ -191,7 +199,11 @@ Las preguntas QA definen la respuesta. Plantea entre 3 y 5, una por subpregunta:
    obligatorias. Registrar las decisiones con
    `ez screen <corrida> --include "id1,id2: razón" --exclude "id3: razón" --exclude-rest "razón" --key id1 --json`
    (`--uncertain "ids: razón"` para las dudosas); con `--check` solo valida. `ez screen` exige
-   una decisión con razón para cada candidato y sigue la corrida. Solo se descargan los incluidos, hasta
+   una decisión con razón para cada candidato y sigue la corrida. Después del primer cribado,
+   EZ busca en Europe PMC y OpenAlex los artículos que citan a los incluidos y los que ellos
+   citan, y vuelve a pausar con `NEEDS_SCREENING` («Segunda ronda»). Esos candidatos traen
+   `linked_to_included` (a cuántos incluidos están ligados); decídelos igual que los
+   primeros. Esa ronda ocurre una sola vez por corrida. Solo se descargan los incluidos, hasta
    `budgets.max_sources` (40 por defecto; el plan gratuito de NotebookLM admite 50).
    Las excluidas quedan registradas con su razón en `corpus_exclusions`.
 7. Ante PDFs no disponibles, explicar qué alcance depende de ellos. Usar
