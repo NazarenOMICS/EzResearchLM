@@ -1,96 +1,97 @@
 # EZresearchLM
 
-**EZ busca artículos científicos sobre tu pregunta, los carga en tu NotebookLM y te entrega
-lo que dicen, con el pasaje y la página de cada cita.** No responde de memoria: cada
-afirmación sale de un PDF que puedes abrir.
+[Leer en español](README.es.md)
 
-> **Versión preliminar.** Funciona de punta a punta, pero falta la validación externa
-> (comparación con otras herramientas e instalación en equipos limpios). Revisa cada
-> pasaje en su PDF antes de citarlo en una tesis o un artículo.
+**EZ finds scientific articles on your question, loads them into your NotebookLM and hands
+you what they say, with the passage and page behind every citation.** It does not answer
+from memory: every claim comes from a PDF you can open.
 
-## Empezar
+> **Preview release.** It works end to end, but external validation is still pending
+> (comparison with other tools, installs on clean machines). Check each passage in its PDF
+> before citing it in a thesis or a paper.
 
-Necesitas un agente en tu computadora, por ejemplo Codex o Claude Code, y una cuenta de
-Google para NotebookLM. Pégale a tu agente este mensaje:
+## Get started
 
-> Quiero usar esto para investigar: https://github.com/NazarenOMICS/EzResearchLM
+You need an AI agent on your computer, such as Codex or Claude Code, and a Google account
+for NotebookLM. Paste this message to your agent:
 
-El agente instala EZ y te guía paso a paso, con una pregunta por vez. No necesitas
-escribir comandos.
+> I want to use this for my research: https://github.com/NazarenOMICS/EzResearchLM
 
-Si no usas agentes en la terminal, hay una
-[extensión experimental para Claude Desktop](desktop/README.md).
+The agent installs EZ and guides you step by step, one question at a time. You do not need
+to type commands. EZ talks to you in your language.
 
-## Cómo es una investigación
+If you do not use agents in a terminal, there is an
+[experimental Claude Desktop extension](desktop/README.md).
 
-1. **Preparar.** EZ instala lo que falta. Tú entras a NotebookLM con tu cuenta de Google
-   en el navegador y, si quieres, das un correo de contacto para buscar más artículos
-   gratuitos.
-2. **Preguntar.** Cuentas qué quieres investigar y para qué. EZ te pregunta si es parte de
-   un proyecto que ya tienes o si abre uno nuevo.
-3. **Plan.** EZ te muestra en pocas líneas qué va a buscar y cuánto va a tardar, y espera tu
-   visto bueno.
-4. **Bibliografía.** EZ busca en PubMed, Europe PMC, OpenAlex y Crossref, elige los artículos
-   relevantes y te avisa **antes de descargar nada** si alguno clave es pago. Te da el
-   título y el enlace al DOI para que lo consigas por tu biblioteca o pidiéndolo a los
-   autores. Lo dejas en la bandeja del proyecto y EZ lo toma solo.
-5. **Respuesta.** EZ carga los PDFs en tu NotebookLM, le hace las preguntas y te entrega un
-   informe: lo central primero, cada afirmación con su pasaje y su página, lo que no se pudo
-   responder y por qué.
-6. **Después.** Puedes pedir que verifique las afirmaciones una por una antes de redactar,
-   exportar la bibliografía a Zotero o hacer otra pregunta en el mismo proyecto, que
-   reutiliza los artículos ya cargados.
+## What a research looks like
 
-## Dónde queda todo
+1. **Set up.** EZ installs what is missing. You sign in to NotebookLM with your Google
+   account in your browser and, if you like, give a contact email to find more free articles.
+2. **Ask.** You say what you want to research and why. EZ asks whether it belongs to one of
+   your existing projects or starts a new one.
+3. **Plan.** EZ shows you in a few lines what it will search for and how long it will take,
+   and waits for your go-ahead.
+4. **Bibliography.** EZ searches PubMed, Europe PMC, OpenAlex and Crossref, picks the
+   relevant articles and tells you **before downloading anything** if a key one is
+   paywalled. It gives you the title and a DOI link so you can get it through your library
+   or by asking the authors. You drop it in the project inbox and EZ picks it up.
+5. **Answer.** EZ loads the PDFs into your NotebookLM, asks its questions and delivers a
+   report: the key findings first, every claim with its passage and page, and what could not
+   be answered and why.
+6. **Then.** You can have each claim verified one by one before writing, export the
+   bibliography to Zotero, or ask another question in the same project, which reuses the
+   articles already loaded.
+
+## Where everything goes
 
 ```
-~/.ezresearch/proyectos/<tu proyecto>/
-├── LEEME.md      índice de tus investigaciones, con enlaces
-├── bandeja/      deja aquí tus PDFs
-└── informes/     cada informe y su bibliografía (.bib)
+~/.ezresearch/proyectos/<your project>/
+├── LEEME.md      index of your researches, with links
+├── bandeja/      drop your PDFs here (inbox)
+└── informes/     each report and its bibliography (.bib)
 ```
 
-Más detalle en [dónde queda cada cosa](docs/carpetas.md).
+Folder names are in Spanish for now. More in [where everything goes](docs/carpetas.md)
+(Spanish).
 
-## Qué se midió
+## What was measured
 
-Corridas reales de octubre de 2026 sobre la pregunta de prueba del proyecto (efecto del
-etambutol en *Corynebacterium glutamicum*):
+Live runs in October 2026 on the project's test question (the effect of ethambutol on
+*Corynebacterium glutamicum*):
 
-| Medida | Resultado |
+| Measure | Result |
 |---|---|
-| Investigación desde cero (búsqueda, descarga, 4 preguntas) | 6,5 minutos |
-| Pregunta en un proyecto con los PDFs ya cargados (5 preguntas) | entre 6 y 7 minutos |
-| Afirmaciones respaldadas por su pasaje, en 20 revisadas a mano | 18 respaldadas, 2 parciales, 0 sin respaldo |
+| Research from scratch (search, download, 4 questions) | 6.5 minutes |
+| Question in a project with its PDFs already loaded (5 questions) | 6 to 7 minutes |
+| Claims backed by their passage, 20 checked by hand | 18 supported, 2 partial, 0 unsupported |
 
-Cada pregunta a NotebookLM tarda alrededor de un minuto, igual que en su web. La muestra de
-20 es chica: la precisión real está, con 95 % de confianza, entre 70 % y 97 %. El detalle
-está en `gold_set_benchmark/` y el plan pendiente en la [hoja de ruta](docs/roadmap.md).
+Each NotebookLM question takes about a minute, the same as in its web app. A sample of 20 is
+small: the true precision lies, with 95 % confidence, between 70 % and 97 %. Details are in
+`gold_set_benchmark/` and the pending plan in the [roadmap](docs/roadmap.md) (Spanish).
 
-## Límites
+## Limits
 
-1. **NotebookLM gratuito** admite 50 fuentes por notebook y tiene una cuota de uso; cada
-   pregunta la consume.
-2. **Tus PDFs se suben a tu cuenta de Google**, dentro de NotebookLM.
-3. **EZ usa `notebooklm-py`, una librería no oficial.** Si Google cambia NotebookLM, EZ
-   puede dejar de funcionar hasta que se actualice.
-4. **Solo acceso abierto o PDFs tuyos.** EZ no usa Anna's Archive ni Sci-Hub ni evade
-   controles de acceso.
-5. **La comprobación es automática.** Las afirmaciones son oraciones de NotebookLM con los
-   pasajes que él mismo citó; la verificación opcional también la hace NotebookLM. Ninguna
-   de las dos es una revisión humana.
+1. **NotebookLM's free plan** allows 50 sources per notebook and has a usage quota; every
+   question uses it.
+2. **Your PDFs are uploaded to your Google account**, inside NotebookLM.
+3. **EZ relies on `notebooklm-py`, an unofficial library.** If Google changes NotebookLM, EZ
+   may stop working until it is updated.
+4. **Open access or your own PDFs only.** EZ does not use Anna's Archive or Sci-Hub and does
+   not bypass access controls.
+5. **Checking is automatic.** Claims are NotebookLM's sentences with the passages it cited
+   itself; the optional verification is done by NotebookLM too. Neither is a human review.
 
-## Instalación (para el agente)
+## Installation (for the agent)
 
-Si te pasaron solo el enlace de este repositorio, la persona quiere usar EZ y
-probablemente no sabe de terminales. Hazlo tú, sin pedirle comandos:
+If you were given only the link to this repository, the person wants to use EZ and
+probably does not know terminals. Do it yourself, without asking them for commands:
 
-1. Comprueba que estén Git y Python 3.10 o más nuevo (`git --version`, `python --version`).
-   Si falta alguno, explícale cómo instalarlo en una frase (en Windows:
-   `winget install Git.Git Python.Python.3.12`) y espera.
-2. Clona el repositorio en su carpeta de documentos. Si el enlace apunta a una rama
-   (`.../tree/<rama>`), clona esa rama.
-3. Instala EZ en un entorno aislado dentro del repositorio:
+1. Check that Git and Python 3.10 or newer are present (`git --version`, `python --version`).
+   If one is missing, explain in one sentence how to install it (on Windows:
+   `winget install Git.Git Python.Python.3.12`) and wait.
+2. Clone the repository into their documents folder. If the link points to a branch
+   (`.../tree/<branch>`), clone that branch.
+3. Install EZ in an isolated environment inside the repository:
 
    ```powershell
    cd $env:USERPROFILE\Documents\EZresearchLM
@@ -99,22 +100,25 @@ probablemente no sabe de terminales. Hazlo tú, sin pedirle comandos:
    .venv\Scripts\ez setup --check --json
    ```
 
-   En macOS o Linux, `.venv/bin/python` y `.venv/bin/ez`. Usa siempre el `ez` del entorno.
-4. Lee `AGENTS.md` y `docs/ez-host-operator.md` y empieza el onboarding de esa guía: un
-   paso y una pregunta por vez, sin mostrarle comandos ni JSON. `ez setup --check` dice qué
-   falta (instalar NotebookLM con `ez setup --install-notebooklm`, iniciar sesión, correo
-   para Unpaywall).
+   On macOS or Linux, use `.venv/bin/python` and `.venv/bin/ez`. Always call the
+   environment's `ez`.
+4. Read `AGENTS.md` and `docs/ez-host-operator.md` and start that guide's onboarding: one
+   step and one question at a time, without showing commands or JSON. Speak the person's
+   language; the guide is written in Spanish. `ez setup --check` reports what is missing
+   (install NotebookLM with `ez setup --install-notebooklm`, sign in, Unpaywall email).
 
-## Documentación
+## Documentation
 
-1. [Guía de primer uso](docs/ez-user-guide.md): qué puedes pedirle a EZ.
-2. [Guía del agente](docs/ez-host-operator.md): el recorrido completo que sigue el agente.
-3. [Contratos y estados](docs/ez-contracts.md) y [configuración](docs/configuration.md):
-   detalles técnicos.
-4. [Hoja de ruta](docs/roadmap.md): qué está hecho, qué falta y en qué orden.
-5. [Referencia legacy](docs/legacy-reference.md): corridas creadas con los wrappers
-   PowerShell anteriores.
+The detailed guides are in Spanish for now.
 
-## Licencia
+1. [First-use guide](docs/ez-user-guide.md): what you can ask EZ.
+2. [Agent guide](docs/ez-host-operator.md): the full flow the agent follows.
+3. [Contracts and states](docs/ez-contracts.md) and [configuration](docs/configuration.md):
+   technical details.
+4. [Roadmap](docs/roadmap.md): what is done, what is missing and in which order.
+5. [Legacy reference](docs/legacy-reference.md): runs created with the earlier PowerShell
+   wrappers.
+
+## License
 
 MIT.
