@@ -33,7 +33,7 @@ Missing sources retain only the scopes defined by their policies. Do not apply a
 global binary required-source gate to an EZ v2 contract.
 
 Do not use model memory to create bibliographic claims. NotebookLM is the evidence
-engine; QMD and local search are recall helpers, not evidence.
+engine; local search only finds sources, it is not evidence.
 
 ## Rules
 

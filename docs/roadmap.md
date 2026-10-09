@@ -192,7 +192,7 @@ Recién entonces sigue A3.
 
 | ID | Tema | Dueño |
 |---|---|---|
-| T1 | QMD: `ez setup` lo comprueba y la documentación lo menciona, pero ningún comando de EZ lo usa. Decidir entre recuperar la búsqueda local sobre un vault de notas o quitarlo | decisión |
+| T1 | **Hecho (2026-10-09):** QMD salió de `ez setup` y de la documentación; ningún comando lo usaba. Su función (responder con pasajes ya citados antes de volver a preguntar) se retoma con un vault propio de EZ | código |
 | T2 | `legacy_signals` nombra las señales vigentes (`NEEDS_SCREENING`, …): renombrarlo cambia el esquema de estado y requiere migración | código |
 | T3 | `engine.py` (≈1.300 líneas) y `main()` de `cli.py` concentran casi toda la lógica; partirlos por etapa facilitaría mantenerlos | código |
 | T4 | `paper_search_mcp` lee su propio `.env` desde la carpeta actual, además del que carga EZ | código |

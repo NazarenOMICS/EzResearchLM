@@ -40,7 +40,7 @@ accidentales; no es una firma digital contra quien controla toda la carpeta.
 
 Cada política declara `source_id`, `scope_ids`, `rationale` y `locked_by_user`.
 Modificar una obligación fijada por el usuario exige una autorización explícita.
-El puntaje QMD, la disponibilidad OA y el número de archivos no prueban suficiencia.
+La disponibilidad OA y el número de archivos no prueban suficiencia.
 
 Una fuente PMC puede especificar `pmc_version` como entero positivo. Sin selección
 explícita, la existencia de varias versiones exige revisión antes de usar el PDF.
@@ -182,7 +182,7 @@ cierran también al terminar normalmente el padre.
 EZ aplica un presupuesto de tiempo activo por corrida y por fuente. Los workers de
 búsqueda, descarga y NotebookLM reciben el tiempo restante; las esperas del usuario
 entre continuaciones no consumen tiempo activo. La limpieza de procesos puede
-añadir unos segundos al vencimiento. QMD tiene un límite independiente y es opcional.
+añadir unos segundos al vencimiento.
 El login interactivo pertenece al usuario; sus verificaciones de acceso son acotadas.
 
 ## Migración y rollback

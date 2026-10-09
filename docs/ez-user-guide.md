@@ -105,7 +105,7 @@ todavía no significa que haya una respuesta revisada disponible.
 
 Si necesitas instalar el programa, sigue [SETUP.md](../SETUP.md) con tu agente.
 El acceso a NotebookLM lo completas tú en el navegador. No compartas cookies ni
-tokens en la conversación. QMD es una ayuda opcional para encontrar material local.
+tokens en la conversación.
 
 ## Las acciones disponibles
 
@@ -143,8 +143,7 @@ Ejemplo ilustrativo de una respuesta parcial, no un resultado académico real:
 - **Problema de integridad:** se retiene la respuesta afectada porque cambió un
   archivo, una cita no se puede verificar o el corpus no corresponde al registro.
 
-La ausencia de QMD no significa que falte evidencia académica. El número de PDFs
-tampoco demuestra que la pregunta pueda responderse. La cobertura se revisa con QA.
+El número de PDFs no demuestra que la pregunta pueda responderse. La cobertura se revisa con QA.
 
 ## Recuperar documentos y retomar trabajo
 

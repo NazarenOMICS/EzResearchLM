@@ -142,7 +142,6 @@ Las preguntas QA definen la respuesta. Plantea entre 3 y 5, una por subpregunta:
    Preparar el entorno con `ez setup` si falta configuración. Si falta NotebookLM,
    explicar la instalación aislada disponible mediante `ez setup --install-notebooklm`.
    El usuario completa el login en su navegador. No leer, copiar ni imprimir cookies.
-   QMD es opcional; su ausencia no impide investigar con un corpus nuevo.
 2. Leer `ez context --project <proyecto> --json`. Registrar preferencias explícitas
    con `--set <campo> <valor>`. Preguntar solamente por información que afecte el
    alcance; conservar idioma, disciplina, inclusiones, exclusiones y presupuesto.
@@ -283,7 +282,7 @@ Las preguntas QA definen la respuesta. Plantea entre 3 y 5, una por subpregunta:
    `numbers_not_in_passages`, señalarlo: un número de la afirmación no aparece en sus
    pasajes. Decir claramente
    cuándo la respuesta es parcial y qué falta para ampliarla. No completar huecos
-   desde memoria ni usar resultados QMD como evidencia académica.
+   desde memoria.
 
 ## Notebook por proyecto
 
