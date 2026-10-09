@@ -40,6 +40,10 @@
       "description": "Abrir el inicio de sesión de NotebookLM en el navegador"
     },
     {
+      "name": "ez_projects",
+      "description": "Proyectos guardados y cuál se relaciona con una pregunta"
+    },
+    {
       "name": "ez_context",
       "description": "Preferencias del proyecto"
     },

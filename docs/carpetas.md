@@ -38,6 +38,14 @@ fuentes con su hash, respuestas de NotebookLM, el registro encadenado `events.js
 `answer.json` y el `report.md` original. No lo edites: `ez doctor` detecta cualquier
 cambio. Si necesitas algo de ahí, la copia en `informes/` es tuya.
 
+## Proyectos y reutilización
+
+Cada pregunta pertenece a un proyecto. Cuando haces una pregunta nueva, EZ te dice si se
+parece a uno de tus proyectos y te pregunta si la suma ahí o abre uno nuevo. Dentro de un
+proyecto, los artículos ya verificados en investigaciones anteriores se reutilizan sin
+volver a descargarlos, y todas las investigaciones usan el mismo notebook de NotebookLM
+mientras entren sus 50 fuentes.
+
 ## PDFs de otras carpetas
 
 Si ya tienes tus PDFs en otro lugar (tu biblioteca, Zotero, Descargas), pídele a EZ que

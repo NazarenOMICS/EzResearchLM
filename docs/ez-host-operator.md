@@ -23,11 +23,21 @@ qué pasó. Una pregunta por mensaje.
    `ez setup --unpaywall-email`. Vuelve a comprobar después de cada paso.
 3. **Entrevista breve**, de a una pregunta:
    1. «¿Qué quieres investigar y para qué lo necesitas?» (tesis, artículo, clase).
-   2. «¿Tienes PDFs propios sobre el tema?» Ofrécele dos caminos: dejarlos en la bandeja del
+   2. **Proyecto.** Con la pregunta, corre `ez projects --suggest "<pregunta>" --json`.
+      Si un proyecto aparece relacionado, pregunta: «Esto parece parte de tu proyecto
+      <nombre>, que ya tiene <N> artículos verificados y cargados en NotebookLM. ¿Lo sumo
+      ahí o abro un proyecto nuevo?». Si lo suma, ofrece además: «¿Respondo primero solo con
+      lo que ya tiene el proyecto (unos pocos minutos) o busco también artículos nuevos?».
+      Lo primero es un plan `discovery_mode: "reuse_only"` sin queries; lo segundo, un plan
+      normal en ese proyecto: los artículos que ya estén en la biblioteca del proyecto se
+      copian sin descargar y el notebook se reutiliza. Si ningún proyecto se relaciona,
+      propone un proyecto nuevo con un nombre corto («Creo el proyecto
+      etambutol-corynebacterium, ¿te parece?») y usa ese nombre en `--project`.
+   3. «¿Tienes PDFs propios sobre el tema?» Ofrécele dos caminos: dejarlos en la bandeja del
       proyecto (dale el enlace `workspace.inbox_link` de `ez context`) o indicarte otra
       carpeta suya. Solo lees una carpeta fuera de la base de EZ cuando la persona la
       nombra; entonces usa `ez rescue --import-folder <carpeta>`.
-   3. Solo si cambia el alcance: período, organismo o población, fuentes que no pueden faltar.
+   4. Solo si cambia el alcance: período, organismo o población, fuentes que no pueden faltar.
    Guarda lo dicho con `ez context --set`.
 4. **Plan en lenguaje llano.** Antes de correr, muestra en 4 a 6 líneas las subpreguntas,
    dónde se va a buscar y la estimación que devuelve `ez continue --contract … --check`
@@ -49,8 +59,12 @@ qué pasó. Una pregunta por mensaje.
    la bibliografía a Zotero (`ez export`), (3) redactar un párrafo con marcas `[EZ:<id>]`,
    (4) otra pregunta del mismo proyecto, que reutiliza los PDFs ya cargados.
 
-Si la persona vuelve otro día, lee `ez context --project <proyecto> --json` y retoma desde
-la última investigación sin repetir la entrevista.
+Si la persona vuelve otro día, corre `ez projects --json`, muéstrale sus proyectos en una
+lista corta (nombre, investigaciones, última actividad) y pregúntale en cuál sigue. Lee
+`ez context --project <proyecto> --json` y retoma sin repetir la entrevista.
+
+En el cribado, los candidatos con `in_project: true` ya están verificados en otra
+investigación del proyecto: incluirlos no cuesta descarga ni subida.
 
 Al entregar resultados, identifica el alcance completo o parcial, las citas y
 limitaciones y dónde retomar la investigación. Explica las citas usando la fuente
