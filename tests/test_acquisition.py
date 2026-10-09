@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from PyPDF2 import PdfWriter
 
-from ez.acquisition import Retriever, archive_pdf, failure, normalize_doi
+from ez.acquisition import Retriever, archive_pdf
 from ez.acquisition import verify_identity
 from ez.contracts import draft, validate
 from ez.contracts import ContractError

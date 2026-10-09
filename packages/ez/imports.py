@@ -8,7 +8,7 @@ from .contracts import ContractError, now
 from .paths import contained
 from .pdf import validate_pdf_bounded
 
-INBOX_ORIGIN = SimpleNamespace(origin_provider='user_import', origin='bandeja del proyecto', license=None, source_version=None)
+INBOX_ORIGIN = SimpleNamespace(origin_provider='user_import', origin='project inbox', license=None, source_version=None)
 
 
 def import_pdf(folder, store, source, path, args, actor='user'):

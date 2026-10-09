@@ -1,4 +1,4 @@
-﻿# paper_search_mcp/sources/pubmed.py
+# paper_search_mcp/sources/pubmed.py
 from typing import List
 import requests
 from xml.etree import ElementTree as ET
@@ -152,38 +152,6 @@ class PubMedSearcher(PaperSource):
             except Exception:
                 continue
         return papers
-
-    def download_pdf(self, paper_id: str, save_path: str) -> str:
-        """Attempt to download a paper's PDF from PubMed.
-
-        Args:
-            paper_id: PubMed ID (PMID)
-            save_path: Directory to save the PDF
-
-        Returns:
-            str: Error message indicating PDF download is not supported
-
-        Raises:
-            NotImplementedError: Always raises this error as PubMed doesn't provide direct PDF access
-        """
-        message = ("PubMed does not provide direct PDF downloads. "
-                  "Please use the paper's DOI or URL to access the publisher's website.")
-        raise NotImplementedError(message)
-
-    def read_paper(self, paper_id: str, save_path: str = "./downloads") -> str:
-        """Attempt to read and extract text from a PubMed paper.
-
-        Args:
-            paper_id: PubMed ID (PMID)
-            save_path: Directory for potential PDF storage (unused)
-
-        Returns:
-            str: Error message indicating PDF reading is not supported
-        """
-        message = ("PubMed papers cannot be read directly through this tool. "
-                  "Only metadata and abstracts are available through PubMed's API. "
-                  "Please use the paper's DOI or URL to access the full text on the publisher's website.")
-        return message
 
 if __name__ == "__main__":
     # æµ‹è¯• PubMedSearcher çš„åŠŸèƒ½

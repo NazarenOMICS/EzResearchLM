@@ -62,7 +62,8 @@ def draft(question, context):
         'created_at': now(), 'question': {'original': question, 'language': context.get('language', 'es')},
         'context': context, 'scope': [{'id': 'sq1', 'question': question, 'central': True}],
         # direct: NotebookLM's cited sentences; verified: host review plus a support query per claim.
-        'plan': {'status': 'needs_host_plan', 'delivery': 'direct', 'queries': [], 'notebook_questions': [], 'stop_rule': ''},
+        'plan': {'status': 'needs_host_plan', 'delivery': 'direct', 'citation_expansion': True, 'queries': [],
+                 'notebook_questions': [], 'stop_rule': ''},
         'source_policies': [], 'acquisition': {'anna_enabled': False, 'consent_id': None},
         'budgets': {'run_seconds': 3600, 'source_seconds': 120, 'attempts_per_route': 2, 'max_sources': DEFAULT_MAX_SOURCES},
         'operator': {'name': 'EZ', 'backend': 'host_agent', 'model': 'unknown'},
@@ -92,4 +93,7 @@ def estimate(contract, reused=False):
     return {'notebooklm_questions': questions, 'minutes': [round(low), round(high) + 1],
             'verification': 'Verificar afirmaciones para redactar suma 1 consulta cada 6 y unos 3 minutos cada 10.',
             'text': f'Unas {questions} consultas a NotebookLM y entre {round(low)} y {round(high) + 1} minutos. Cada '
-                    'pregunta tarda alrededor de un minuto, igual que en la web de NotebookLM.'}
+                    'pregunta tarda alrededor de un minuto, igual que en la web de NotebookLM.'
+                    + (' Además habrá una segunda ronda de cribado con los artículos que citan a los incluidos o que ellos '
+                       'citan; ese tiempo todavía no está medido.' if contract['plan'].get('citation_expansion')
+                       and contract['plan'].get('discovery_mode') != 'reuse_only' else '')}

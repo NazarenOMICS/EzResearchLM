@@ -1,6 +1,6 @@
 import json, os, time, urllib.request, urllib.parse, datetime
 D = os.path.dirname(os.path.abspath(__file__))
-UA = {"User-Agent": "tesis-goldset/1.0 (mailto:nazarenocabrerati@gmail.com)"}
+UA = {"User-Agent": "tesis-goldset/1.0 (mailto:" + os.environ.get("GOLDSET_CONTACT_EMAIL", "you@example.com") + ")"}
 def get(u):
     for _ in range(3):
         try:

@@ -87,7 +87,7 @@ ni presentar el resultado automático como aceptación independiente.
 
 El umbral propuesto de lanzamiento es ≥90% de obras curadas con ruta autorizada
 conocida, recuperadas con identidad y versión aceptadas, según
-[el protocolo de beta](beta-and-release.md). Evaluarlo requiere el corpus
+[el protocolo de beta](history/beta-and-release.md). Evaluarlo requiere el corpus
 representativo acordado y su revisión independiente. Incluso cinco éxitos de cinco
 en este piloto no acreditan ese criterio de lanzamiento.
 

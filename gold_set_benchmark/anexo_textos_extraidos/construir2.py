@@ -3,7 +3,7 @@ S = os.path.dirname(os.path.abspath(__file__))
 spec = importlib.util.spec_from_file_location("c", os.path.join(S, "construir.py")); c = importlib.util.module_from_spec(spec)
 with contextlib.redirect_stdout(io.StringIO()): spec.loader.exec_module(c)
 OUT = c.OUT
-UA = {"User-Agent": "tesis-goldset/1.0 (mailto:nazarenocabrerati@gmail.com)"}
+UA = {"User-Agent": "tesis-goldset/1.0 (mailto:" + os.environ.get("GOLDSET_CONTACT_EMAIL", "you@example.com") + ")"}
 def epmc(doi):
     u = "https://www.ebi.ac.uk/europepmc/webservices/rest/search?format=json&resultType=core&query=" + urllib.parse.quote(f'DOI:"{doi}"')
     r = json.load(urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=60))["resultList"]["result"]

@@ -119,8 +119,22 @@ Hecho y validado offline:
 7. Guía para escribir preguntas QA.
 8. Medidor `gold_set_benchmark/puntuar.py`.
 9. Pedido de artículos clave sin acceso abierto antes de descargar (`NEEDS_KEY_PDFS`, `key-pdfs.md` con enlaces al DOI).
-10. Carpetas por proyecto: bandeja de PDFs que EZ toma sola, informes con su `.bib` e índice `LEEME.md` (`docs/carpetas.md`).
+10. Carpetas por proyecto: bandeja de PDFs que EZ toma sola, informes con su `.bib` e índice `README.md` (`docs/carpetas.md`).
 11. Elección de proyecto ante cada pregunta (`ez projects --suggest`) y biblioteca del proyecto: PDFs verificados reutilizados sin descargar, respuesta solo con lo que ya hay (`reuse_only`).
+
+12. Enlaces al DOI en cada lista de artículos, opciones para elegir con un clic (`choices`) y
+    carpetas en inglés (`inbox/`, `reports/`, `README.md`) con migración de las anteriores.
+13. Preguntas de seguimiento con `ez ask`, respondidas solo con la biblioteca del proyecto.
+14. Barandas contra la deriva del agente (2026-10-09), tras una prueba con Codex en Windows en
+    la que, después de compactar el contexto, el agente respondió con búsqueda web y sin el
+    corpus: reglas fijas al inicio de AGENTS.md, CLAUDE.md y la guía; `operator_reminder` en
+    cada salida JSON; `ez plan` y `ez screen` para que el agente no escriba JSON a mano;
+    aviso en `docs/history/`.
+15. Cobertura (2026-10-09): `ez plan` pide 25 resultados por búsqueda y proveedor (antes, sin
+    `max_results`, eran 5); ampliación por citas en Europe PMC y OpenAlex con una segunda
+    ronda de cribado; `ez ask` informa `evidence` y, si la biblioteca no alcanza, ofrece
+    buscar artículos nuevos en vez de dejar que el agente complete. Falta medirlo en vivo
+    contra el gold set de M2.
 
 Ciclo de iteración desde ahora:
 
@@ -161,9 +175,10 @@ Recién entonces sigue A3.
 | ID | Tarea | Dueño | Puerta |
 |---|---|---|---|
 | C1 | Instalación en un Windows limpio siguiendo solo el README | usuario | Lista de pasos que fallaron, o ninguno |
-| C2 | **Hecho:** informes viejos y planes superados en `docs/history/`. `Rules_Of_Writing.md` sigue en la raíz porque AGENTS.md lo usa | código | Raíz con README, AGENTS, CLAUDE y SETUP |
+| C2 | **Hecho:** informes viejos y planes superados en `docs/history/`. El 2026-10-09 se quitó la capa de wrappers PowerShell (scripts `.ps1`, `notebooklm/scripts`, `examples/`, guías legacy) y `Rules_Of_Writing.md`, cuyas reglas generales pasaron a AGENTS.md | código | Raíz con README, AGENTS, CLAUDE y SETUP |
 | C3 | Publicar en el README los resultados de A1 a A3 y los tiempos reales | código | Números con fecha y versión |
-| C4 | Mergear `NazarenOMICS/EzResearchLM#1` a `main` y etiquetar la versión | usuario | Etiqueta `v0.x` |
+| C4 | Etiquetar la versión: `NazarenOMICS/EzResearchLM#1` y `NazarenOMICS/EzResearchLM#2` ya están en `main`; falta igualar la versión del paquete (`0.2.0a3`) y la de la extensión (`0.3.0`) y fijar la extensión a esa etiqueta en vez de `@main` | usuario | Etiqueta `v0.x` |
+| C5 | **Hecho (2026-10-09):** limpieza de código muerto. `search_topic.py` quedó en lo que EZ usa (búsqueda y deduplicación; de 1.096 a 187 líneas); salieron `unpaywall.py`, `base_search.py` (importaba un módulo inexistente), los métodos de descarga y lectura de los buscadores, `ez/upload.py` e importaciones sin uso | código | `pyflakes` sin avisos |
 
 ### Fase D. Usuarios sin terminal
 
@@ -172,6 +187,17 @@ Recién entonces sigue A3.
 | D1 | **Hecho:** `ez_continue` y `ez_submit` corren en segundo plano y `ez_status` informa la operación | código |
 | D2 | Prueba real de la extensión en Claude Desktop, incluido el login | usuario |
 | D3 | Migrar a `mcp` 2.x cuando su API se estabilice | código |
+
+### Deuda técnica conocida
+
+| ID | Tema | Dueño |
+|---|---|---|
+| T1 | **Hecho (2026-10-09):** QMD salió de `ez setup` y de la documentación; ningún comando lo usaba. Su función (responder con pasajes ya citados antes de volver a preguntar) se retoma con un vault propio de EZ | código |
+| T2 | `legacy_signals` nombra las señales vigentes (`NEEDS_SCREENING`, …): renombrarlo cambia el esquema de estado y requiere migración | código |
+| T3 | `engine.py` (≈1.300 líneas) y `main()` de `cli.py` concentran casi toda la lógica; partirlos por etapa facilitaría mantenerlos | código |
+| T4 | `paper_search_mcp` lee su propio `.env` desde la carpeta actual, además del que carga EZ | código |
+| T5 | Las guías del usuario y del agente están solo en español, y los mensajes del programa también | código |
+| T6 | La ampliación por citas y el pedido de 25 resultados no se midieron en vivo | usuario |
 
 ### Fase E. Mejoras de uso (después del lanzamiento)
 

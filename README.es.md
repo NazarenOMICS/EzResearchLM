@@ -46,10 +46,10 @@ Si no usas agentes en la terminal, hay una
 ## Dónde queda todo
 
 ```
-~/.ezresearch/proyectos/<tu proyecto>/
-├── LEEME.md      índice de tus investigaciones, con enlaces
-├── bandeja/      deja aquí tus PDFs
-└── informes/     cada informe y su bibliografía (.bib)
+~/.ezresearch/projects/<tu proyecto>/
+├── README.md     índice de tus investigaciones, con enlaces
+├── inbox/        deja aquí tus PDFs
+└── reports/      cada informe y su bibliografía (.bib)
 ```
 
 Más detalle en [dónde queda cada cosa](docs/carpetas.md).
@@ -114,8 +114,6 @@ probablemente no sabe de terminales. Hazlo tú, sin pedirle comandos:
 3. [Contratos y estados](docs/ez-contracts.md) y [configuración](docs/configuration.md):
    detalles técnicos.
 4. [Hoja de ruta](docs/roadmap.md): qué está hecho, qué falta y en qué orden.
-5. [Referencia legacy](docs/legacy-reference.md): corridas creadas con los wrappers
-   PowerShell anteriores.
 
 ## Licencia
 

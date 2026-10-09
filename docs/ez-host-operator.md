@@ -6,6 +6,23 @@ presenta como **EZ**; NotebookLM sigue siendo el motor de evidencia. Este adapta
 es un candidato interno: existen pruebas autenticadas de desarrollo, pero quedan
 pendientes la aceptación desde Windows limpio y la beta independiente.
 
+## Reglas que no se negocian
+
+Valen durante toda la conversación, también después de que se compacte el contexto.
+Cada salida JSON de `ez` las repite en `operator_reminder`.
+
+1. Toda afirmación sobre la literatura sale de EZ y lleva su marcador `[EZ:<id>]`.
+2. Una pregunta de seguimiento se responde con las afirmaciones ya entregadas o con
+   `ez ask "<pregunta>" --project <proyecto>`. Artículos nuevos, solo con `ez research`.
+3. Nunca usar búsqueda web ni la memoria del modelo para afirmaciones bibliográficas, ni
+   para completar una respuesta de EZ. Si el usuario pide explícitamente un dato externo
+   (por ejemplo, una entrada de UniProt), va aparte y rotulado «fuente externa, no del corpus».
+4. Un borrador se redacta solo con `ez draft` y se comprueba con `ez draft <corrida> --check`.
+5. El plan se arma con `ez plan` y el cribado con `ez screen`. No escribir ni editar a mano
+   archivos de una corrida (`research-contract.json`, `sources.json`, `state.json`, …) ni
+   escribir scripts que los generen.
+6. No leer `docs/history/`: describe versiones anteriores y confunde el formato vigente.
+
 ## Primera conversación (onboarding)
 
 La persona puede no saber nada de agentes, terminales ni NotebookLM. Llévala tú, un
@@ -40,8 +57,8 @@ qué pasó. Una pregunta por mensaje.
    4. Solo si cambia el alcance: período, organismo o población, fuentes que no pueden faltar.
    Guarda lo dicho con `ez context --set`.
 4. **Plan en lenguaje llano.** Antes de correr, muestra en 4 a 6 líneas las subpreguntas,
-   dónde se va a buscar y la estimación que devuelve `ez continue --contract … --check`
-   (consultas y minutos). Pide un «dale» explícito.
+   dónde se va a buscar y la estimación que devuelve `ez plan` (consultas y minutos). Pide
+   un «dale» explícito y recién entonces sigue el comando de `choices` («Empezar»).
 5. **Durante la corrida**, avisa en una línea cada vez que EZ cambia de etapa y cuando la
    persona tiene que actuar. Cuando pidas PDFs, da siempre el enlace clicable a la bandeja
    del proyecto: EZ toma solo lo que la persona deje ahí al continuar. En
@@ -53,11 +70,44 @@ qué pasó. Una pregunta por mensaje.
    importa la carpeta; si no, sigue con `--skip-missing`. En `NEEDS_USER_PDFS`, muéstrale `pdf-request.md` como lista
    (título, año y enlace) y pregúntale si tiene alguno; si no, sigue con `--skip-missing`.
 6. **Entrega.** Resume en 5 líneas lo central, da el enlace al informe en la carpeta del
-   proyecto (`workspace.report_link` de `ez status --answer`) y al índice del proyecto
-   (`LEEME.md`), y ofrece, como
+   proyecto (`workspace.report_link` de `ez status --answer`, en `reports/`, no el de
+   `runs/`) y al índice del proyecto (`README.md`), y ofrece, como
    opciones numeradas: (1) verificar afirmaciones para redactar (`--verify`), (2) exportar
    la bibliografía a Zotero (`ez export`), (3) redactar un párrafo con marcas `[EZ:<id>]`,
    (4) otra pregunta del mismo proyecto, que reutiliza los PDFs ya cargados.
+
+**Opciones para elegir con un clic.** Cuando EZ espera una decisión, el estado trae
+`choices` (por ejemplo, «Ya dejé los PDFs en la bandeja», «Seguir sin ellos»). Si tu
+interfaz permite ofrecer opciones para elegir (en Claude Code, la herramienta de preguntas
+con opciones), preséntalas así; si no, numéralas para que la persona responda con un
+número. Haz lo mismo con tus propias preguntas cerradas: proyecto existente o nuevo, «dale»
+al plan, responder solo con lo que ya hay o buscar artículos nuevos.
+
+**Listas de artículos.** Cuando EZ pide PDFs (`key-pdfs.md`, `pdf-request.md`, o
+`missing_pdfs` en el estado), muestra la lista tal cual: título completo sin traducir ni
+resumir y el DOI de cada uno como enlace clicable. La persona necesita esos datos para
+buscarlos.
+
+**Preguntas de seguimiento.** Después de una entrega, la persona suele seguir preguntando.
+Nunca respondas con tu memoria como si fuera evidencia:
+
+1. Si las afirmaciones entregadas ya responden, contesta solo con ellas y sus marcas
+   `[EZ:<id>]`, y dilo.
+2. Si no alcanzan, corre `ez ask "<pregunta>" --project <proyecto>`: NotebookLM responde con
+   los PDFs ya verificados del proyecto, sin buscar ni descargar, en uno o dos minutos.
+   Contesta con sus afirmaciones y marcas. `evidence` dice si alcanzó:
+   1. `sufficient`: responde con eso; no busques artículos nuevos.
+   2. `partial` o `insufficient`: di qué responde el corpus y qué no, sin completar con tu
+      memoria ni con la web, y ofrece buscar artículos nuevos con `choices` («Buscar
+      artículos nuevos sobre esto»). Con su visto bueno, abre una investigación en el mismo
+      proyecto (`ez research … --plan-only` y `ez plan`): reutiliza los PDFs que ya tiene y
+      busca solo lo que falta. Un artículo puntual que la persona nombra y no está en el
+      corpus («¿qué dice Smith 2019?») es el caso típico.
+3. Si la persona pide razonamiento propio (hipótesis, diseño experimental, interpretación),
+   separa siempre dos partes con título: «Lo que dice el corpus», con marcas, y «Mi
+   razonamiento (no es evidencia del corpus)». No cites enlaces, artículos ni datos que no
+   estén en el corpus. Si un artículo externo parece necesario, propón sumarlo al proyecto
+   con una investigación nueva.
 
 Si la persona vuelve otro día, corre `ez projects --json`, muéstrale sus proyectos en una
 lista corta (nombre, investigaciones, última actividad) y pregúntale en cuál sigue. Lee
@@ -92,7 +142,6 @@ Las preguntas QA definen la respuesta. Plantea entre 3 y 5, una por subpregunta:
    Preparar el entorno con `ez setup` si falta configuración. Si falta NotebookLM,
    explicar la instalación aislada disponible mediante `ez setup --install-notebooklm`.
    El usuario completa el login en su navegador. No leer, copiar ni imprimir cookies.
-   QMD es opcional; su ausencia no impide investigar con un corpus nuevo.
 2. Leer `ez context --project <proyecto> --json`. Registrar preferencias explícitas
    con `--set <campo> <valor>`. Preguntar solamente por información que afecte el
    alcance; conservar idioma, disciplina, inclusiones, exclusiones y presupuesto.
@@ -119,10 +168,16 @@ Las preguntas QA definen la respuesta. Plantea entre 3 y 5, una por subpregunta:
    Una política `contextual` pendiente necesita una decisión explícita antes de
    habilitar sus conclusiones. Las obligaciones fijadas por el usuario conservan
    `locked_by_user: true`.
-5. Validar la propuesta con `ez continue <corrida> --contract <propuesta> --check --json`:
-   informa errores y pendientes sin escribir ni consultar servicios. Corregirla
-   hasta que `ready` sea verdadero.
-   Importar mediante `ez continue <corrida> --contract <propuesta> --json`. Guardar
+5. Armar el plan con `ez plan <corrida> --qa "<pregunta>" … --query proveedor:"<texto>" … --json`
+   (`--delivery verified` si va a redactar; `--reuse-only` sin queries para responder solo con
+   la biblioteca del proyecto). Cada búsqueda trae 25 resultados por proveedor
+   (`--max-results`, hasta 100); `--no-citations` omite la ampliación por citas. Cada `--qa` es una subpregunta; los proveedores son `pubmed`,
+   `europepmc`, `openalex`, `semantic` y `crossref`. `ez plan` valida sin escribir en la
+   corrida ni consultar servicios, guarda la propuesta en `proposals/` y devuelve la
+   estimación. Con el visto bueno del usuario, importar con el comando que indica:
+   `ez continue <corrida> --contract <propuesta> --json`. Para cambiar el plan, volver a
+   usar `ez plan`. Las políticas de fuentes, cuando hacen falta, son el único caso que
+   justifica editar una copia de la propuesta antes de importarla. Guardar
    resultados y atender el siguiente paso indicado. Reanudar la misma corrida
    ante una interrupción; cambiar la pregunta o la búsqueda exige otra corrida.
    Tras subir PDFs, EZ espera hasta 4 minutos el procesamiento de NotebookLM. Si unos
@@ -140,8 +195,14 @@ Las preguntas QA definen la respuesta. Plantea entre 3 y 5, una por subpregunta:
    razón breve. Marca `"key": true` en los incluidos que son centrales para responder
    (pocos: los que una persona del área citaría sí o sí). Cada candidato trae
    `open_access` (`yes`, `no`, `unknown`); entre dos equivalentes, prefiere el abierto. Consultar al usuario solo por los dudosos y por las fuentes
-   obligatorias. Validar con `ez continue <corrida> --screening <copia> --check --json`
-   e importar sin `--check`. Solo se descargan los incluidos, hasta
+   obligatorias. Registrar las decisiones con
+   `ez screen <corrida> --include "id1,id2: razón" --exclude "id3: razón" --exclude-rest "razón" --key id1 --json`
+   (`--uncertain "ids: razón"` para las dudosas); con `--check` solo valida. `ez screen` exige
+   una decisión con razón para cada candidato y sigue la corrida. Después del primer cribado,
+   EZ busca en Europe PMC y OpenAlex los artículos que citan a los incluidos y los que ellos
+   citan, y vuelve a pausar con `NEEDS_SCREENING` («Segunda ronda»). Esos candidatos traen
+   `linked_to_included` (a cuántos incluidos están ligados); decídelos igual que los
+   primeros. Esa ronda ocurre una sola vez por corrida. Solo se descargan los incluidos, hasta
    `budgets.max_sources` (40 por defecto; el plan gratuito de NotebookLM admite 50).
    Las excluidas quedan registradas con su razón en `corpus_exclusions`.
 7. Ante PDFs no disponibles, explicar qué alcance depende de ellos. Usar
@@ -221,7 +282,7 @@ Las preguntas QA definen la respuesta. Plantea entre 3 y 5, una por subpregunta:
    `numbers_not_in_passages`, señalarlo: un número de la afirmación no aparece en sus
    pasajes. Decir claramente
    cuándo la respuesta es parcial y qué falta para ampliarla. No completar huecos
-   desde memoria ni usar resultados QMD como evidencia académica.
+   desde memoria.
 
 ## Notebook por proyecto
 
@@ -255,8 +316,8 @@ legacy son señales compatibles, no un veredicto único sobre toda la investigac
 
 Los contratos, fuentes, manifiestos QA y respuestas se vinculan por hash y por
 transacciones en `events.jsonl`. Un archivo alterado requiere diagnóstico; no
-regenerar hashes para aceptar cambios desconocidos. Las corridas antiguas se
-inspeccionan sin modificarlas y sus wrappers siguen disponibles.
+regenerar hashes para aceptar cambios desconocidos. Las corridas creadas con los
+wrappers de versiones anteriores se inspeccionan y migran con `ez doctor`, sin modificarlas.
 
 La salida final queda en `answer.json`. La prueba con servicios simulados verifica
 comportamiento del programa; el lanzamiento exige las corridas reales y la beta

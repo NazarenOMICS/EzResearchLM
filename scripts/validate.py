@@ -24,11 +24,11 @@ def main():
     env['PYTHONPATH'] = os.pathsep.join([str(ROOT / 'packages'), str(ROOT / 'packages/paper_search'), env.get('PYTHONPATH', '')])
     code = 1
     try:
-        for folder in ('packages', 'notebooklm/scripts', 'scripts'):
+        for folder in ('packages', 'scripts'):
             if not compileall.compile_dir(str(ROOT / folder), quiet=1):
                 report['status'] = 'compile_failed'
                 return code
-        for folder in ('packages/paper_search/tests', 'notebooklm/tests', 'tests'):
+        for folder in ('packages/paper_search/tests', 'tests'):
             if (ROOT / folder).is_dir():
                 started = time.monotonic()
                 result = subprocess.run([sys.executable, '-m', 'unittest', 'discover', '-s', str(ROOT / folder)], env=env, timeout=180,
@@ -45,8 +45,8 @@ def main():
         return code
     finally:
         if args.report:
-            paths = [p for folder in ('packages', 'scripts', 'notebooklm/scripts', 'tests', 'notebooklm/tests') for p in (ROOT / folder).rglob('*')
-                     if p.is_file() and p.suffix in ('.py', '.ps1', '.json') and '__pycache__' not in p.parts]
+            paths = [p for folder in ('packages', 'scripts', 'tests') for p in (ROOT / folder).rglob('*')
+                     if p.is_file() and p.suffix in ('.py', '.json') and '__pycache__' not in p.parts]
             paths.extend([ROOT / 'pyproject.toml', ROOT / 'requirements.lock', ROOT / '.github/workflows/ci.yml'])
             report['source_hashes'] = {str(p.relative_to(ROOT)).replace('\\', '/'): sha256(p.read_bytes()).hexdigest() for p in sorted(paths)}
             args.report.parent.mkdir(parents=True, exist_ok=True)

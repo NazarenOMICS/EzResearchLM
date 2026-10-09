@@ -5,6 +5,23 @@ It discovers papers, acquires PDFs, builds a traceable source set, asks
 NotebookLM focused questions, exports cited answers, and keeps enough run state
 to debug or resume interrupted work.
 
+## Non-Negotiable Rules
+
+These hold for the whole conversation, including after context compaction. Every JSON
+answer from `ez` repeats them in `operator_reminder`.
+
+1. Every statement about the literature comes from EZ and carries its `[EZ:<id>]` marker.
+2. Answer a follow-up question from the claims already delivered or with
+   `ez ask "<question>" --project <project>`. New papers come only through `ez research`.
+3. Never use web search or model memory for bibliographic claims, nor to complete an EZ
+   answer. When the user explicitly asks for external data (for example a UniProt entry),
+   give it separately, labelled «fuente externa, no del corpus» (external source, not from the corpus).
+4. Draft only with `ez draft` and check with `ez draft <run> --check <file>`.
+5. Build the plan with `ez plan` and the screening with `ez screen`. Never write or edit run
+   files by hand (`research-contract.json`, `sources.json`, `state.json`, …) or write scripts
+   that generate them.
+6. Do not read `docs/history/`: it describes earlier versions and their obsolete formats.
+
 ## Operator Model
 
 EZ is the single user-facing operator. Claude Code, Codex, Hermes, or another
@@ -14,24 +31,35 @@ prepares contracts and, in verified delivery, QA reviews on the user's behalf; d
 ask users to edit JSON. New contracts default to `plan.delivery: "direct"`: EZ delivers
 NotebookLM's cited sentences right after QA, without a host review or a second query.
 Choose `"verified"` when the user will draft from the claims. Runs of one project share
-the project's NotebookLM notebook. The historical wrappers remain available for
-existing runs.
+the project's NotebookLM notebook.
 
 NotebookLM remains the evidence engine. The current implementation is an internal
 candidate; authenticated E2E and closed beta are still required before release.
 
 ## Core Rules
 
-- NotebookLM is the evidence and QA engine.
-- Local search and QMD are recall/acquisition helpers, not answer engines.
-- Do not write strong bibliographic claims from memory.
-- Before drafting academic prose, read `Rules_Of_Writing.md` completely. Draft only from `ez draft` claims, keep their `[EZ:<id>]` markers and the reported gaps, and check the draft with `ez draft <run> --check <file>`.
-- If evidence is missing, emit `NEEDS_CORPUS`, `NEEDS_MORE_QA`,
-  `NEEDS_SOURCE_REVIEW`, or `NEEDS_SOURCE_RESCUE`.
+- NotebookLM is the evidence and QA engine. Local search is a recall and acquisition
+  helper, not an answer engine.
+- If evidence is missing, report the state EZ gives (`NEEDS_CORPUS`, `NEEDS_MORE_QA`,
+  `NEEDS_SOURCE_RESCUE`, …) and its next action.
 - Acquisition uses only open-access routes and PDFs the user imports. Anna's
   Archive and Sci-Hub are not supported; never automate access challenges.
 - Do not commit real PDFs, notebooks, tokens, cookies, source exports, or run
   artifacts.
+
+## Drafting
+
+Draft academic prose only from `ez draft` claims, keep their `[EZ:<id>]` markers and
+the reported gaps, and check the draft with `ez draft <run> --check <file>`.
+
+- Answer the question asked, in clear prose; use lists or tables only when the user
+  asks for them.
+- Separate reported evidence from interpretation, and mark interpretation as such.
+- Do not mix organism, population, method, dose, time or context across sources
+  without saying that the link is an inference.
+- Do not claim mechanism, magnitude, causality or generality beyond what the cited
+  passage supports. State uncertainty and indirect evidence explicitly.
+- If a claim's passage does not support a sentence, remove the sentence or mark the gap.
 
 ## File Integrity Checks
 
@@ -48,105 +76,42 @@ Before committing edits to long-lived Markdown or index files:
 
 | Resource | Path |
 |---|---|
-| Project root | repository root |
-| Main wrappers | `scripts/` |
-| Paper search package | `packages/paper_search/` |
-| NotebookLM helper scripts | `notebooklm/scripts/` |
-| Run artifacts | `runs/` |
-| Search/PDF artifacts | `Search/` |
-| NotebookLM notes | `Notes/` |
-| Mirrored PDFs | `Research/Papers/` |
+| EZ package | `packages/ez/` |
+| Literature search providers | `packages/paper_search/` |
+| Operator and user guides | `docs/` |
+| Tests | `tests/`, `packages/paper_search/tests/` |
+| Claude Desktop extension | `desktop/` |
+| Benchmark and gold set | `gold_set_benchmark/` |
 
-All wrappers resolve paths from their own repository root. Override paths with
-environment variables or `.env`.
-
-Important output overrides:
-
-- `EZRESEARCH_RUNS_ROOT`: run state, logs, questions, rescue queues.
-- `EZRESEARCH_SEARCH_ROOT`: search metadata and acquired PDFs.
-- `EZRESEARCH_VAULT`: imported notes and mirrored paper files.
+Runs live outside the repository, in `~/.ezresearch/runs` by default
+(`EZRESEARCH_RUNS_ROOT` overrides it). Projects, inboxes and reports are described in
+`docs/carpetas.md`.
 
 ## Main Commands
 
-New EZ runs use `ez setup`, `ez context`, `ez research`, `ez continue` (including
-`--screening` and `--review`), `ez status`, `ez rescue`, `ez draft` and `ez doctor`. See `docs/ez-host-operator.md` for the host workflow.
-Use `ez doctor <legacy-path> --migration-preview --json` to inspect a sidecar
-migration; apply only the reviewed preview hash. Original files are preserved.
+`ez setup`, `ez context`, `ez projects`, `ez research`, `ez plan`, `ez screen`,
+`ez continue`, `ez status`, `ez ask`, `ez rescue`, `ez draft`, `ez export`, `ez verify`
+and `ez doctor`. See `docs/ez-host-operator.md` for the host workflow. Runs created by
+the PowerShell wrappers of earlier versions can be inspected with
+`ez doctor <path> --migration-preview --json`; apply only the reviewed preview hash.
+Original files are preserved.
 
-The following commands are the compatibility interface for historical runs.
-
-Create or extend a source set:
-
-```powershell
-powershell.exe -ExecutionPolicy Bypass -File ".\scripts\run_hermes_pipeline.ps1" `
-  -Slug "<slug>" `
-  -Project "<project>" `
-  -Goal "<goal>" `
-  -QueriesFile ".\examples\queries.example.json" `
-  -NotebookTitle "<NotebookLM title>" `
-  -Dashboard "<dashboard title>"
-```
-
-Run a question over existing evidence:
-
-```powershell
-powershell.exe -ExecutionPolicy Bypass -File ".\scripts\run_hermes_answer.ps1" `
-  -Question "<question>" `
-  -Mode answer
-```
-
-Diagnose a failed or interrupted run:
-
-```powershell
-powershell.exe -ExecutionPolicy Bypass -File ".\scripts\run_hermes_doctor.ps1" `
-  -Project "<project>" `
-  -Slug "<slug>"
-```
-
-## Source Rescue
-
-Each run can produce:
-
-- `candidate-sources.json`
-- `source-rescue.json`
-- `missing-sources.md`
-- `download-plan.md` when `-ReviewBeforeAcquisition` is used
-- `run-state.json`
-
-The legacy pipeline stops before QA when required sources are missing and
-`-StopIfMissingMustHave` is effective. New runs default to reporting the gap;
-explicit true blocks and explicit false does not. Continuing inherits the last
-effective decision; pre-v2 runs preserve their historical blocking behavior.
-EZ policies withhold only their affected scopes and distinguish partial answers.
-The compatible source-rescue signal is:
-
-```text
-NEEDS_SOURCE_RESCUE
-```
-
-When source review is requested, it stops before PDF acquisition with
-`NEEDS_SOURCE_REVIEW`; this preserves high-priority paywalled candidates for
-manual legal rescue instead of treating lack of access as lack of relevance.
-
-## Fallback Policy
-
-Normal acquisition order:
+## Acquisition Order
 
 1. direct PDF URL
 2. PMC OA PDF or archive
 3. EuropePMC/OpenAlex source-native OA
 4. Unpaywall
-5. CORE/OpenAIRE and repository locations (new EZ acquisition)
+5. CORE/OpenAIRE and repository locations
 
-When every route fails, the source stays `manual_needed`. The user can import a
-PDF they already have with `ez rescue <run> --source <id> --import <pdf>`; its
+When every route fails, the source stays `manual_needed`. The user can drop the PDF in
+the project inbox or import it with `ez rescue <run> --source <id> --import <pdf>`; its
 origin is recorded.
 
 ## Validation
 
-Use these checks before committing:
+Before committing:
 
 ```powershell
 python scripts/validate.py
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/run_validation.ps1
 ```

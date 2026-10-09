@@ -13,6 +13,7 @@
       "status": {"enum": ["needs_host_plan", "ready"]},
       "discovery_mode": {"enum": ["search", "reuse_only"]},
       "delivery": {"enum": ["direct", "verified"]},
+      "citation_expansion": {"type": "boolean"},
       "queries": {"type": "array", "items": {"$ref": "#/$defs/query"}},
       "notebook_questions": {"type": "array", "items": {"$ref": "#/$defs/question"}},
       "stop_rule": {"type": "string"}

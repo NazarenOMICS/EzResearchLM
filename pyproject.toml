@@ -26,14 +26,12 @@ ez-mcp = "ez.mcp_server:main"
 
 [tool.setuptools]
 package-dir = {"" = "packages/paper_search", "ez" = "packages/ez"}
-py-modules = ["search_topic", "run_search_topic_wrapper"]
+py-modules = ["search_topic"]
 packages = ["paper_search_mcp", "paper_search_mcp.academic_platforms", "ez"]
 
 [tool.setuptools.package-data]
 ez = ["schemas/*.json"]
 
 [tool.setuptools.data-files]
-"share/ezresearchlm/scripts" = ["scripts/*.ps1", "scripts/run_external.py"]
-"share/ezresearchlm/notebooklm/scripts" = ["notebooklm/scripts/*.py"]
 "share/ezresearchlm/docs" = ["docs/ez-host-operator.md", "docs/ez-contracts.md", "docs/ez-user-guide.md"]
 "share/ezresearchlm" = ["SETUP.md", "requirements.lock"]

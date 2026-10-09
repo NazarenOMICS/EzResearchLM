@@ -8,7 +8,7 @@ def runtime_root():
     if configured:
         return Path(configured).resolve()
     checkout = Path(__file__).resolve().parents[2]
-    if (checkout / 'scripts/run_hermes_pipeline.ps1').exists():
+    if (checkout / 'packages/ez').is_dir() and (checkout / 'docs/ez-host-operator.md').is_file():
         return checkout
     return Path(sys.prefix) / 'share/ezresearchlm'
 
@@ -32,7 +32,7 @@ def load_environment():
         key, value = key.strip(), value.strip().strip('"').strip("'")
         if not value or not key.startswith(('EZRESEARCH_', 'PAPER_SEARCH_', 'NOTEBOOKLM_')) or key in os.environ:
             continue
-        if key in ('EZRESEARCH_RUNS_ROOT', 'EZRESEARCH_SEARCH_ROOT', 'EZRESEARCH_VAULT', 'EZRESEARCH_PYTHON'):
+        if key == 'EZRESEARCH_RUNS_ROOT':
             value = str((root / Path(value).expanduser()).resolve())
         os.environ[key] = value
 

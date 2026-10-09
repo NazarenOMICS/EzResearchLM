@@ -45,13 +45,13 @@ If you do not use agents in a terminal, there is an
 ## Where everything goes
 
 ```
-~/.ezresearch/proyectos/<your project>/
-├── LEEME.md      index of your researches, with links
-├── bandeja/      drop your PDFs here (inbox)
-└── informes/     each report and its bibliography (.bib)
+~/.ezresearch/projects/<your project>/
+├── README.md     index of your researches, with links
+├── inbox/        drop your PDFs here
+└── reports/      each report and its bibliography (.bib)
 ```
 
-Folder names are in Spanish for now. More in [where everything goes](docs/carpetas.md)
+More in [where everything goes](docs/carpetas.md)
 (Spanish).
 
 ## What was measured
@@ -116,8 +116,6 @@ The detailed guides are in Spanish for now.
 3. [Contracts and states](docs/ez-contracts.md) and [configuration](docs/configuration.md):
    technical details.
 4. [Roadmap](docs/roadmap.md): what is done, what is missing and in which order.
-5. [Legacy reference](docs/legacy-reference.md): runs created with the earlier PowerShell
-   wrappers.
 
 ## License
 

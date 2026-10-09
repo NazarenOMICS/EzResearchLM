@@ -113,14 +113,14 @@ class CliTests(unittest.TestCase):
             self.assertEqual(code, 0)
             self.assertEqual(read_json(folder / 'sources.json')[0]['identity_status'], 'verified')
 
-    def test_setup_check_is_read_only_and_optional_recall_does_not_gate_qa(self):
+    def test_setup_check_is_read_only(self):
         from ez.process import Result
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder) / 'runs'
             with patch('ez.setup.executable', side_effect=lambda name: name if name == 'notebooklm' else None), patch('ez.setup.run', return_value=Result(0, '{"notebooks": []}', '')):
                 checks = prepare(root, check=True)
                 self.assertTrue(checks['can_notebook_qa'])
-                self.assertFalse(checks['can_recall'])
+                self.assertNotIn('can_recall', checks)
                 self.assertEqual(list(Path(folder).iterdir()), [])
                 prepare(root)
                 config = root.parent / 'ez-config.json'

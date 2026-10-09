@@ -132,6 +132,11 @@ def ez_projects(question: str | None = None):
     return ez('projects', *(['--suggest', question] if question else []), seconds=120)
 
 
+def ez_ask(question: str, project: str = 'general'):
+    """Pregunta de seguimiento respondida por NotebookLM solo con los PDFs ya verificados del proyecto (uno o dos minutos)."""
+    return ez('ask', question, '--project', project, seconds=900)
+
+
 def ez_context(project: str = 'general', settings: dict | None = None):
     """Lee o guarda preferencias del proyecto (idioma, disciplina, objetivo, inclusiones, exclusiones, período)."""
     arguments = ['context', '--project', project]
@@ -145,6 +150,33 @@ def ez_research(question: str, project: str = 'general', update_run: str | None 
     arguments = ['research', question, '--project', project]
     arguments += ['--update', update_run] if update_run else ['--plan-only']
     return ez(*arguments, seconds=600)
+
+
+def ez_plan(run: str, questions: list[str], queries: list[str] | None = None, delivery: str | None = None,
+            reuse_only: bool = False):
+    """Arma y valida el plan: questions son las preguntas QA (3 a 5); queries, búsquedas "proveedor:texto" (pubmed,
+    europepmc, openalex, semantic, crossref). Devuelve la estimación para mostrar al usuario; no consulta servicios."""
+    arguments = ['plan', str(run_folder(run))]
+    for question in questions:
+        arguments += ['--qa', question]
+    for query in queries or []:
+        arguments += ['--query', query]
+    arguments += (['--delivery', delivery] if delivery else []) + (['--reuse-only'] if reuse_only else [])
+    return ez(*arguments, seconds=120)
+
+
+def ez_screen(run: str, include: list[str] | None = None, exclude: list[str] | None = None, uncertain: list[str] | None = None,
+              exclude_rest: str | None = None, key: str | None = None, check: bool = False):
+    """Decide los candidatos de screening-request.json. Cada elemento de include, exclude y uncertain va como
+    "id1,id2: razón breve"; exclude_rest excluye el resto con esa razón; key lista los incluidos centrales separados por
+    comas. Sin check aplica el cribado y sigue la corrida en segundo plano."""
+    folder = run_folder(run)
+    arguments = ['screen', str(folder)]
+    for flag, groups in (('--include', include), ('--exclude', exclude), ('--uncertain', uncertain)):
+        for group in groups or []:
+            arguments += [flag, group]
+    arguments += (['--exclude-rest', exclude_rest] if exclude_rest else []) + (['--key', key] if key else [])
+    return ez(*arguments, '--check', seconds=120) if check else start_job(folder, arguments)
 
 
 def ez_submit(run: str, kind: str, document: dict, check: bool = False):
@@ -240,13 +272,13 @@ def ez_export(run: str, format: str = 'bibtex', all_sources: bool = False):
     return result
 
 
-def ez_open_folder(project: str = 'general', which: str = 'bandeja'):
-    """Abre en el explorador de archivos del usuario la bandeja, los informes o la carpeta del proyecto."""
+def ez_open_folder(project: str = 'general', which: str = 'inbox'):
+    """Abre en el explorador de archivos del usuario la bandeja (inbox), los informes (reports) o la carpeta del proyecto."""
     from .workspace import ensure
     paths = ensure(root(), project)
-    target = {'bandeja': paths['inbox'], 'informes': paths['reports'], 'proyecto': paths['project']}.get(which)
+    target = {'inbox': paths['inbox'], 'reports': paths['reports'], 'project': paths['project']}.get(which)
     if not target:
-        return {'error': 'which_invalid', 'next_action': 'Usa bandeja, informes o proyecto.'}
+        return {'error': 'which_invalid', 'next_action': 'Usa inbox, reports o project.'}
     reveal(target)
     return {'opened': target, 'link': Path(target).as_uri()}
 
@@ -265,7 +297,7 @@ def ez_doctor(run: str):
     return ez('doctor', str(run_folder(run)), seconds=120)
 
 
-TOOLS = (ez_guide, ez_setup, ez_login, ez_projects, ez_context, ez_research, ez_submit, ez_continue, ez_status, ez_read,
+TOOLS = (ez_guide, ez_setup, ez_login, ez_projects, ez_ask, ez_context, ez_research, ez_plan, ez_screen, ez_submit, ez_continue, ez_status, ez_read,
          ez_rescue, ez_draft, ez_verify, ez_export, ez_open_folder, ez_doctor)
 
 

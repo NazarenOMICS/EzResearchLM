@@ -63,11 +63,10 @@ class PresentationTests(unittest.TestCase):
         self.assertNotIn('Respuesta completa', output)
 
     def test_setup_and_context_show_user_information_instead_of_internal_keys(self):
-        output = render({'can_notebook_qa': True, 'can_recall': False, 'configuration_exists': False, 'runs_root': 'X:/runs'})
+        output = render({'can_notebook_qa': True, 'configuration_exists': False, 'runs_root': 'X:/runs'})
         self.assertIn('acceso comprobado', output)
         self.assertIn('pendiente', output)
-        self.assertIn('puedes investigar con fuentes nuevas', output)
-        self.assertNotIn('can_recall', output)
+        self.assertNotIn('can_notebook_qa', output)
         output = render({'project': 'tesis', 'revision': 1, 'discipline': 'Biología',
                          'research_history': [{'question': 'Pregunta anterior', 'run_id': 'ez-old'}]})
         for text in ('tesis', 'Biología', 'Pregunta anterior', 'ez-old', 'evidencia debe revisarse'):

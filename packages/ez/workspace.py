@@ -1,9 +1,12 @@
 """The user's side of the EZ folder: one folder per project with an inbox, the reports and an index.
 
-    <EZ>/proyectos/<proyecto>/
-        LEEME.md      índice de investigaciones, con enlaces a cada informe
-        bandeja/      el usuario deja aquí sus PDFs; EZ los toma cuando faltan
-        informes/     copia de cada informe y su bibliografía (.bib)
+    <EZ>/projects/<project>/
+        README.md     index of researches, with a link to each report
+        inbox/        the user drops PDFs here; EZ takes them when a work is missing
+        reports/      a copy of each report and its bibliography (.bib)
+
+Folders created by earlier versions with Spanish names (proyectos/, bandeja/, informes/,
+LEEME.md) are renamed in place the first time EZ touches the project.
 
 The runs themselves stay in <EZ>/runs/ez-…: they are the verifiable record, and the
 copies here are derived from them and regenerated on every delivery.
@@ -13,9 +16,10 @@ from pathlib import Path
 import re
 import shutil
 
-INBOX_NOTE = ('# Bandeja de PDFs\n\nDeja en esta carpeta los PDFs de artículos que EZ te pida o que quieras sumar a este '
-              'proyecto. Cuando falta un artículo, EZ busca aquí primero: reconoce cada PDF por su título y su DOI. '
-              'Tus archivos no se mueven ni se borran; EZ guarda una copia en la investigación.\n')
+INBOX_NOTE = ('# Inbox\n\nDrop here the PDFs EZ asks for, or any article you want to add to this project. When an '
+              'article is missing, EZ looks here first and recognises each PDF by its title and DOI. Your files are '
+              'never moved or deleted; EZ keeps a copy inside the research.\n')
+LEGACY_PROJECT = (('bandeja', 'inbox'), ('informes', 'reports'), ('LEEME.md', 'README.md'))
 
 
 def slug(text, limit=60):
@@ -31,7 +35,24 @@ def home(runs_root):
 
 
 def project_dir(runs_root, project):
-    return home(runs_root) / 'proyectos' / slug(project)
+    folder = home(runs_root) / 'projects' / slug(project)
+    migrate(folder, home(runs_root) / 'proyectos' / slug(project))
+    return folder
+
+
+def migrate(folder, legacy):
+    """Rename a project folder and its parts from the Spanish names of earlier versions, never overwriting."""
+    if legacy.is_dir() and not folder.exists():
+        folder.parent.mkdir(parents=True, exist_ok=True)
+        legacy.rename(folder)
+        if not any(legacy.parent.iterdir()):
+            legacy.parent.rmdir()
+    for old, new in LEGACY_PROJECT:
+        if (folder / old).exists() and not (folder / new).exists():
+            (folder / old).rename(folder / new)
+    note = folder / 'inbox' / 'LEEME.md'
+    if note.exists() and not (folder / 'inbox' / 'README.md').exists():
+        note.rename(folder / 'inbox' / 'README.md')
 
 
 def pdfs(folder):
@@ -48,13 +69,13 @@ def link(path):
 def ensure(runs_root, project):
     """Create the project's folders if missing and return their paths and links."""
     folder = project_dir(runs_root, project)
-    inbox, reports = folder / 'bandeja', folder / 'informes'
+    inbox, reports = folder / 'inbox', folder / 'reports'
     inbox.mkdir(parents=True, exist_ok=True)
     reports.mkdir(parents=True, exist_ok=True)
-    note = inbox / 'LEEME.md'
+    note = inbox / 'README.md'
     if not note.exists():
         note.write_text(INBOX_NOTE, encoding='utf-8')
-    if not (folder / 'LEEME.md').exists():
+    if not (folder / 'README.md').exists():
         write_index(runs_root, project)
     return {'project': str(folder), 'inbox': str(inbox), 'reports': str(reports),
             'project_link': link(folder), 'inbox_link': link(inbox), 'reports_link': link(reports)}
@@ -66,7 +87,7 @@ def report_name(contract, state):
 
 
 def publish(runs_root, run_folder, contract, state, answer):
-    """Copy the report and its bibliography to the project's informes/ and refresh the index."""
+    """Copy the report and its bibliography to the project's reports/ and refresh the index."""
     from .deliver import bibliography, export_bibliography
     project = contract.get('context', {}).get('project') or 'general'
     paths = ensure(runs_root, project)
@@ -81,23 +102,23 @@ def publish(runs_root, run_folder, contract, state, answer):
 
 
 def write_index(runs_root, project):
-    """LEEME.md of a project: every research with its date, state and links."""
+    """README.md of a project: every research with its date, state and links."""
     from .context import history
     folder = project_dir(runs_root, project)
     folder.mkdir(parents=True, exist_ok=True)
-    labels = {'complete': 'completa', 'partial': 'parcial', 'unavailable': 'en curso o sin respuesta'}
-    lines = [f'# Proyecto: {project}', '',
-             f'- Bandeja para tus PDFs: [bandeja/]({link(folder / "bandeja")})',
-             f'- Informes: [informes/]({link(folder / "informes")})', '',
-             '## Investigaciones', '', '| Fecha | Pregunta | Respuesta | Informe | Carpeta de trabajo |', '|---|---|---|---|---|']
+    labels = {'complete': 'complete', 'partial': 'partial', 'unavailable': 'running or no answer yet'}
+    lines = [f'# Project: {project}', '',
+             f'- Inbox for your PDFs: [inbox/]({link(folder / "inbox")})',
+             f'- Reports: [reports/]({link(folder / "reports")})', '',
+             '## Researches', '', '| Date | Question | Answer | Report | Working folder |', '|---|---|---|---|---|']
     for row in history(Path(runs_root), project, limit=200):
-        report = next(iter(sorted((folder / 'informes').glob(f'*-{row["run_id"][3:9]}.md'))), None)
+        report = next(iter(sorted((folder / 'reports').glob(f'*-{row["run_id"][3:9]}.md'))), None)
         question = row['question'].replace('|', '/')
         lines.append(f'| {row["updated_at"][:10]} | {question} | {labels.get(row["saved_answer_status"], row["saved_answer_status"])} | '
-                     + (f'[abrir]({link(report)})' if report else '—') + f' | [{row["run_id"]}]({link(row["path"])}) |')
-    lines += ['', 'Este índice lo regenera EZ en cada entrega. Las carpetas de trabajo (`runs/ez-…`) son el registro '
-              'verificable de cada investigación; no las edites a mano.', '']
-    (folder / 'LEEME.md').write_text('\n'.join(lines), encoding='utf-8')
+                     + (f'[open]({link(report)})' if report else '—') + f' | [{row["run_id"]}]({link(row["path"])}) |')
+    lines += ['', 'EZ rewrites this index on every delivery. Working folders (`runs/ez-…`) are the verifiable record of '
+              'each research; do not edit them by hand.', '']
+    (folder / 'README.md').write_text('\n'.join(lines), encoding='utf-8')
 
 
 def projects(runs_root, question=None):
@@ -126,7 +147,7 @@ def projects(runs_root, question=None):
         row = {'project': name, 'researches': len(runs), 'last_activity': runs[0]['updated_at'][:10] if runs else None,
                'recent_questions': [r['question'] for r in runs[:3]], 'goal': context.get('goal'),
                'library_pdfs': len(library), 'notebooklm_sources': len(notebook['sources']) if notebook else 0,
-               'inbox_pdfs': len(pdfs(folder / 'bandeja')), 'folder_link': link(folder)}
+               'inbox_pdfs': len(pdfs(folder / 'inbox')), 'folder_link': link(folder)}
         if words:
             texts = [r['question'] for r in runs] + [context.get('goal') or ''] + [s.get('title') or '' for s in library]
             row['relatedness'] = round(max((len(words & topic_words(t)) / len(words) for t in texts if t), default=0.0), 2)

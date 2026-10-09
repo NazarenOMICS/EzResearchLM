@@ -42,8 +42,8 @@ El recorrido es:
    una, redacta solo con las que pasan y comprueba que cada una conserve su marca. Una
    búsqueda sin suficiente evidencia no se convierte en una respuesta inventada.
 
-**Dónde queda todo.** Cada proyecto tiene su carpeta en `~/.ezresearch/proyectos/` con un
-índice (`LEEME.md`), una bandeja para tus PDFs y los informes con su bibliografía. El
+**Dónde queda todo.** Cada proyecto tiene su carpeta en `~/.ezresearch/projects/` con un
+índice (`README.md`), una bandeja para tus PDFs y los informes con su bibliografía. El
 detalle está en [carpetas.md](carpetas.md).
 
 **Cuánto tarda.** Cada pregunta a NotebookLM tarda alrededor de un minuto, lo mismo
@@ -69,6 +69,7 @@ NotebookLM ni modificar investigaciones. `ez --help` enumera las acciones.
 | «Continuemos» | Retoma la investigación identificada en la conversación |
 | «Tengo este PDF; incorpóralo» | Conserva su origen, comprueba el documento y continúa el alcance afectado |
 | «Esto es para mi proyecto de tesis» | Suma la investigación a ese proyecto y reutiliza sus artículos y su notebook |
+| «Y ¿qué concentraciones se usaron?» (seguimiento) | Responde con las citas ya entregadas o hace una pregunta rápida a NotebookLM sobre tus PDFs; lo que sea razonamiento propio del agente aparece separado y marcado |
 | «Responde solo con lo que ya tengo» | Contesta con los PDFs ya verificados del proyecto, sin buscar ni descargar |
 | «¿Qué proyectos tengo?» | Lista tus proyectos con sus investigaciones y su última actividad |
 | «¿Qué artículos clave me faltan?» | Antes de descargar, lista los centrales que son pagos, con título y enlace al DOI para que los consigas por tu biblioteca o los autores |
@@ -104,7 +105,7 @@ todavía no significa que haya una respuesta revisada disponible.
 
 Si necesitas instalar el programa, sigue [SETUP.md](../SETUP.md) con tu agente.
 El acceso a NotebookLM lo completas tú en el navegador. No compartas cookies ni
-tokens en la conversación. QMD es una ayuda opcional para encontrar material local.
+tokens en la conversación.
 
 ## Las acciones disponibles
 
@@ -142,8 +143,7 @@ Ejemplo ilustrativo de una respuesta parcial, no un resultado académico real:
 - **Problema de integridad:** se retiene la respuesta afectada porque cambió un
   archivo, una cita no se puede verificar o el corpus no corresponde al registro.
 
-La ausencia de QMD no significa que falte evidencia académica. El número de PDFs
-tampoco demuestra que la pregunta pueda responderse. La cobertura se revisa con QA.
+El número de PDFs no demuestra que la pregunta pueda responderse. La cobertura se revisa con QA.
 
 ## Recuperar documentos y retomar trabajo
 
@@ -160,8 +160,8 @@ respaldan; la investigación original queda intacta. Las investigaciones de un m
 proyecto comparten su notebook en NotebookLM, así que los PDFs ya cargados no se
 vuelven a subir ni a procesar.
 
-Si ya trabajabas con los wrappers anteriores, sus corridas siguen disponibles.
-La migración se previsualiza y crea una copia lateral. Los originales no se borran.
+Si ya trabajabas con los wrappers de versiones anteriores, EZ puede leer y migrar esas
+corridas: la migración se previsualiza y crea una copia lateral. Los originales no se borran.
 
 ## Qué puedes esperar de una respuesta
 

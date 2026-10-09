@@ -26,7 +26,7 @@ class McpServerTests(unittest.TestCase):
         run = created['run_id']
         contract = mcp_server.ez_read(run, 'research-contract.json')
         self.assertIn('Pregunta de prueba', contract['text'])
-        self.assertIn('Lee research-contract.json', mcp_server.ez_read(run, 'host-request.md')['text'])
+        self.assertIn('ez plan', mcp_server.ez_read(run, 'host-request.md')['text'])
         proposal = read_json(Path(self.temp.name) / run / 'research-contract.json')
         proposal['plan']['stop_rule'] = ''
         checked = mcp_server.ez_submit(run, 'contract', proposal, check=True)
@@ -68,8 +68,8 @@ class McpServerTests(unittest.TestCase):
 
     def test_the_project_inbox_opens_in_the_file_explorer(self):
         with patch('ez.mcp_server.reveal') as reveal:
-            opened = mcp_server.ez_open_folder('tesis', 'bandeja')
-        self.assertTrue(opened['opened'].endswith(str(Path('proyectos', 'tesis', 'bandeja'))))
+            opened = mcp_server.ez_open_folder('tesis', 'inbox')
+        self.assertTrue(opened['opened'].endswith(str(Path('projects', 'tesis', 'inbox'))))
         reveal.assert_called_once_with(opened['opened'])
         self.assertEqual(mcp_server.ez_open_folder('tesis', 'otra')['error'], 'which_invalid')
 

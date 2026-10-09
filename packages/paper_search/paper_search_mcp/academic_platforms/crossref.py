@@ -1,9 +1,8 @@
-﻿# paper_search_mcp/academic_platforms/crossref.py
+# paper_search_mcp/academic_platforms/crossref.py
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 import requests
 import time
-import random
 from ..paper import Paper
 from .base import PaperSource
 import logging
@@ -229,72 +228,6 @@ class CrossRefSearcher(PaperSource):
                     return link.get('URL', '')
 
         return ''
-
-    def download_pdf(self, paper_id: str, save_path: str) -> str:
-        """
-        CrossRef doesn't provide direct PDF downloads.
-
-        Args:
-            paper_id: DOI of the paper
-            save_path: Directory to save the PDF
-
-        Raises:
-            NotImplementedError: Always raises this error as CrossRef doesn't provide direct PDF access
-        """
-        message = ("CrossRef does not provide direct PDF downloads. "
-                  "CrossRef is a citation database that provides metadata about academic papers. "
-                  "To access the full text, please use the paper's DOI or URL to visit the publisher's website.")
-        raise NotImplementedError(message)
-
-    def read_paper(self, paper_id: str, save_path: str = "./downloads") -> str:
-        """
-        CrossRef doesn't provide direct paper content access.
-
-        Args:
-            paper_id: DOI of the paper
-            save_path: Directory for potential PDF storage (unused)
-
-        Returns:
-            str: Error message indicating PDF reading is not supported
-        """
-        message = ("CrossRef papers cannot be read directly through this tool. "
-                  "CrossRef is a citation database that provides metadata about academic papers. "
-                  "Only metadata and abstracts are available through CrossRef's API. "
-                  "To access the full text, please use the paper's DOI or URL to visit the publisher's website.")
-        return message
-
-    def get_paper_by_doi(self, doi: str) -> Optional[Paper]:
-        """
-        Get a specific paper by DOI.
-
-        Args:
-            doi: Digital Object Identifier
-
-        Returns:
-            Paper object if found, None otherwise
-        """
-        try:
-            url = f"{self.BASE_URL}/works/{doi}"
-            params = {'mailto': 'paper-search@example.org'}
-
-            response = self.session.get(url, params=params, timeout=30)
-
-            if response.status_code == 404:
-                logger.warning(f"DOI not found in CrossRef: {doi}")
-                return None
-
-            response.raise_for_status()
-            data = response.json()
-
-            item = data.get('message', {})
-            return self._parse_crossref_item(item)
-
-        except requests.RequestException as e:
-            logger.error(f"Error fetching DOI {doi} from CrossRef: {e}")
-            return None
-        except Exception as e:
-            logger.error(f"Unexpected error fetching DOI {doi}: {e}")
-            return None
 
 if __name__ == "__main__":
     # Test CrossRefSearcher functionality

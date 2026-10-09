@@ -40,7 +40,7 @@ accidentales; no es una firma digital contra quien controla toda la carpeta.
 
 Cada política declara `source_id`, `scope_ids`, `rationale` y `locked_by_user`.
 Modificar una obligación fijada por el usuario exige una autorización explícita.
-El puntaje QMD, la disponibilidad OA y el número de archivos no prueban suficiencia.
+La disponibilidad OA y el número de archivos no prueban suficiencia.
 
 Una fuente PMC puede especificar `pmc_version` como entero positivo. Sin selección
 explícita, la existencia de varias versiones exige revisión antes de usar el PDF.
@@ -113,9 +113,11 @@ título, revista, año y enlace al DOI. `ez continue --skip-missing` sigue sin e
 confirmación vale solo para la pausa vigente (la lista de PDFs faltantes después de
 descargar, `NEEDS_USER_PDFS`, se confirma aparte).
 
-Antes de adquirir, el anfitrión decide cada candidato en una copia de
-`screening-request.json` (`include`, `exclude` o `uncertain`, con razón) y la importa
-con `ez continue --screening`. El cribado debe corresponder al `sources_hash` vigente
+Antes de adquirir, el anfitrión decide cada candidato de `screening-request.json`
+(`include`, `exclude` o `uncertain`, con razón) con `ez screen`, que arma el documento de
+cribado en `proposals/` y lo importa; `ez continue --screening <archivo>` sigue aceptando
+un documento armado aparte. Del mismo modo, `ez plan` arma el plan desde preguntas QA y
+búsquedas. El cribado debe corresponder al `sources_hash` vigente
 y no puede superar `budgets.max_sources` (40 por defecto). Una fuente ya subida a
 NotebookLM no se excluye en la misma corrida. Las fuentes obligatorias del contrato
 entran incluidas.
@@ -180,7 +182,7 @@ cierran también al terminar normalmente el padre.
 EZ aplica un presupuesto de tiempo activo por corrida y por fuente. Los workers de
 búsqueda, descarga y NotebookLM reciben el tiempo restante; las esperas del usuario
 entre continuaciones no consumen tiempo activo. La limpieza de procesos puede
-añadir unos segundos al vencimiento. QMD tiene un límite independiente y es opcional.
+añadir unos segundos al vencimiento.
 El login interactivo pertenece al usuario; sus verificaciones de acceso son acotadas.
 
 ## Migración y rollback
@@ -194,5 +196,5 @@ Un corpus remoto desconocido se detiene antes de subir nuevos archivos.
 El flag legacy anterior a v2 siempre bloqueaba, incluso si guardaba `false`:
 ese gate efectivo se conserva. La versión corregida hereda su bool real. Una
 fuente histórica de Anna conserva su procedencia, pero EZ no vuelve a usar esa vía. Rutas relativas ambiguas
-no se adivinan. Para volver al flujo anterior, usar los originales con los wrappers
-compatibles; no convertir la corrida nueva sobrescribiendo los archivos anteriores.
+no se adivinan. Los archivos originales nunca se sobrescriben; los wrappers que los
+crearon ya no forman parte del repositorio.

@@ -44,12 +44,24 @@
       "description": "Proyectos guardados y cuál se relaciona con una pregunta"
     },
     {
+      "name": "ez_ask",
+      "description": "Pregunta de seguimiento sobre los PDFs del proyecto"
+    },
+    {
       "name": "ez_context",
       "description": "Preferencias del proyecto"
     },
     {
       "name": "ez_research",
       "description": "Crear o actualizar una investigación"
+    },
+    {
+      "name": "ez_plan",
+      "description": "Armar y validar el plan con preguntas QA y búsquedas"
+    },
+    {
+      "name": "ez_screen",
+      "description": "Decidir los candidatos del cribado con sus razones"
     },
     {
       "name": "ez_submit",

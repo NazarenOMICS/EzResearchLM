@@ -131,7 +131,6 @@ def render(value):
         lines.append('Configuración: ' + ('guardada.' if value['configuration_exists'] else 'pendiente; usa ez setup para guardarla.'))
         lines.append('NotebookLM: ' + ('acceso comprobado.' if value['can_notebook_qa'] else
                      ('requiere atención.' if value.get('notebooklm_installed') else 'pendiente de instalar.')))
-        lines.append('Búsqueda local opcional: ' + ('disponible.' if value.get('can_recall') else 'no disponible; puedes investigar con fuentes nuevas.'))
         lines.append('Carpeta de investigaciones: ' + value['runs_root'])
         if value.get('onboarding'):
             lines.append('Pasos para empezar:')

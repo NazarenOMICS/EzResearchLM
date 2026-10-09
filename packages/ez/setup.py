@@ -65,27 +65,24 @@ def prepare(root, check=False, install_notebooklm=False, unpaywall_email=None):
                 atomic_json(config, dict(read_json(config), unpaywall_email=unpaywall_email))
                 os.environ['PAPER_SEARCH_MCP_UNPAYWALL_EMAIL'] = unpaywall_email
     checks = {'python': sys.version.split()[0], 'operator': 'host_agent', 'can_plan': True, 'can_discover': True,
-              'can_notebook_qa': False, 'can_recall': False, 'configuration_exists': config.exists(),
+              'can_notebook_qa': False, 'configuration_exists': config.exists(),
               'runs_root': str(root), 'installation': receipt,
               'unpaywall_configured': bool(os.environ.get('PAPER_SEARCH_MCP_UNPAYWALL_EMAIL') or os.environ.get('UNPAYWALL_EMAIL'))}
-    for tool in ('notebooklm', 'qmd'):
-        command = executable(tool)
-        checks[tool + '_installed'] = bool(command)
-        if command:
-            args = [command, 'list', '--json'] if tool == 'notebooklm' else [command, 'collection', 'list']
-            result = run(args, timeout=30)
-            recognized = True
-            if tool == 'notebooklm' and result.returncode == 0:
-                try:
-                    recognized = valid_listing(json.loads(result.stdout), 'notebooks')
-                except ValueError:
-                    recognized = False
-            checks['can_notebook_qa' if tool == 'notebooklm' else 'can_recall'] = result.returncode == 0 and recognized
-            checks[tool + '_failure'] = result.reason or ('auth_or_configuration_required' if result.returncode else None)
-            if not recognized:
-                checks[tool + '_failure'] = 'invalid_notebooklm_output'
-            if tool == 'notebooklm':
-                checks['login_command'] = [command, 'login']
+    command = executable('notebooklm')
+    checks['notebooklm_installed'] = bool(command)
+    if command:
+        result = run([command, 'list', '--json'], timeout=30)
+        recognized = True
+        if result.returncode == 0:
+            try:
+                recognized = valid_listing(json.loads(result.stdout), 'notebooks')
+            except ValueError:
+                recognized = False
+        checks['can_notebook_qa'] = result.returncode == 0 and recognized
+        checks['notebooklm_failure'] = result.reason or ('auth_or_configuration_required' if result.returncode else None)
+        if not recognized:
+            checks['notebooklm_failure'] = 'invalid_notebooklm_output'
+        checks['login_command'] = [command, 'login']
     if checks['can_notebook_qa']:
         checks['next_action'] = 'El entorno permite preparar corpus y consultar NotebookLM. Dime qué quieres investigar.'
     elif checks.get('notebooklm_failure') == 'invalid_notebooklm_output':

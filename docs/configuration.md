@@ -1,41 +1,28 @@
 # Configuration
 
-Wrappers load `.env` from the repository root when present. Existing process
-environment variables win over `.env` values.
+EZ reads optional settings from environment variables and from a `.env` file in the
+repository root. Process environment variables win over `.env` values. Do not commit
+`.env`.
 
-## Core Variables
+## EZ
 
-- `EZRESEARCH_ROOT`: repository root override.
-- `EZRESEARCH_VAULT`: vault/output root override. Defaults to repository root.
-- `EZRESEARCH_PYTHON`: Python executable override.
-- `EZRESEARCH_RUNS_ROOT`: where pipeline state, logs, questions, and rescue
-  queues are written. Defaults to `runs/` under the repository.
-- `EZRESEARCH_SEARCH_ROOT`: where search metadata and downloaded/acquired PDFs
-  are written. Defaults to `Search/` under the repository.
-- `NOTEBOOKLM_STORAGE_STATE`: NotebookLM browser auth storage path.
+- `EZRESEARCH_RUNS_ROOT`: where runs are written. Defaults to `~/.ezresearch/runs`;
+  projects, inboxes and reports live next to it (see `carpetas.md`). The same folder
+  can be given per command with `--root`.
+- `EZRESEARCH_ROOT`: location of the EZ installation (guides and setup reference).
+  Only needed for unusual installs.
+
+## Search and acquisition
+
+- `PAPER_SEARCH_MCP_UNPAYWALL_EMAIL`: contact email that Unpaywall requires. Usually
+  saved once with `ez setup --unpaywall-email <email>`.
+- `NCBI_EMAIL` and `NCBI_API_KEY`: optional, for polite and faster PubMed requests.
 - `SEMANTIC_SCHOLAR_API_KEY`: optional. Without it Semantic Scholar often answers
   HTTP 429; EZ records that query as failed and continues with the other providers.
+- `EZRESEARCH_CORE_API_KEY`: optional, sent to the CORE API when an acquisition route uses it.
 
-Example:
+## NotebookLM
 
-```powershell
-EZRESEARCH_RUNS_ROOT=D:\research-runs
-EZRESEARCH_SEARCH_ROOT=E:\paper-cache
-```
-
-You can also override one run directly with `-SaveDir`:
-
-```powershell
-powershell.exe -ExecutionPolicy Bypass -File ".\scripts\run_search_topic.ps1" `
-  -Slug "membrane-stress" `
-  -QueriesFile ".\examples\queries.example.json" `
-  -SaveDir "E:\paper-cache\membrane-stress"
-```
-
-## Search Variables
-
-- `PAPER_SEARCH_MCP_UNPAYWALL_EMAIL`: enables Unpaywall lookup.
-- `NCBI_EMAIL`: polite PubMed/NCBI email.
-- `NCBI_API_KEY`: optional NCBI API key.
-
-Do not commit `.env`.
+Sign-in is stored by `notebooklm-py` outside the repository. `ez setup --check` shows
+the login command when it is needed; the person completes it in their browser. The
+agent never reads or copies cookies.
