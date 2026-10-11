@@ -1,7 +1,7 @@
 """Deliverables derived deterministically from answer.json: the evidence report and draft checks."""
 import re
 
-from .presenter import GAP_LABELS, REASON_LABELS
+from .presenter import GAP_LABELS, REASON_LABELS, claim_citation
 
 STATUS = {'complete': 'Respuesta completa para el alcance acordado.',
           'partial': 'Respuesta parcial: algunas subpreguntas quedaron sin respaldo verificado.',
@@ -61,6 +61,12 @@ def entry(source, remote_id):
     return text
 
 
+def cited_as(claim):
+    """« (García et al., 2021)» before the source numbers, or nothing when no source has authors."""
+    citation = claim_citation(claim)
+    return ' ' + citation if citation else ''
+
+
 def report_markdown(answer, contract, state):
     sources = bibliography(answer)
     number = {key: n for key, (n, _, _) in sources.items()}
@@ -72,7 +78,7 @@ def report_markdown(answer, contract, state):
         lines += ['## Lo central', '', f'{len(answer["claims"])} afirmaciones en total; estas son las respaldadas por más fuentes.', '']
         for claim in key_claims(answer):
             cited = sorted({number[(r.get('source') or {}).get('source_id') or r['source_id']] for r in claim['references']})
-            lines.append(f'- {claim["text"]} [{", ".join(map(str, cited))}] `[EZ:{claim["id"]}]`')
+            lines.append(f'- {claim["text"]}{cited_as(claim)} [{", ".join(map(str, cited))}] `[EZ:{claim["id"]}]`')
         lines.append('')
     lines += ['## Respuesta por subpregunta', '']
     gaps = {g['scope_id']: g for g in answer.get('gaps', [])}
@@ -87,7 +93,7 @@ def report_markdown(answer, contract, state):
             claims = [c for c in claims if c['id'] in shown]
         for claim in claims:
             cited = sorted({number[(r.get('source') or {}).get('source_id') or r['source_id']] for r in claim['references']})
-            lines.append(f'- {claim["text"]} [{", ".join(map(str, cited))}] `[EZ:{claim["id"]}]`')
+            lines.append(f'- {claim["text"]}{cited_as(claim)} [{", ".join(map(str, cited))}] `[EZ:{claim["id"]}]`')
             for ref in claim['references']:
                 key = (ref.get('source') or {}).get('source_id') or ref['source_id']
                 warning = ' (no se encontró literal en el texto indexado; revísalo en el PDF)' if ref.get('found_in_fulltext') is False else ''
@@ -156,7 +162,7 @@ def report_markdown(answer, contract, state):
         lines += ['## Anexo: resto de las afirmaciones', '']
         for scope, claim in annex:
             cited = sorted({number[(r.get('source') or {}).get('source_id') or r['source_id']] for r in claim['references']})
-            lines.append(f'- ({scope["id"]}) {claim["text"]} [{", ".join(map(str, cited))}] `[EZ:{claim["id"]}]`')
+            lines.append(f'- ({scope["id"]}) {claim["text"]}{cited_as(claim)} [{", ".join(map(str, cited))}] `[EZ:{claim["id"]}]`')
             for ref in claim['references']:
                 key = (ref.get('source') or {}).get('source_id') or ref['source_id']
                 page = f', p. {ref["page"]}' if ref.get('page') else ''
@@ -221,7 +227,7 @@ def citation_key(source, used):
     authors = source.get('authors') or []
     first = str((authors if isinstance(authors, list) else [authors])[0] if authors else '')
     tokens = first.split(',')[0].split() if ',' in first else first.split()
-    # "Radmacher E" (PubMed) puts initials last; "Eva Radmacher" puts the surname last.
+    # "Garcia E" (PubMed) puts initials last; "Eva Garcia" puts the surname last.
     surname = (tokens[0] if ',' in first or (len(tokens) > 1 and re.fullmatch(r'[A-Z]{1,3}\.?', tokens[-1])) else tokens[-1]) if tokens else ''
     surname = unicodedata.normalize('NFKD', surname).encode('ascii', 'ignore').decode()
     key = (re.sub(r'[^A-Za-z]', '', surname).lower() or 'fuente') + str(source.get('year') or '')

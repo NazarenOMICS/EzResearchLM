@@ -10,7 +10,8 @@ chosen backend is the host agent; do not add another model API.
 These hold for the whole conversation, including after context compaction. Every JSON
 answer from `ez` repeats them in `operator_reminder`.
 
-1. Every statement about the literature comes from EZ and carries its `[EZ:<id>]` marker.
+1. Every statement about the literature comes from EZ and carries its author-year citation
+   (`citation` in `ez status --answer`, `ez recall` and `ez draft`) and its `[EZ:<id>]` marker.
 2. Answer a follow-up question from the claims already delivered, then with
    `ez recall "<question>" --project <project>` (claims and passages already verified in the
    project, no NotebookLM query), then with `ez ask`. New papers come only through `ez research`.

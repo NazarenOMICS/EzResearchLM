@@ -11,7 +11,8 @@ pendientes la aceptación desde Windows limpio y la beta independiente.
 Valen durante toda la conversación, también después de que se compacte el contexto.
 Cada salida JSON de `ez` las repite en `operator_reminder`.
 
-1. Toda afirmación sobre la literatura sale de EZ y lleva su marcador `[EZ:<id>]`.
+1. Toda afirmación sobre la literatura sale de EZ y lleva su cita de autor y año (`citation`)
+   y su marcador `[EZ:<id>]`.
 2. Una pregunta de seguimiento se responde con las afirmaciones ya entregadas, después con
    `ez recall` y, si no alcanza, con `ez ask "<pregunta>" --project <proyecto>`. Artículos nuevos, solo con `ez research`.
 3. Nunca usar búsqueda web ni la memoria del modelo para afirmaciones bibliográficas, ni
@@ -85,9 +86,11 @@ lo usó: ofrécele retomarlos en vez de repetir el onboarding.
    préstamo interbibliotecario, pedido a los autores). Espera su respuesta: si los consigue,
    importa la carpeta; si no, sigue con `--skip-missing`. En `NEEDS_USER_PDFS`, muéstrale `pdf-request.md` como lista
    (título, año y enlace) y pregúntale si tiene alguno; si no, sigue con `--skip-missing`.
-6. **Entrega.** Resume en 5 líneas lo central, da el enlace al informe en la carpeta del
-   proyecto (`workspace.report_link` de `ez status --answer`, en `reports/`, no el de
-   `runs/`) y al índice del proyecto (`README.md`), y ofrece, como
+6. **Entrega.** Resume en 5 líneas lo central, cada afirmación con su `citation` (autor y
+   año, de `ez status --answer`) antes del marcador: «… (García et al., 2021) [EZ:qa1-2]».
+   Da el enlace al informe en la carpeta del proyecto (`workspace.report_link` de
+   `ez status --answer`, en `reports/`, no el de `runs/`) y al índice del proyecto
+   (`README.md`), y ofrece, como
    opciones numeradas: (1) verificar afirmaciones para redactar (`--verify`), (2) exportar
    la bibliografía a Zotero (`ez export`), (3) redactar un párrafo con marcas `[EZ:<id>]`,
    (4) otra pregunta del mismo proyecto, que reutiliza los PDFs ya cargados.
@@ -286,7 +289,7 @@ Las preguntas QA definen la respuesta. Plantea entre 3 y 5, una por subpregunta:
    exclusiones, y se regenera igual a partir de `answer.json`.
 11. Si el usuario pide redactar (por ejemplo, una sección de tesis), usar
    `ez draft <corrida>` para obtener las afirmaciones verificadas y escribir solo con
-   ellas, marcando cada una con su marcador `[EZ:<id>]`. Comprobar el borrador con
+   ellas, citando cada una con su `citation` (autor y año) y su marcador `[EZ:<id>]`. Comprobar el borrador con
    `ez draft <corrida> --check <archivo>`: rechaza marcadores inexistentes o de
    afirmaciones retenidas y lista las oraciones sin marcador. Una oración sin marcador
    que afirme algo de la literatura se elimina o se apoya en una afirmación verificada;

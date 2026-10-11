@@ -43,6 +43,7 @@ def valid_answer(folder):
 def records(runs_root, project):
     """Every delivered claim of the project, newest research first."""
     from .context import history
+    from .presenter import claim_citation
     found = []
     for row in history(Path(runs_root), project, limit=500):
         folder = Path(row['path'])
@@ -51,7 +52,8 @@ def records(runs_root, project):
             continue
         for claim in answer.get('claims', []):
             found.append({'key': f'{state["run_id"]}/{claim["id"]}', 'run_id': state['run_id'], 'claim_id': claim['id'],
-                          'marker': marker(state['run_id'], claim['id']), 'text': claim['text'], 'question': row['question'],
+                          'marker': marker(state['run_id'], claim['id']), 'citation': claim_citation(claim),
+                          'text': claim['text'], 'question': row['question'],
                           'delivery': answer.get('delivery', 'verified'), 'date': row['updated_at'][:10], 'path': str(folder),
                           'passages': [{'text': ref.get('cited_text') or '', 'page': ref.get('page'),
                                         'source': ref.get('source') or {'source_id': ref.get('source_id')}}

@@ -399,6 +399,7 @@ def export_command(folder, args):
 def draft_command(folder, args):
     """Read-only: the verified claims to write from, or a check of a draft that cites them as [EZ:<id>]."""
     from .deliver import check_draft
+    from .presenter import claim_citation
     state = Store(folder).state()
     if not state or state.get('answer', {}).get('status') not in ('complete', 'partial'):
         raise ContractError('Todavía no hay afirmaciones verificadas para redactar.')
@@ -424,10 +425,10 @@ def draft_command(folder, args):
         emit(result, args.json)
         return 0 if result['valid'] else 4
     emit({'kind': 'draft_material', 'report_path': str(folder / 'report.md'),
-          'claims': [{'id': c['id'], 'marker': f'[EZ:{c["id"]}]', 'text': c['text'], 'scope_ids': c['scope_ids']}
-                     for c in answer['claims']],
-          'next_action': 'Redacta solo con estas afirmaciones, marca cada una con su marcador y comprueba el borrador con '
-                         'ez draft <corrida> --check <archivo>.'}, args.json)
+          'claims': [{'id': c['id'], 'marker': f'[EZ:{c["id"]}]', 'citation': claim_citation(c), 'text': c['text'],
+                      'scope_ids': c['scope_ids']} for c in answer['claims']],
+          'next_action': 'Redacta solo con estas afirmaciones; cita cada una con su autor y año (citation) seguido de su '
+                         'marcador, y comprueba el borrador con ez draft <corrida> --check <archivo>.'}, args.json)
     return 0
 
 
@@ -646,7 +647,10 @@ def main(argv=None):
                         emit(pending_passage_review(state), args.json)
                         return 2
                     extra = {'report_path': str(folder / 'report.md')} if (folder / 'report.md').exists() else {}
-                    emit(dict(report, **extra, **({'workspace': state['workspace']} if state.get('workspace') else {})), args.json)
+                    # Author-year citation per claim, for the person; answer.json itself stays as hashed.
+                    from .presenter import claim_citation
+                    shown = dict(report, claims=[dict(c, citation=claim_citation(c)) for c in report.get('claims', [])])
+                    emit(dict(shown, **extra, **({'workspace': state['workspace']} if state.get('workspace') else {})), args.json)
                 else:
                     emit(state, args.json)
                 return 0

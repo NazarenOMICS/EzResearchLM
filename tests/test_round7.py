@@ -298,6 +298,11 @@ class PageTests(unittest.TestCase):
                                 'delivery': 'direct'}, {'question': {'original': 'P'}, 'scope': [{'id': 'sq1', 'question': 'P'}]},
                                {'run_id': 'r'})
         self.assertIn('[1, p. 7]: «pasaje»', text)
+        claim['references'][0]['source'] = {'source_id': 'r1', 'authors': ['Garcia E', 'Lopez A', 'Kim J'], 'year': 2021}
+        text = report_markdown({'answer': {'status': 'complete'}, 'claims': [claim], 'contract_hash': 'c', 'corpus_hash': 'k',
+                                'delivery': 'direct'}, {'question': {'original': 'P'}, 'scope': [{'id': 'sq1', 'question': 'P'}]},
+                               {'run_id': 'r'})
+        self.assertIn('- Afirmación. (Garcia et al., 2021) [1] `[EZ:qa1-1]`', text)
 
 
 class ExportTests(unittest.TestCase):

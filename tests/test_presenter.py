@@ -71,3 +71,23 @@ class PresentationTests(unittest.TestCase):
                          'research_history': [{'question': 'Pregunta anterior', 'run_id': 'ez-old'}]})
         for text in ('tesis', 'Biología', 'Pregunta anterior', 'ez-old', 'evidencia debe revisarse'):
             self.assertIn(text, output)
+
+
+class CitationTests(unittest.TestCase):
+    def test_short_citation_reads_the_author_formats_the_indexes_return(self):
+        from ez.presenter import short_citation
+        cases = {('Garcia E',): 'Garcia, 2020', ('Ana M. Lopez',): 'Lopez, 2020', ('Lopez, Ana M.',): 'Lopez, 2020',
+                 ('van der Berg JH',): 'van der Berg, 2020', ('Garcia E', 'Lopez A'): 'Garcia y Lopez, 2020',
+                 ('Garcia E', 'Lopez A', 'Kim J'): 'Garcia et al., 2020'}
+        for authors, expected in cases.items():
+            self.assertEqual(short_citation({'authors': list(authors), 'year': 2020}), expected)
+        self.assertEqual(short_citation({'authors': 'Garcia E; Lopez A; Kim J', 'year': 2021}), 'Garcia et al., 2021')
+        self.assertIsNone(short_citation({'title': 'Sin autores'}))
+
+    def test_claim_citation_lists_each_source_once_and_the_report_shows_it(self):
+        from ez.presenter import claim_citation
+        a = {'source_id': 's1', 'authors': ['Garcia E', 'Lopez A', 'Kim J'], 'year': 2021, 'title': 'Uno'}
+        b = {'source_id': 's2', 'title': 'Fuente sin autores'}
+        claim = {'id': 'qa1-1', 'references': [{'source': a}, {'source': b}, {'source': a}]}
+        self.assertEqual(claim_citation(claim), '(Garcia et al., 2021)')
+        self.assertEqual(claim_citation({'references': [{'source': b}]}), '')

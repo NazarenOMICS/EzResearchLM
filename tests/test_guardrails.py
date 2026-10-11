@@ -121,5 +121,5 @@ class FirstContactTests(unittest.TestCase):
                  ('AGENTS.md', 'CLAUDE.md', 'docs/ez-host-operator.md', 'docs/ez-user-guide.md')}
         texts['introduction'] = json.dumps(INTRODUCTION, ensure_ascii=False)
         for name, text in texts.items():
-            for topic in ('etambutol', 'ethambutol', 'glutamicum', 'smegmatis'):
+            for topic in ('etambutol', 'ethambutol', 'glutamicum', 'smegmatis', 'radmacher', 'alderwick'):
                 self.assertNotIn(topic, text.casefold(), name)

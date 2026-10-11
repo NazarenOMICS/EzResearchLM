@@ -70,6 +70,47 @@ def welcome(root, guide):
     }
 
 
+def surname(author):
+    """Surname of «Garcia E», «Ana M. Lopez» or «Lopez, Ana M.»: the formats the indexes return."""
+    import re
+    author = author.strip()
+    if ',' in author:
+        return author.split(',')[0].strip()
+    parts = author.split()
+    if len(parts) > 1 and re.fullmatch(r'(?:[A-Z]\.?-?){1,3}', parts[-1]):
+        return ' '.join(parts[:-1])  # PubMed: surname followed by initials
+    return parts[-1] if parts else ''
+
+
+def short_citation(source):
+    """«Garcia et al., 2021»: the author-year form a reader expects next to a claim; None without authors."""
+    authors = source.get('authors') or []
+    if isinstance(authors, str):
+        authors = [a for a in authors.split(';') if a.strip()] if ';' in authors else [authors]
+    names = [n for n in (surname(a) for a in authors) if n]
+    if not names:
+        return None
+    lead = names[0] if len(names) == 1 else f'{names[0]} y {names[1]}' if len(names) == 2 else f'{names[0]} et al.'
+    return f'{lead}, {source["year"]}' if source.get('year') else lead
+
+
+def claim_citation(claim):
+    """Author-year citation of a claim's sources, in reference order: «(García et al., 2021; Kim y Lee, 2023)».
+
+    Sources without authors are left to the numbered reference; no authors at all gives ''.
+    """
+    seen, parts = set(), []
+    for ref in claim.get('references', []):
+        source = ref.get('source') or {}
+        key = source.get('source_id') or ref.get('source_id')
+        if key in seen:
+            continue
+        seen.add(key)
+        if short_citation(source):
+            parts.append(short_citation(source))
+    return '(' + '; '.join(parts) + ')' if parts else ''
+
+
 def cite(reference):
     """Bibliographic identity of a cited source; the remote ID only when nothing else is known."""
     source = reference.get('source') or {}

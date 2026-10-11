@@ -157,6 +157,11 @@ Todo lo anterior está en `main`. El orden para retomar:
    local: la ventana queda abierta y visible, cerrarla da `browser_closed` y una sesión real
    termina en `ready` con `notebooklm list` funcionando. Falta el ingreso de una persona
    desde cero en esa ventana.
+
+   Login probado por el usuario (2026-10-11). Primera entrega: las afirmaciones se mostraban solo
+   con su marcador. Ahora `ez status --answer`, `ez draft`, `ez recall` y el informe dan la cita
+   de autor y año de cada afirmación (`citation`, «García et al., 2021»), y la guía pide
+   mostrarla antes del marcador.
 2. **Puntuar la corrida** con `gold_set_benchmark/puntuar.py --mision M2` y anotar en
    `gold_set_benchmark/` cuántos de los 10 artículos clave entraron, en especial los dos de
    proteómica de *M. smegmatis* (T6).
