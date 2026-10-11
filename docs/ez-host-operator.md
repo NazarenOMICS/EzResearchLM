@@ -152,6 +152,24 @@ correcto comprueba archivos; no certifica una conclusión científica.
 La organización de carpetas está en `docs/carpetas.md`; explícasela a la persona si
 pregunta dónde quedan sus cosas.
 
+## Esperas sin gastar tokens
+
+`ez continue`, `ez ask` y `--verify` tardan minutos: cada pregunta a NotebookLM, alrededor de uno.
+Cada vez que consultas si terminó, tu modelo vuelve a leer toda la conversación; en una prueba
+real (2026-10-11), esas consultas fueron el 41 % de los tokens. Por eso:
+
+1. Lanza el comando una sola vez. Si tu herramienta te devuelve el control antes de que
+   termine, no lo relances ni consultes procesos (`Get-Process`, `Start-Sleep`, `ez status`).
+2. Espera con la espera más larga que permita tu herramienta:
+   1. En Codex, sobre la misma sesión: `write_stdin` con `chars: ""` y `yield_time_ms: 300000`.
+      Vuelve apenas termina el proceso, o a los 5 minutos.
+   2. En Claude Code: la herramienta de terminal con `timeout: 600000`.
+   3. Si perdiste la sesión: `ez wait <corrida> --seconds 290` (o `ez wait --project
+      <proyecto>` tras un `ez ask`), con la misma espera larga. Responde en una línea.
+3. No le escribas a la persona en cada espera: una línea cuando EZ cambia de etapa.
+4. `ez status --json` y `ez status --answer --json` dan una vista resumida. Lee `report.md` o
+   agrega `--full` solo si necesitas los pasajes o todas las exclusiones.
+
 ## Cómo escribir las preguntas a NotebookLM
 
 Las preguntas QA definen la respuesta. Plantea entre 3 y 5, una por subpregunta:

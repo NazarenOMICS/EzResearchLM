@@ -49,5 +49,7 @@ engine; local search only finds sources, it is not evidence.
 
 - Report the state EZ gives (`NEEDS_SCREENING`, `NEEDS_SOURCE_RESCUE`, `NEEDS_CORPUS`,
   `NEEDS_QA_REVIEW`, `NEEDS_MORE_QA`) and its next action; do not bypass `ez`.
+- Wait for long `ez` commands with one long wait (`timeout: 600000`) or `ez wait <run> --seconds 290`;
+  never poll processes or `ez status` in a loop.
 - Deliver `report.md` first; draft text only from `ez draft` claims with their markers.
 - Do not commit `.env`, PDFs, NotebookLM exports, run artifacts, cookies, or tokens.

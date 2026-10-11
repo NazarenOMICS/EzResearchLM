@@ -123,3 +123,52 @@ class FirstContactTests(unittest.TestCase):
         for name, text in texts.items():
             for topic in ('etambutol', 'ethambutol', 'glutamicum', 'smegmatis', 'radmacher', 'alderwick'):
                 self.assertNotIn(topic, text.casefold(), name)
+
+
+class WaitTests(unittest.TestCase):
+    def test_wait_returns_at_once_for_an_idle_run_and_reports_progress(self):
+        import time
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / 'runs'
+            _, created = call('research', 'Pregunta de espera', '--plan-only', '--root', str(root))
+            started = time.monotonic()
+            code, value = call('wait', created['path'], '--seconds', '20', '--root', str(root))
+            self.assertLess(time.monotonic() - started, 10)
+            self.assertEqual((code, value['kind'], value['running']), (0, 'wait', False))
+            self.assertIn('operator_reminder', value)
+
+    def test_wait_reports_a_busy_run_briefly_and_without_the_rules(self):
+        import threading
+        from ez.state import lock
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / 'runs'
+            _, created = call('research', 'Pregunta ocupada', '--plan-only', '--root', str(root))
+            held, release = threading.Event(), threading.Event()
+
+            def writer():
+                with lock(Path(created['path'])):
+                    held.set(); release.wait(10)
+            thread = threading.Thread(target=writer); thread.start(); held.wait(5)
+            try:
+                code, value = call('wait', created['path'], '--seconds', '1', '--root', str(root))
+            finally:
+                release.set(); thread.join()
+            self.assertTrue(value['running'])
+            self.assertNotIn('operator_reminder', value)
+            self.assertLess(len(json.dumps(value, ensure_ascii=False)), 600)
+
+
+class CompactOutputTests(unittest.TestCase):
+    def test_compact_view_summarizes_exclusions_and_drops_passages(self):
+        from ez.cli import compact
+        state = {'corpus_exclusions': [{'source_id': f's{i}', 'reason': 'excluded_by_screening'} for i in range(40)]
+                 + [{'source_id': 'k1', 'reason': 'identity_unconfirmed'}],
+                 'fulltext_receipts': {'x': 1},
+                 'claims': [{'id': 'qa1-1', 'text': 'T', 'scope_ids': ['sq1'], 'citation': '(Garcia et al., 2021)',
+                             'references': [{'cited_text': 'largo', 'page': 3}, {'cited_text': 'otro', 'page': 3}]}]}
+        value = compact(state)
+        self.assertEqual(value['corpus_exclusions'], [{'source_id': 'k1', 'reason': 'identity_unconfirmed'}])
+        self.assertEqual(value['corpus_exclusions_summary'], {'excluded_by_screening': 40, 'identity_unconfirmed': 1})
+        self.assertNotIn('fulltext_receipts', value)
+        self.assertEqual(value['claims'][0], {'id': 'qa1-1', 'citation': '(Garcia et al., 2021)', 'text': 'T',
+                                              'scope_ids': ['sq1'], 'passages': 2, 'pages': [3]})

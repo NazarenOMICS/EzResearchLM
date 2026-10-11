@@ -48,6 +48,11 @@ candidate; authenticated E2E and closed beta are still required before release.
 
 ## Core Rules
 
+- Waiting is the costliest part of a run: launch `ez continue`/`ez ask` once and wait with your
+  tool's longest single wait (Codex: empty `write_stdin` with `yield_time_ms: 300000`; Claude
+  Code: `timeout: 600000`; otherwise `ez wait <run> --seconds 290`). Never poll processes or
+  `ez status` in a loop. See «Esperas sin gastar tokens» in `docs/ez-host-operator.md`.
+
 - NotebookLM is the evidence and QA engine. Local search is a recall and acquisition
   helper, not an answer engine.
 - If evidence is missing, report the state EZ gives (`NEEDS_CORPUS`, `NEEDS_MORE_QA`,

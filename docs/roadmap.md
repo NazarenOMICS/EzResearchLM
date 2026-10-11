@@ -169,6 +169,13 @@ Todo lo anterior está en `main`. El orden para retomar:
    DOI cortado se une y el punto final se acepta; un PDF descargado sin identidad confirmada pausa
    con `NEEDS_IDENTITY_CONFIRMATION` en vez de quedar fuera. Sobre los PDFs de esa corrida y los 68
    anteriores, la identidad automática ganó esos dos artículos y otro más, sin perder ninguno.
+
+   Costo de las esperas (misma prueba): 37 M tokens de entrada; el 41 % se fue en 118 consultas de
+   espera, porque Codex esperaba de a 30 s y `ez status` devolvía 56 KB (97 KB con `--answer`).
+   Codex permite esperar hasta 5 minutos con un `write_stdin` vacío. Cambios: JSON sin sangría y
+   resumido por defecto (`--full` para todo; 6,8 KB y 10 KB), `ez wait`, que vuelve cuando la
+   corrida se pausa o termina, y la guía de esperas largas. Reproduciendo la sesión con estos
+   cambios, el costo estimado baja a unos 22 M (−41 %).
 2. **Puntuar la corrida** con `gold_set_benchmark/puntuar.py --mision M2` y anotar en
    `gold_set_benchmark/` cuántos de los 10 artículos clave entraron, en especial los dos de
    proteómica de *M. smegmatis* (T6).

@@ -27,10 +27,85 @@ OPERATOR_REMINDER = ('Reglas de EZ: responde solo con afirmaciones de EZ y sus m
                      'cribado con ez screen; no edites archivos de la corrida ni leas docs/history.')
 
 
-def emit(value, machine=False):
+FULL = False  # --full: every detail in JSON answers; set by main() for each call
+# Details a host agent does not need to decide its next step. Every check re-sends the agent's whole context, and a 56 KB
+# status (mostly the works excluded at screening) cost thousands of tokens per check in a live run (2026-10-11).
+DETAIL_KEYS = ('fulltext_receipts', 'verification_receipts', 'inbox_import', 'snapshot_only')
+
+
+def compact(value):
+    """The answer without bulky detail: exclusions by reason, claims without their passages (the report has them)."""
+    from collections import Counter
+    value = {k: v for k, v in value.items() if k not in DETAIL_KEYS}
+    exclusions = value.get('corpus_exclusions')
+    if isinstance(exclusions, list) and exclusions:
+        value['corpus_exclusions_summary'] = dict(Counter(e.get('reason') for e in exclusions))
+        # Works left out at screening are a decision already taken; the ones the person can act on stay listed.
+        value['corpus_exclusions'] = [e for e in exclusions if e.get('reason') != 'excluded_by_screening'][:15]
+    claims = value.get('claims')
+    if isinstance(claims, list) and claims and isinstance(claims[0], dict) and 'references' in claims[0]:
+        value['claims'] = [dict({k: c[k] for k in ('id', 'citation', 'text', 'scope_ids', 'warnings') if k in c},
+                                passages=len(c.get('references', [])),
+                                pages=sorted({r['page'] for r in c.get('references', []) if r.get('page')}))
+                           for c in claims]
+        value['detail'] = 'Pasajes y fuentes completos: report_path, o este mismo comando con --full.'
+    return value
+
+
+def emit(value, machine=False, reminder=True):
     if machine and isinstance(value, dict):
-        value = dict(value, operator_reminder=OPERATOR_REMINDER)
-    print(json.dumps(value, ensure_ascii=False, indent=2) if machine else render(value))
+        value = value if FULL else compact(value)
+        if reminder:
+            value = dict(value, operator_reminder=OPERATOR_REMINDER)
+    # No indentation: an agent reads compact JSON as well, and indentation added about a third more tokens.
+    print(json.dumps(value, ensure_ascii=False, separators=(',', ':')) if machine else render(value))
+
+
+def run_busy(folder):
+    """True while another ez process holds the run (continue, ask, verify). The probe takes the lock for an instant."""
+    try:
+        with lock(folder):
+            return False
+    except ContractError:
+        return True
+
+
+def latest_run(root, project):
+    from .context import history
+    rows = history(root, project, limit=1)
+    if not rows:
+        raise ContractError(f'El proyecto «{project}» no tiene investigaciones.')
+    return Path(rows[0]['path'])
+
+
+def wait_command(root, args):
+    """Block until the run pauses or finishes, or for --seconds; answer in one short line.
+
+    Agents with short tool calls (Codex returns after about 30 s) check again with this command alone, so each check
+    adds a few hundred characters to their context instead of a full status.
+    """
+    import time
+    folder = Path(args.run).resolve() if args.run else latest_run(root, args.project)
+    deadline = time.monotonic() + max(1, args.seconds)
+    busy = run_busy(folder)
+    while busy and time.monotonic() < deadline:
+        time.sleep(min(2.0, max(0.1, deadline - time.monotonic())))
+        busy = run_busy(folder)
+    state = Store(folder).state() or {}
+    contract = read_json(folder / 'research-contract.json') if (folder / 'research-contract.json').exists() else {}
+    total = len(contract.get('plan', {}).get('notebook_questions', []))
+    answered = len([p for p in (folder / 'qa').glob('*.json') if p.name != 'manifest.json']) if (folder / 'qa').is_dir() else 0
+    value = {'kind': 'wait', 'run': str(folder), 'running': busy, 'phase': state.get('phase'),
+             'signals': state.get('legacy_signals', []), 'answer_status': (state.get('answer') or {}).get('status')}
+    if total:
+        value['notebooklm_questions'] = f'{min(answered, total)} de {total}'
+    if busy:
+        value['next_action'] = ('EZ sigue trabajando. Vuelve a correr este mismo ez wait; no relances la corrida ni '
+                                'consultes procesos, y no le escribas a la persona en cada espera.')
+    else:
+        value['next_action'] = state.get('next_action') or 'Lee ez status <corrida> --json.'
+    emit(value, args.json, reminder=not busy)
+    return 0
 
 
 def pending_passage_review(state):
@@ -441,6 +516,7 @@ def main(argv=None):
     parser.add_argument('--guide', action='store_true', help='Leer la guía de primer uso, sin conexión ni cambios.')
     parser.add_argument('--root', type=Path, default=None, help='Carpeta de corridas (o EZRESEARCH_RUNS_ROOT).')
     parser.add_argument('--json', action='store_true', help='Salida estructurada.')
+    parser.add_argument('--full', action='store_true', help='Con --json, todos los detalles (exclusiones, pasajes, recibos).')
     sub = parser.add_subparsers(dest='command')
     p = sub.add_parser('setup', help='Preparar el entorno y comprobar el acceso.'); p.add_argument('--check', action='store_true'); p.add_argument('--install-notebooklm', action='store_true')
     p.add_argument('--login', action='store_true', help='Abrir el acceso a NotebookLM con tu cuenta de Google.')
@@ -469,6 +545,8 @@ def main(argv=None):
     p.add_argument('--key', metavar='IDS', help='Incluidos centrales para responder, separados por comas.')
     p.add_argument('--check', action='store_true', help='Validar sin modificar la corrida.')
     p = sub.add_parser('status', help='Ver el avance y el siguiente paso.'); p.add_argument('run'); p.add_argument('--answer', action='store_true')
+    p = sub.add_parser('wait', help='Esperar a que la corrida se pause o termine (hasta --seconds).'); p.add_argument('run', nargs='?')
+    p.add_argument('--project', default='general'); p.add_argument('--seconds', type=int, default=25)
     p = sub.add_parser('draft', help='Ver las afirmaciones verificadas para redactar o comprobar un borrador.'); p.add_argument('run'); p.add_argument('--check', type=Path, metavar='BORRADOR')
     p = sub.add_parser('ask', help='Pregunta de seguimiento respondida solo con los PDFs ya verificados del proyecto.')
     p.add_argument('question'); p.add_argument('--project', default='general')
@@ -486,8 +564,11 @@ def main(argv=None):
     p.add_argument('--reviewer', choices=['user', 'host_agent'], default='user')
     for command_parser in sub.choices.values():
         command_parser.add_argument('--json', action='store_true', default=argparse.SUPPRESS)
+        command_parser.add_argument('--full', action='store_true', default=argparse.SUPPRESS)
         command_parser.add_argument('--root', type=Path, default=argparse.SUPPRESS)
     args = parser.parse_args(argv)
+    global FULL
+    FULL = getattr(args, 'full', False)
     load_environment()
     root = (args.root or data_root()).expanduser().resolve()
     load_user_config(root)
@@ -542,6 +623,8 @@ def main(argv=None):
             return ask_command(root, args)
         if args.command == 'recall':
             return recall_command(root, args)
+        if args.command == 'wait':
+            return wait_command(root, args)
         if args.command == 'research':
             cpath = context_path(root, args.project)
             context = read_json(cpath) if cpath.exists() else {'language': 'es', 'project': args.project}
