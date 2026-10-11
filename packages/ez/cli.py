@@ -384,16 +384,24 @@ def verify_command(folder, args):
 
 def recall_command(root, args):
     """Search the project's delivered claims and their passages; no NotebookLM query, no new text."""
-    from .vault import recall
+    from .vault import MIN_COVERAGE, recall
     result = recall(root, args.project, args.question, args.limit)
+    pdf_hint = (' Los pdf_passages son pasajes literales de los PDFs del proyecto, con página: cita cada uno con su marcador '
+                '[EZ:pdf-…] y su autor y año, solo para lo que dicen textualmente. Uno con in_references es una cita a otro '
+                'trabajo, no un resultado del artículo.')
     if result['evidence'] == 'sufficient':
         hint = ('Lo ya verificado en el proyecto responde la pregunta. Responde solo con estas afirmaciones y sus pasajes, con '
                 'el marcador de cada una; si una respuesta exige afirmar algo que el pasaje no dice literalmente, usa ez ask.')
+    elif result['pdf_coverage'] >= MIN_COVERAGE:
+        hint = ('Los PDFs del proyecto tienen pasajes literales sobre esto; responde con ellos sin consultar NotebookLM.' + pdf_hint
+                + ' Usa ez ask solo si la pregunta pide comparar o sintetizar entre fuentes y los pasajes no alcanzan.')
     elif result['hits']:
         hint = ('Lo ya verificado responde solo en parte (faltan: ' + ', '.join(result['missing_words'][:8]) + '). Di qué '
                 'cubre, con marcadores, y corre ez ask "<pregunta>" --project ' + args.project + ' para el resto.')
     else:
         hint = 'Nada de lo ya verificado en el proyecto responde esto. Corre ez ask "<pregunta>" --project ' + args.project + '.'
+    if result['pdf_passages'] and result['pdf_coverage'] < MIN_COVERAGE:
+        hint += pdf_hint
     emit(dict(result, kind='recall', project=args.project, next_action=hint), args.json)
     return 0
 
@@ -496,7 +504,15 @@ def draft_command(folder, args):
             if (contract.get('context', {}).get('project') or 'general') != project:
                 return None
             return valid_answer(other)[0]
-        result = check_draft(answer, Path(args.check).read_text(encoding='utf-8-sig'), other_run)
+        def pdf_page(sha12, page):
+            # A literal passage of a verified PDF of the project, found by ez recall.
+            from .library import project_sources
+            from .vault import page_cache
+            for source in project_sources(folder.parent, project):
+                if source['content_sha256'].startswith(sha12):
+                    return 1 <= page <= len(page_cache(folder.parent, source))
+            return False
+        result = check_draft(answer, Path(args.check).read_text(encoding='utf-8-sig'), other_run, pdf_page)
         emit(result, args.json)
         return 0 if result['valid'] else 4
     emit({'kind': 'draft_material', 'report_path': str(folder / 'report.md'),

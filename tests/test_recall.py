@@ -118,3 +118,37 @@ class SufficiencyTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class FullTextRecallTests(unittest.TestCase):
+    """ez recall searches the project's PDFs page by page, so methods and references need no NotebookLM query."""
+    PAGES = ['Results. Cells grown in CGXII medium with 10 mg/L of the drug showed a lower growth rate.',
+             'Discussion of the envelope.\nReferences\nGarcia E, Lopez A (2019) Earlier work on growth. J Bact 1:1-2.']
+
+    def recall(self, question):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from ez.vault import recall
+        source = {'source_id': 's1', 'content_sha256': 'ab' * 32, 'title': 'Growth under the drug',
+                  'authors': ['Kim J', 'Lee S'], 'year': 2020, 'pdf_path': 'x.pdf'}
+        with tempfile.TemporaryDirectory() as temp, patch('ez.library.project_sources', return_value=[source]), \
+                patch('ez.vault.page_cache', return_value=self.PAGES):
+            return recall(Path(temp) / 'runs', 'p', question)
+
+    def test_literal_passages_carry_page_marker_citation_and_reference_flag(self):
+        result = self.recall('CGXII medium growth rate drug concentration')
+        best = result['pdf_passages'][0]
+        self.assertEqual((best['marker'], best['page'], best['in_references']), ('[EZ:pdf-' + 'ab' * 6 + '-p1]', 1, False))
+        self.assertEqual(best['source']['citation'], 'Kim y Lee, 2020')
+        self.assertGreaterEqual(result['pdf_coverage'], 0.6)
+        cited = self.recall('Garcia 2019 earlier work')['pdf_passages'][0]
+        self.assertEqual((cited['page'], cited['in_references']), (2, True))
+
+    def test_draft_check_accepts_only_existing_pdf_pages(self):
+        from ez.deliver import check_draft
+        exists = lambda sha12, page: sha12 == 'ab' * 6 and page <= 2
+        text = 'Cells in CGXII grew more slowly with the drug [EZ:pdf-' + 'ab' * 6 + '-p1]. Other claim [EZ:pdf-' + 'ab' * 6 + '-p9].'
+        result = check_draft({'claims': []}, text, pdf_page=exists)
+        self.assertEqual(result['unknown_markers'], ['pdf-' + 'ab' * 6 + '-p9'])
+        self.assertIn('pdf-' + 'ab' * 6 + '-p1', result['claims_used'])

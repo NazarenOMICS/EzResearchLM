@@ -10,6 +10,11 @@ source of truth, bound to their corpus by hash):
 A recalled claim keeps its run: its marker is [EZ:<run_id>/<claim_id>], and
 ez draft --check resolves it against that run. Recall never produces new text; it
 returns what NotebookLM already said and the passages it cited.
+
+Recall also searches the full text of the project's verified PDFs, page by page, and
+returns literal passages marked [EZ:pdf-<sha12>-p<page>]. They answer what the PDFs
+say word for word (methods, conditions, reference lists) without a NotebookLM query;
+they are not syntheses, so each is used only for what it says literally.
 """
 from collections import Counter
 import math
@@ -66,24 +71,84 @@ def words(text):
     return [w for w in plain_words(text) if len(w) > 2]
 
 
-def recall(runs_root, project, question, limit=8):
+PDF_WINDOW, PDF_STEP = 70, 45  # words per passage and step between passages (they overlap)
+REFERENCES_HEADING = re.compile(r'^\s*(references|literature cited|bibliography|referencias|bibliografía)\s*$', re.I | re.M)
+
+
+def pdf_marker(sha256, page):
+    return f'[EZ:pdf-{sha256[:12]}-p{page}]'
+
+
+def page_cache(runs_root, source):
+    """Text of each page of a verified PDF, extracted once and kept next to the runs (keyed by its hash)."""
+    import json
+    from .pdftext import page_texts
+    from .state import atomic_json
+    path = Path(runs_root).parent / 'cache' / 'pages' / (source['content_sha256'] + '.json')
+    if path.is_file():
+        try:
+            return json.loads(path.read_text(encoding='utf-8'))['pages']
+        except (OSError, ValueError, KeyError):
+            pass
+    try:
+        pages = page_texts(source['pdf_path'])
+    except Exception:
+        return []
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_json(path, {'sha256': source['content_sha256'], 'pages': pages})
+    return pages
+
+
+def pdf_chunks(runs_root, project):
+    """Overlapping passages of every verified PDF of the project, with page and whether they sit in the references."""
+    from .library import project_sources
+    from .presenter import short_citation
+    chunks = []
+    for source in project_sources(runs_root, project):
+        pages = page_cache(runs_root, source)
+        in_references = False
+        about = {'title': source.get('title'), 'citation': short_citation(source), 'doi': source.get('doi'),
+                 'source_id': source['source_id']}
+        for number, text in enumerate(pages, 1):
+            text = text or ''
+            heading = None if in_references else REFERENCES_HEADING.search(text)
+            # A page that holds the references heading is split there: the body above, the reference list below.
+            parts = [(text[:heading.start()], False), (text[heading.start():], True)] if heading else [(text, in_references)]
+            for part, references in parts:
+                tokens = part.split()
+                for start in range(0, max(1, len(tokens) - PDF_WINDOW // 3), PDF_STEP):
+                    piece = ' '.join(tokens[start:start + PDF_WINDOW])
+                    if piece:
+                        chunks.append({'marker': pdf_marker(source['content_sha256'], number), 'page': number, 'text': piece,
+                                       'in_references': references, 'source': about})
+            if heading:
+                in_references = True
+    return chunks
+
+
+def bm25(query, documents):
+    """Okapi BM25 score of each document (a list of words) for the query words."""
+    frequency = Counter(w for d in documents for w in set(d))
+    average = sum(map(len, documents)) / len(documents) if documents else 0
+    scores = []
+    for document in documents:
+        counts = Counter(document)
+        score = 0.0
+        for word in query & counts.keys():
+            idf = math.log(1 + (len(documents) - frequency[word] + 0.5) / (frequency[word] + 0.5))
+            score += idf * counts[word] * 2.2 / (counts[word] + 1.2 * (0.25 + 0.75 * len(document) / (average or 1)))
+        scores.append(score)
+    return scores
+
+
+def recall(runs_root, project, question, limit=8, pdf_limit=6):
     """BM25 over each claim with its passages and source titles; coverage says how much of the question they touch."""
     from .workspace import topic_words
     rows = records(runs_root, project)
     documents = [words(' '.join([r['text']] + [p['text'] + ' ' + (p['source'].get('title') or '') for p in r['passages']]))
                  for r in rows]
     query = set(words(question))
-    frequency = Counter(w for d in documents for w in set(d))
-    average = sum(map(len, documents)) / len(documents) if documents else 0
-    scored = []
-    for row, document in zip(rows, documents):
-        counts = Counter(document)
-        score = 0.0
-        for word in query & counts.keys():
-            idf = math.log(1 + (len(documents) - frequency[word] + 0.5) / (frequency[word] + 0.5))
-            score += idf * counts[word] * 2.2 / (counts[word] + 1.2 * (0.25 + 0.75 * len(document) / (average or 1)))
-        if score > 0:
-            scored.append((score, row))
+    scored = [(score, row) for score, row in zip(bm25(query, documents), rows) if score > 0]
     scored.sort(key=lambda item: -item[0])
     hits, seen = [], set()
     for score, row in scored:
@@ -99,8 +164,22 @@ def recall(runs_root, project, question, limit=8):
         touched |= topic_words(' '.join([hit['text']] + [p['text'] for p in hit['passages']]))
     coverage = round(len(asked & touched) / len(asked), 2) if asked else 0.0
     evidence = 'sufficient' if coverage >= MIN_COVERAGE else 'partial' if hits else 'insufficient'
+    chunks = pdf_chunks(runs_root, project)
+    ranked = sorted(((s, c) for s, c in zip(bm25(query, [words(c['text']) for c in chunks]), chunks) if s > 0),
+                    key=lambda item: -item[0])
+    passages, pages_seen = [], set()
+    for score, chunk in ranked:
+        if chunk['marker'] in pages_seen:  # one passage per page: the best one
+            continue
+        pages_seen.add(chunk['marker'])
+        passages.append(dict(chunk, score=round(score, 2)))
+        if len(passages) == pdf_limit:
+            break
+    pdf_touched = set().union(*(topic_words(p['text']) for p in passages[:COVERAGE_HITS])) if passages else set()
+    pdf_coverage = round(len(asked & pdf_touched) / len(asked), 2) if asked else 0.0
     return {'claims_in_project': len(rows), 'hits': hits, 'coverage': coverage, 'evidence': evidence,
-            'missing_words': sorted(asked - touched)}
+            'missing_words': sorted(asked - touched - pdf_touched), 'pdf_passages': passages, 'pdf_coverage': pdf_coverage,
+            'pdfs_searched': len({c['source']['source_id'] for c in chunks})}
 
 
 def note_name(source):

@@ -179,11 +179,13 @@ def report_markdown(answer, contract, state):
     return '\n'.join(lines)
 
 
-def check_draft(answer, text, other_run=None):
+def check_draft(answer, text, other_run=None, pdf_page=None):
     """Every marker must name a delivered claim; sentences without a marker are listed for review.
 
     [EZ:<id>] names a claim of this run; [EZ:<run_id>/<id>] a claim of another research of the
     project, found by ez recall or ez ask. other_run(run_id) returns that run's answer or None.
+    [EZ:pdf-<sha12>-p<page>] names a literal passage of a verified project PDF found by ez recall;
+    pdf_page(sha12, page) says whether that PDF and page exist.
     """
     def claims_of(value):
         return {c['id'] for c in value.get('claims', [])}, {c['id'] for c in value.get('withheld_claims', [])}
@@ -192,6 +194,11 @@ def check_draft(answer, text, other_run=None):
     for group in MARKER.findall(text):
         for claim_id in (x.strip() for x in group.split(',') if x.strip()):
             used.add(claim_id)
+            page_ref = re.fullmatch(r'pdf-([0-9a-f]{12})-p(\d+)', claim_id)
+            if page_ref:
+                if not (pdf_page and pdf_page(page_ref[1], int(page_ref[2]))):
+                    unknown.add(claim_id)
+                continue
             run_id, _, local = claim_id.rpartition('/')
             if run_id:
                 if run_id not in others:

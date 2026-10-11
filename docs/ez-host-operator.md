@@ -14,7 +14,8 @@ Cada salida JSON de `ez` las repite en `operator_reminder`.
 1. Toda afirmación sobre la literatura sale de EZ y lleva su cita de autor y año (`citation`)
    y su marcador `[EZ:<id>]`.
 2. Una pregunta de seguimiento se responde con las afirmaciones ya entregadas, después con
-   `ez recall` y, si no alcanza, con `ez ask "<pregunta>" --project <proyecto>`. Artículos nuevos, solo con `ez research`.
+   `ez recall` (también busca en el texto de los PDFs del proyecto) y, si no alcanza, con
+   `ez ask "<pregunta>" --project <proyecto>`. Artículos nuevos, solo con `ez research`.
 3. Nunca usar búsqueda web ni la memoria del modelo para afirmaciones bibliográficas, ni
    para completar una respuesta de EZ. Si el usuario pide explícitamente un dato externo
    (por ejemplo, una entrada de UniProt), va aparte y rotulado «fuente externa, no del corpus».
@@ -116,7 +117,13 @@ Nunca respondas con tu memoria como si fuera evidencia:
    `[EZ:<id>]`, y dilo.
 2. Si no alcanzan, corre `ez recall "<pregunta>" --project <proyecto>`: busca en segundos,
    sin consultar NotebookLM, entre todas las afirmaciones ya entregadas en el proyecto y sus
-   pasajes. Cada resultado trae su marcador con la corrida (`[EZ:<corrida>/<id>]`), la
+   pasajes, y en el texto completo de sus PDFs. Escribe la consulta también con los términos
+   del idioma de los artículos (casi siempre inglés): «duración del ayuno fasting duration
+   insulin sensitivity». `pdf_passages` trae pasajes literales con página y marcador
+   `[EZ:pdf-<hash>-p<página>]`: úsalos solo para lo que dicen textualmente. Uno con
+   `in_references: true` es una cita a otro trabajo, no un resultado: sirve para saber si un
+   artículo («Smith 2019») está citado, nunca para decir qué encontró. Para métodos,
+   condiciones, dosis o referencias, esto suele alcanzar sin `ez ask`. Cada resultado trae su marcador con la corrida (`[EZ:<corrida>/<id>]`), la
    pregunta en la que se obtuvo y los pasajes literales con página y fuente. Con `evidence:
    sufficient`, responde con esas afirmaciones y marcadores. Usa cada una para lo que su
    pasaje dice: si responder exige afirmar algo que el pasaje no dice literalmente, sigue

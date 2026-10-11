@@ -176,6 +176,13 @@ Todo lo anterior está en `main`. El orden para retomar:
    resumido por defecto (`--full` para todo; 6,8 KB y 10 KB), `ez wait`, que vuelve cuando la
    corrida se pausa o termina, y la guía de esperas largas. Reproduciendo la sesión con estos
    cambios, el costo estimado baja a unos 22 M (−41 %).
+
+   Base local (misma prueba): varios `ez ask` (1 a 2 minutos cada uno) buscaban datos literales: la
+   referencia de Schubert, si existía «Smith 2019», condiciones de cultivo. `ez recall` busca ahora
+   también en el texto de los PDFs del proyecto, página por página (con caché), y devuelve pasajes
+   literales con `[EZ:pdf-<hash>-p<página>]`, autor y año, y si están en la lista de referencias;
+   `ez draft --check` valida esos marcadores. En el proyecto real respondió esas tres preguntas en
+   7 a 11 segundos. El umbral de cobertura sigue sin medición.
 2. **Puntuar la corrida** con `gold_set_benchmark/puntuar.py --mision M2` y anotar en
    `gold_set_benchmark/` cuántos de los 10 artículos clave entraron, en especial los dos de
    proteómica de *M. smegmatis* (T6).
