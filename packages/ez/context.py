@@ -20,6 +20,9 @@ def history(root, project, limit=20):
             if not state or digest(contract) != state.get('contract_hash'):
                 continue
             results.append({'run_id': state['run_id'], 'question': contract['question']['original'],
+                            # ez ask marks its runs; earlier ones are known by the stop rule it always wrote.
+                            'follow_up': bool(contract.get('context', {}).get('follow_up')) or contract.get('plan', {}).get(
+                                'stop_rule') == 'Pregunta de seguimiento respondida solo con la biblioteca del proyecto.',
                             'saved_answer_status': state['answer']['status'], 'updated_at': state['updated_at'],
                             'path': str(path.parent.resolve()), 'evidence_must_be_rechecked': True})
         except (OSError, ValueError, KeyError):

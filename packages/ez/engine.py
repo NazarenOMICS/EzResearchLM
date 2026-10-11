@@ -700,10 +700,14 @@ class Engine:
         if self.state.get('pending_operation') == 'create_notebook':
             notebooks = self.notebook(['list']).get('notebooks', [])
             matches = [n for n in notebooks if n.get('title') == title]
-            if len(matches) != 1:
-                raise Pause('remote_reconciliation', 'La creación anterior no tiene resultado inequívoco. Revisa el notebook antes de repetir.')
-            self.checkpoint(notebook_id=matches[0]['id'], pending_operation=None)
-            return
+            if len(matches) == 1:
+                self.checkpoint(notebook_id=matches[0]['id'], pending_operation=None)
+                return
+            if matches:
+                raise Pause('remote_reconciliation', f'Hay {len(matches)} notebooks llamados «{title}» en NotebookLM. Deja uno '
+                            'solo (borra los otros desde la web) y continúa.')
+            # No notebook has this run's title: the earlier create never happened (a dropped connection, an expired
+            # session), so creating it now cannot duplicate one. A live run stalled here (2026-10-11).
         self.checkpoint(pending_operation='create_notebook')
         try:
             data = self.notebook(['create', title])

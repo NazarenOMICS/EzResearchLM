@@ -136,7 +136,8 @@ Nunca respondas con tu memoria como si fuera evidencia:
    con el paso 3. Con `partial`, responde lo cubierto y sigue con el paso 3 para el resto.
 3. Si `ez recall` no alcanza, corre `ez ask "<pregunta>" --project <proyecto>`: NotebookLM
    responde con los PDFs ya verificados del proyecto, sin buscar ni descargar, en uno o dos
-   minutos. Contesta con sus afirmaciones y marcas. `evidence` dice si alcanzó:
+   minutos. Si se corta (red, terminal cerrada), repite exactamente la misma pregunta: EZ
+   retoma esa consulta en vez de abrir otra; si sigue en curso, espera con `ez wait`. Contesta con sus afirmaciones y marcas. `evidence` dice si alcanzó:
    1. `sufficient`: responde con eso; no busques artículos nuevos.
    2. `partial` o `insufficient`: di qué responde el corpus y qué no, sin completar con tu
       memoria ni con la web, y ofrece buscar artículos nuevos con `choices` («Buscar

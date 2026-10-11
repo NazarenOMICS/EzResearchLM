@@ -440,13 +440,25 @@ def ask_command(root, args):
     from .library import project_sources
     if not project_sources(root, args.project):
         raise ContractError(f'El proyecto «{args.project}» todavía no tiene PDFs verificados. Empieza con ez research.')
-    cpath = context_path(root, args.project)
-    context = read_json(cpath) if cpath.exists() else {'language': 'es', 'project': args.project}
-    contract = draft(args.question, dict(context, project=args.project))
-    contract['plan'].update(status='ready', delivery='direct', discovery_mode='reuse_only', queries=[],
-                            notebook_questions=[{'id': 'ask1', 'scope_ids': ['sq1'], 'text': args.question}],
-                            stop_rule='Pregunta de seguimiento respondida solo con la biblioteca del proyecto.')
-    folder, _ = create_run(root, args.question, contract['context'], contract)
+    from .context import history
+    # The same question left unanswered (a dropped connection, a closed terminal) resumes in its own run instead of
+    # opening another: in a live test (2026-10-11) three retries made three runs.
+    pending = next((Path(r['path']) for r in history(root, args.project, limit=500) if r['follow_up']
+                    and r['question'] == args.question and r['saved_answer_status'] == 'unavailable'), None)
+    if pending and run_busy(pending):
+        emit({'kind': 'ask', 'path': str(pending), 'running': True,
+              'next_action': f'Esta pregunta ya se está respondiendo. Espera con ez wait {pending} --seconds 290.'}, args.json)
+        return 2
+    if pending:
+        folder = pending
+    else:
+        cpath = context_path(root, args.project)
+        context = read_json(cpath) if cpath.exists() else {'language': 'es', 'project': args.project}
+        contract = draft(args.question, dict(context, project=args.project, follow_up=True))
+        contract['plan'].update(status='ready', delivery='direct', discovery_mode='reuse_only', queries=[],
+                                notebook_questions=[{'id': 'ask1', 'scope_ids': ['sq1'], 'text': args.question}],
+                                stop_rule='Pregunta de seguimiento respondida solo con la biblioteca del proyecto.')
+        folder, _ = create_run(root, args.question, contract['context'], contract)
     with lock(folder):
         engine = Engine(folder)
         code = engine.execute()

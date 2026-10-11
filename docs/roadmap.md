@@ -202,6 +202,15 @@ Todo lo anterior está en `main`. El orden para retomar:
    AGENTS.md piden ahora la entrega directa siempre y `ez continue --verify` (automático) para
    redactar; `ez plan --delivery verified` lo advierte en `search_advice`, y `ez draft` avisa si
    las afirmaciones no están verificadas.
+
+   NotebookLM sin intervención manual (misma prueba): tras renovar el login, EZ no reintentó una
+   creación de notebook que nunca había ocurrido y Codex lo creó a mano; un corte de red hizo que
+   relanzara `ez ask` tres veces, con una corrida nueva cada vez, y el proyecto figuraba con 12
+   «investigaciones». Ahora, si ningún notebook tiene el título de la corrida, EZ lo crea de nuevo;
+   `ez ask` retoma la misma pregunta sin respuesta en su corrida, y las preguntas de seguimiento se
+   cuentan y listan aparte (el proyecto real: 3 investigaciones y 9 seguimientos). Sigue pendiente
+   que el agente rotule los datos externos («fuente externa, no del corpus»): en la prueba, la
+   entrada de UniProt salió sin rótulo pese a la regla.
 2. **Puntuar la corrida** con `gold_set_benchmark/puntuar.py --mision M2` y anotar en
    `gold_set_benchmark/` cuántos de los 10 artículos clave entraron, en especial los dos de
    proteómica de *M. smegmatis* (T6).

@@ -221,6 +221,36 @@ class ProjectLibraryTests(unittest.TestCase):
         self.assertFalse(any(a[1:3] in (['-m', 'ez.discovery'], ['-m', 'ez.acquisition']) for a in self.service.calls[-6:]))
         self.assertEqual([c['label'] for c in value['choices']][0], 'Verificar lo central para redactar')
 
+    def test_a_follow_up_cut_off_midway_resumes_in_the_same_run(self):
+        import test_v6_rules
+        from ez.process import Result
+        self.second_run()
+        service, state = self.service, {'failed': False}
+        def flaky(args, **kwargs):
+            if args[1] == 'ask' and not state['failed']:
+                state['failed'] = True
+                return Result(1, '', 'Connection reset by peer', None)
+            result = service(args, **kwargs)
+            if args[1] == 'ask':
+                value = json.loads(result.stdout); value['answer'] = test_v6_rules.ANSWER
+                return Result(0, json.dumps(value), '', None)
+            return result
+
+        def ask():
+            output = StringIO()
+            with redirect_stdout(output), patch('ez.cli.load_environment'),                     patch('ez.engine.Engine.__init__.__defaults__', (flaky,)), patch('ez.engine.executable', return_value='notebooklm'):
+                code = main(['--root', self.temp.name, 'ask', '¿Qué dice la fuente?', '--json'])
+            return code, json.loads(output.getvalue())
+        first_code, first = ask()
+        self.assertNotEqual(first_code, 0)
+        code, second = ask()
+        self.assertEqual((code, second['path']), (0, first['path']))
+        output = StringIO()
+        with redirect_stdout(output), patch('ez.cli.load_environment'):
+            main(['--root', self.temp.name, 'projects', '--json'])
+        row = next(r for r in json.loads(output.getvalue())['projects'] if r['project'] == 'general')
+        self.assertEqual((row['researches'], row['follow_up_questions']), (2, 1))
+
     def test_projects_are_listed_and_ranked_against_a_new_question(self):
         self.second_run()
         output = StringIO()

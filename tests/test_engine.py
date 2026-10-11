@@ -284,6 +284,21 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(self.service.create_count, 1)
         self.assertEqual(self.service.upload_count, 1)
 
+    def test_a_create_that_never_happened_is_retried_by_ez(self):
+        calls = {'create': 0}
+        def dropped_once(args, **kwargs):
+            if args[1] == 'create' and not calls['create']:
+                calls['create'] += 1
+                return Result(1, '', 'Connection reset by peer', None)
+            return self.service(args, **kwargs)
+        with lock(self.folder), patch('ez.engine.executable', return_value='notebooklm'):
+            engine = Engine(self.folder, runner=dropped_once)
+            engine.execute()
+            self.assertEqual(engine.state.get('pending_operation'), 'create_notebook')
+        self.assertEqual(self.run_engine()[0], 2)
+        self.assertEqual(self.service.create_count, 1)
+        self.assertEqual(self.service.upload_count, 1)
+
     def test_structural_citation_resolution_keeps_raw_text_and_detects_tampering(self):
         self.run_engine()
         quote = 'This synthetic source reports a specific change to the documented research procedure.'

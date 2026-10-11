@@ -128,11 +128,20 @@ def write_index(runs_root, project):
              f'- Reports: [reports/]({link(folder / "reports")})',
              f'- Notes (Obsidian vault): [notes/]({link(folder / "notes")})', '',
              '## Researches', '', '| Date | Question | Answer | Report | Working folder |', '|---|---|---|---|---|']
-    for row in history(Path(runs_root), project, limit=200):
-        report = next(iter(sorted((folder / 'reports').glob(f'*-{row["run_id"][3:9]}.md'))), None)
-        question = row['question'].replace('|', '/')
-        lines.append(f'| {row["updated_at"][:10]} | {question} | {labels.get(row["saved_answer_status"], row["saved_answer_status"])} | '
-                     + (f'[open]({link(report)})' if report else '—') + f' | [{row["run_id"]}]({link(row["path"])}) |')
+    rows = history(Path(runs_root), project, limit=200)
+
+    def table(selected):
+        for row in selected:
+            report = next(iter(sorted((folder / 'reports').glob(f'*-{row["run_id"][3:9]}.md'))), None)
+            question = row['question'].replace('|', '/')
+            lines.append(f'| {row["updated_at"][:10]} | {question} | {labels.get(row["saved_answer_status"], row["saved_answer_status"])} | '
+                         + (f'[open]({link(report)})' if report else '—') + f' | [{row["run_id"]}]({link(row["path"])}) |')
+    table([r for r in rows if not r.get('follow_up')])
+    follow_ups = [r for r in rows if r.get('follow_up')]
+    if follow_ups:
+        lines += ['', '## Follow-up questions', '', 'Answered from the project\'s PDFs, without a new search.', '',
+                  '| Date | Question | Answer | Report | Working folder |', '|---|---|---|---|---|']
+        table(follow_ups)
     lines += ['', 'EZ rewrites this index on every delivery. Working folders (`runs/ez-…`) are the verifiable record of '
               'each research; do not edit them by hand.', '']
     (folder / 'README.md').write_text('\n'.join(lines), encoding='utf-8')
@@ -161,7 +170,9 @@ def projects(runs_root, question=None):
         notebooks = runs_root / 'projects' / slug(name) / 'notebooks.json'
         notebook = (read_json(notebooks).get('notebooks') or [None])[-1] if notebooks.exists() else None
         folder = project_dir(runs_root, name)
-        row = {'project': name, 'researches': len(runs), 'last_activity': runs[0]['updated_at'][:10] if runs else None,
+        row = {'project': name, 'researches': sum(1 for r in runs if not r.get('follow_up')),
+               'follow_up_questions': sum(1 for r in runs if r.get('follow_up')),
+               'last_activity': runs[0]['updated_at'][:10] if runs else None,
                'recent_questions': [r['question'] for r in runs[:3]], 'goal': context.get('goal'),
                'library_pdfs': len(library), 'notebooklm_sources': len(notebook['sources']) if notebook else 0,
                'inbox_pdfs': len(pdfs(folder / 'inbox')), 'folder_link': link(folder)}
