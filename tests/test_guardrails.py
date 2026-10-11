@@ -110,6 +110,9 @@ class FirstContactTests(unittest.TestCase):
             self.assertIn('## First Contact', (root / name).read_text(encoding='utf-8'))
         self.assertIn('### For the agent', (root / 'README.md').read_text(encoding='utf-8'))
         self.assertIn('### Para el agente', (root / 'README.es.md').read_text(encoding='utf-8'))
+        # An agent that only clones never opens the repository; the pasted message itself must send it to AGENTS.md.
+        self.assertIn('leé su AGENTS.md', (root / 'README.es.md').read_text(encoding='utf-8'))
+        self.assertIn('read its AGENTS.md', (root / 'README.md').read_text(encoding='utf-8'))
 
     def test_agent_facing_text_gives_no_hint_about_the_gold_set(self):
         from ez.setup import INTRODUCTION

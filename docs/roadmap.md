@@ -136,6 +136,11 @@ Todo lo anterior está en `main`. El orden para retomar:
    y `CLAUDE.md`, una regla de primer contacto; `ez setup --check` devuelve `introduction`
    con ejemplos de lo que se puede pedir. Los ejemplos de la guía del agente ya no usan el
    tema del gold set, y un test lo controla.
+
+   Tercer intento (2026-10-11, Codex): con el mismo pedido, el agente solo corrió `git clone`
+   y no abrió ningún archivo, así que nada del repositorio podía guiarlo. El mensaje que
+   sugieren los README ahora pide instalar, leer `AGENTS.md` y guiar paso a paso. Con ese
+   mensaje, la prueba del usuario funcionó mejor.
 2. **Puntuar la corrida** con `gold_set_benchmark/puntuar.py --mision M2` y anotar en
    `gold_set_benchmark/` cuántos de los 10 artículos clave entraron, en especial los dos de
    proteómica de *M. smegmatis* (T6).

@@ -15,7 +15,7 @@ afirmación sale de un PDF que puedes abrir.
 Necesitas un agente en tu computadora, por ejemplo Codex o Claude Code, y una cuenta de
 Google para NotebookLM. Pégale a tu agente este mensaje:
 
-> Quiero usar esto para investigar: https://github.com/NazarenOMICS/EzResearchLM
+> Quiero investigar con EZ: https://github.com/NazarenOMICS/EzResearchLM. Instalalo, leé su AGENTS.md y guiame paso a paso.
 
 El agente instala EZ y te guía paso a paso, con una pregunta por vez. No necesitas
 escribir comandos.

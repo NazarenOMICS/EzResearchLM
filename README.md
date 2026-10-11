@@ -15,7 +15,7 @@ from memory: every claim comes from a PDF you can open.
 You need an AI agent on your computer, such as Codex or Claude Code, and a Google account
 for NotebookLM. Paste this message to your agent:
 
-> I want to use this for my research: https://github.com/NazarenOMICS/EzResearchLM
+> I want to do research with EZ: https://github.com/NazarenOMICS/EzResearchLM. Install it, read its AGENTS.md and guide me step by step.
 
 The agent installs EZ and guides you step by step, one question at a time. You do not need
 to type commands. EZ talks to you in your language.
