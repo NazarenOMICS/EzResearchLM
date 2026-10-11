@@ -442,6 +442,7 @@ def main(argv=None):
     parser.add_argument('--json', action='store_true', help='Salida estructurada.')
     sub = parser.add_subparsers(dest='command')
     p = sub.add_parser('setup', help='Preparar el entorno y comprobar el acceso.'); p.add_argument('--check', action='store_true'); p.add_argument('--install-notebooklm', action='store_true')
+    p.add_argument('--login', action='store_true', help='Abrir el acceso a NotebookLM con tu cuenta de Google.')
     p.add_argument('--unpaywall-email', help='Correo de contacto que Unpaywall exige para consultar acceso abierto.')
     p = sub.add_parser('context', help='Guardar preferencias y consultar investigaciones anteriores.'); p.add_argument('--project', default='general'); p.add_argument('--set', nargs=2, action='append', metavar=('FIELD', 'VALUE'))
     p = sub.add_parser('research', help='Iniciar una investigación con una pregunta.'); p.add_argument('question'); p.add_argument('--project', default='general'); p.add_argument('--plan-only', action='store_true'); p.add_argument('--contract', type=Path); p.add_argument('--reuse'); p.add_argument('--require-complete', action='store_true')
@@ -496,6 +497,10 @@ def main(argv=None):
             return 0
         if not args.command:
             emit(welcome(root, guide), args.json)
+            return 0
+        if args.command == 'setup' and args.login:
+            from .setup import start_login
+            emit(start_login(), args.json)
             return 0
         if args.command == 'setup':
             emit(prepare(root, args.check, args.install_notebooklm, args.unpaywall_email), args.json)

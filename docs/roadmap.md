@@ -148,6 +148,15 @@ Todo lo anterior está en `main`. El orden para retomar:
    el login la daba por buena y cerraba. Corregido: EZ usa primero su instalación aislada,
    `login_command` lleva `--fresh`, la sesión a medias se informa como `incomplete_login` y
    la guía pide abrir el login en una ventana visible.
+
+   Quinto intento (2026-10-11): la ventana seguía cerrándose. Causa reproducida en local: sin
+   sesión, NotebookLM lleva a su portada pública (`notebook.google.com/trynow`), que
+   `notebooklm login` (0.8.0 y 0.8.4) toma por una sesión iniciada. Corregido: `ez setup
+   --login` abre su propia ventana de Google, desprendida del agente, espera la cookie de
+   sesión de Google (solo su nombre) y recién entonces corre `notebooklm login`. Probado en
+   local: la ventana queda abierta y visible, cerrarla da `browser_closed` y una sesión real
+   termina en `ready` con `notebooklm list` funcionando. Falta el ingreso de una persona
+   desde cero en esa ventana.
 2. **Puntuar la corrida** con `gold_set_benchmark/puntuar.py --mision M2` y anotar en
    `gold_set_benchmark/` cuántos de los 10 artículos clave entraron, en especial los dos de
    proteómica de *M. smegmatis* (T6).

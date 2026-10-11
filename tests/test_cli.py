@@ -184,7 +184,29 @@ class CliTests(unittest.TestCase):
             checks = prepare(Path(folder) / 'runs', check=True)
         self.assertFalse(checks['can_notebook_qa'])
         self.assertEqual(checks['notebooklm_failure'], 'incomplete_login')
-        self.assertEqual(checks['login_command'], ['notebooklm', 'login', '--fresh'])
+        self.assertEqual(checks['login_command'][-3:], ['ez', 'setup', '--login'])
+
+    def test_login_does_not_reopen_the_window_when_access_already_works(self):
+        from ez import setup
+        from ez.process import Result
+        with patch('ez.setup.executable', return_value='notebooklm'), patch('ez.setup.notebooklm_python', return_value=Path('python')),                 patch('ez.setup.run', return_value=Result(0, '{"notebooks": []}', '')), patch('subprocess.Popen') as popen:
+            result = setup.start_login()
+        self.assertFalse(result['login_started'])
+        popen.assert_not_called()
+
+    def test_login_records_what_happened_in_the_window(self):
+        import subprocess
+        from types import SimpleNamespace
+        from ez import setup
+        def done(stdout='', code=0):
+            return SimpleNamespace(stdout=stdout, stderr='', returncode=code)
+        cases = {'ready': [done('{"outcome": "signed_in"}'), done(), done()],
+                 'browser_closed': [done('{"outcome": "browser_closed"}', 1)],
+                 'saved_session_invalid': [done('{"outcome": "signed_in"}'), done(), done(code=2)]}
+        for expected, calls in cases.items():
+            with self.subTest(expected=expected), tempfile.TemporaryDirectory() as temp,                     patch('ez.setup.LOGIN_STATUS', Path(temp) / 'login-status.json'),                     patch('ez.setup.executable', return_value='notebooklm'), patch('ez.setup.notebooklm_python', return_value=Path('python')),                     patch.object(subprocess, 'CREATE_NO_WINDOW', 0, create=True), patch('subprocess.run', side_effect=calls):
+                self.assertEqual(setup.run_login(), expected)
+                self.assertEqual(read_json(Path(temp) / 'login-status.json')['state'], expected)
 
     def test_setup_rejects_success_exit_with_unknown_notebook_envelope(self):
         from ez.process import Result

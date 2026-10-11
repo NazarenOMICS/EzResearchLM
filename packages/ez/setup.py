@@ -43,7 +43,7 @@ def onboarding(checks):
         {'id': 'notebooklm_login', 'done': checks.get('can_notebook_qa', False), 'who': 'usuario',
          'say': 'Se va a abrir NotebookLM en tu navegador. Entra con tu cuenta de Google y avísame cuando termines. '
                 'EZ nunca ve tu contraseña.',
-         'command': ' '.join(checks.get('login_command') or ['notebooklm', 'login'])},
+         'command': 'ez setup --login'},
         {'id': 'unpaywall_email', 'done': checks.get('unpaywall_configured', False), 'who': 'usuario', 'optional': True,
          'say': '¿Me das un correo de contacto? Unpaywall, el índice de artículos de acceso abierto, lo pide para '
                 'consultarlo. Solo se envía a Unpaywall y ayuda a encontrar más PDFs gratuitos.',
@@ -54,10 +54,78 @@ def onboarding(checks):
     ]
 
 
+LOGIN_SECONDS = 600
+LOGIN_STATUS = Path.home() / '.ezresearch/login-status.json'
+
+
+def notebooklm_python(command):
+    """Python of the environment that holds notebooklm (and Playwright), or None for unknown layouts."""
+    python = Path(command).parent / ('python.exe' if os.name == 'nt' else 'python')
+    return python if python.is_file() else None
+
+
+def start_login():
+    """Open the Google sign-in for NotebookLM in a process detached from the agent and return at once.
+
+    An agent's shell tool may end the processes it started when the call returns; the sign-in can
+    take minutes, so it runs on its own and leaves its outcome in LOGIN_STATUS for ez setup --check.
+    """
+    import subprocess
+    command = executable('notebooklm')
+    if not command or not notebooklm_python(command):
+        raise ValueError('Falta la instalación de NotebookLM de EZ; corre ez setup --install-notebooklm.')
+    if run([command, 'list', '--json'], timeout=60).returncode == 0:
+        # Already signed in: opening the window again would only confuse the person.
+        return {'login_started': False, 'login_status': 'ready',
+                'next_action': 'NotebookLM ya tiene acceso; no hace falta volver a entrar.'}
+    LOGIN_STATUS.parent.mkdir(parents=True, exist_ok=True)
+    atomic_json(LOGIN_STATUS, {'state': 'running', 'started_at': now()})
+    argv = [sys.executable, '-m', 'ez.setup', '--run-login']
+    if os.name == 'nt':
+        detached = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+        try:
+            # Leave the agent's job object too, when it allows it, so closing the agent's call cannot end the login.
+            subprocess.Popen(argv, creationflags=detached | subprocess.CREATE_BREAKAWAY_FROM_JOB, stdin=subprocess.DEVNULL,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)
+        except OSError:
+            subprocess.Popen(argv, creationflags=detached, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL, close_fds=True)
+    else:
+        subprocess.Popen(argv, start_new_session=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, close_fds=True)
+    return {'login_started': True, 'login_status': 'running', 'window_minutes': LOGIN_SECONDS // 60,
+            'next_action': 'Se abrió una ventana de Google. Pide a la persona que entre con su cuenta y te avise; '
+                           'después comprueba el acceso con ez setup --check.'}
+
+
+def run_login():
+    """Detached half of start_login: the sign-in window, then notebooklm login to save the session."""
+    import subprocess
+    command = executable('notebooklm')
+    hidden = {'creationflags': subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {}
+    state = 'failed'
+    try:
+        window = subprocess.run([str(notebooklm_python(command)), '-I', str(Path(__file__).with_name('notebook_login.py')),
+                                 str(LOGIN_SECONDS)], capture_output=True, text=True, timeout=LOGIN_SECONDS + 120, **hidden)
+        try:
+            state = json.loads(window.stdout.strip().splitlines()[-1])['outcome']
+        except (ValueError, IndexError, KeyError):
+            state = 'failed'
+        if state == 'signed_in':
+            # The profile now holds a real Google session: notebooklm finds it and saves NotebookLM's cookies.
+            saved = subprocess.run([command, 'login'], capture_output=True, text=True, timeout=180, **hidden)
+            listed = subprocess.run([command, 'list', '--json'], capture_output=True, text=True, timeout=60, **hidden)
+            state = 'ready' if saved.returncode == 0 and listed.returncode == 0 else 'saved_session_invalid'
+    except subprocess.TimeoutExpired:
+        state = 'timeout'
+    atomic_json(LOGIN_STATUS, {'state': state, 'finished_at': now()})
+    return state
+
+
 def login_browser_missing(command):
     """True when the NotebookLM environment lacks Playwright; unknown layouts (pipx, uv) are not flagged."""
-    python = Path(command).parent / ('python.exe' if os.name == 'nt' else 'python')
-    if not python.is_file():
+    python = notebooklm_python(command)
+    if not python:
         return False
     return run([str(python), '-c', 'import playwright'], timeout=30).returncode != 0
 
@@ -114,8 +182,10 @@ def prepare(root, check=False, install_notebooklm=False, unpaywall_email=None):
             # A login that closed early leaves a browser profile without the session cookies; the
             # next login takes it as "already logged in" and closes at once unless it starts fresh.
             checks['notebooklm_failure'] = 'incomplete_login'
-        # --fresh discards the cached browser profile, so the window always asks for the Google sign-in.
-        checks['login_command'] = [command, 'login', '--fresh']
+        # EZ's own sign-in window: notebooklm login alone takes NotebookLM's public page for a session.
+        checks['login_command'] = [sys.executable, '-m', 'ez', 'setup', '--login']
+        if LOGIN_STATUS.is_file():
+            checks['login_status'] = read_json(LOGIN_STATUS).get('state')
         if not checks['can_notebook_qa']:
             checks['login_browser_missing'] = login_browser_missing(command)
     if checks['can_notebook_qa']:
@@ -126,7 +196,8 @@ def prepare(root, check=False, install_notebooklm=False, unpaywall_email=None):
         checks['next_action'] = ('A la instalación de NotebookLM le falta el navegador del login (Playwright): sin él la ventana '
                                  'se cierra sola. Repárala con ez setup --install-notebooklm y después abre el login.')
     elif checks['notebooklm_installed']:
-        checks['next_action'] = 'Puedes preparar el corpus. Para consultar la evidencia, abre el login de NotebookLM y completa el acceso en tu navegador.'
+        checks['next_action'] = ('Puedes preparar el corpus. Para consultar la evidencia, abre el acceso con ez setup --login: '
+                                 'se abre una ventana de Google que espera hasta 10 minutos a que la persona entre.')
     else:
         checks['next_action'] = 'Falta NotebookLM. EZ puede instalarlo en un entorno aislado con ez setup --install-notebooklm; después debes iniciar sesión.'
     checks['introduction'] = INTRODUCTION
@@ -137,3 +208,7 @@ def prepare(root, check=False, install_notebooklm=False, unpaywall_email=None):
         checks['next_action'] += (' Para encontrar más PDFs de acceso abierto, guarda un correo de contacto para Unpaywall con '
                                   'ez setup --unpaywall-email <correo>; solo se envía a Unpaywall.')
     return checks
+
+
+if __name__ == '__main__' and sys.argv[1:] == ['--run-login']:
+    run_login()
