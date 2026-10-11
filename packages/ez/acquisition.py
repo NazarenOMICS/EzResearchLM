@@ -371,11 +371,10 @@ def archive_pdf(data, record):
     doi = normalize_doi(record.get('doi'))
     matched = []
     if doi:
-        from PyPDF2 import PdfReader
+        from .pdftext import header
         for payload in pdfs:
             try:
-                reader = PdfReader(io.BytesIO(payload), strict=True)
-                if reader_identity(reader, record) == 'verified':
+                if header_identity(*header(payload), record) == 'verified':
                     matched.append(payload)
             except Exception:
                 continue
@@ -390,10 +389,9 @@ PMCID_ROUTES = ('pmc_cloud', 'pmc_oa', 'europepmc')
 def verify_identity(path, record, provider=None):
     if record.get('identifier_conflicts'):
         return 'needs_review'
-    from PyPDF2 import PdfReader
+    from .pdftext import header
     try:
-        reader = PdfReader(str(path))
-        return reader_identity(reader, record, provider)
+        return header_identity(*header(path), record, provider)
     except Exception:
         return 'needs_review'
 
@@ -405,14 +403,14 @@ def plain_words(value):
     return re.findall(r'[a-z0-9]+', value)
 
 
-def reader_identity(reader, record, provider=None):
+def header_identity(text, metadata, record, provider=None):
     """Conservative identity: the complete title plus one stable identifier of the same work.
 
     A correction notice repeats the original title and DOI, so it always needs review.
     """
     try:
-        text = unicodedata.normalize('NFKC', ' '.join((p.extract_text() or '') for p in list(reader.pages)[:2])).casefold()
-        metadata = unicodedata.normalize('NFKC', str(reader.metadata or {})).casefold()
+        text = unicodedata.normalize('NFKC', text or '').casefold()
+        metadata = unicodedata.normalize('NFKC', str(metadata or {})).casefold()
         if re.search(r'\b(addendum|corrigendum|erratum|correction|retraction)\b', text[:1800] + '\n' + metadata):
             return 'needs_review'
         # Fonts may extract ligatures as "scienti fic". Compare the full title's

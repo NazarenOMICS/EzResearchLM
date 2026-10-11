@@ -11,14 +11,15 @@ license = { text = "MIT" }
 dependencies = [
   "requests>=2.31",
   "beautifulsoup4>=4.12",
-  "lxml>=4.9",
-  "PyPDF2>=3.0",
+  "pypdf>=6.0,<7",
+  "pypdfium2>=4.30,<6",
   "jsonschema>=4.23,<5"
 ]
 
 [project.optional-dependencies]
 notebooklm = ["notebooklm-py[browser]==0.8.0"]
 desktop = ["mcp>=1.2,<2"]
+dev = ["pyflakes>=3.2"]
 
 [project.scripts]
 ez = "ez.cli:main"

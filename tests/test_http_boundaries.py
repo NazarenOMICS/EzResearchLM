@@ -9,7 +9,7 @@ import threading
 import time
 import unittest
 
-from PyPDF2 import PdfWriter
+from pypdf import PdfWriter
 
 from ez.acquisition import Retriever
 from ez.process import run

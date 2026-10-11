@@ -55,7 +55,7 @@ def import_folder(folder, store, sources, directory, args):
     """Match each PDF of a folder to one missing source. Printed title and identifiers verify identity; a title,
     DOI or filename match alone imports the PDF but leaves its identity for a quick confirmation."""
     from .acquisition import verify_identity
-    from PyPDF2 import PdfReader
+    from .pdftext import page_texts
     pending = [s for s in sources if s.get('validation_status') != 'valid' and s.get('screening', 'include') == 'include'
                and not s.get('notebook_source_id')]
     imported, to_confirm, unmatched, ambiguous = [], [], [], []
@@ -69,7 +69,7 @@ def import_folder(folder, store, sources, directory, args):
         strong = [s for s in pending if verify_identity(path, s) == 'verified']
         if not strong:
             try:
-                text = ' '.join((page.extract_text() or '') for page in list(PdfReader(str(path)).pages)[:2])
+                text = ' '.join(page_texts(path, 2))
             except Exception:
                 text = ''
             weak = [s for s in pending if likely_match(path, text, s)]

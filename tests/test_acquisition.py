@@ -6,7 +6,7 @@ import time
 import unittest
 from unittest.mock import patch
 
-from PyPDF2 import PdfWriter
+from pypdf import PdfWriter
 
 from ez.acquisition import Retriever, archive_pdf
 from ez.acquisition import verify_identity
@@ -39,21 +39,17 @@ class Session:
 
 class AcquisitionTests(unittest.TestCase):
     def test_addendum_citing_original_doi_is_not_the_original_paper(self):
-        from types import SimpleNamespace
         source = {'title': 'The FAIR Guiding Principles for scientific data management and stewardship', 'doi': '10.1038/sdata.2016.18'}
         header = 'https://doi.org/10.1038/s41597-019-0009-6\nAddendum: ' + source['title'] + '\nAddendum to: https://doi.org/' + source['doi']
-        reader = SimpleNamespace(pages=[SimpleNamespace(extract_text=lambda: header)], metadata={})
-        with patch('PyPDF2.PdfReader', return_value=reader):
+        with patch('ez.pdftext.header', side_effect=lambda *_: (header, {})):
             self.assertEqual(verify_identity('synthetic.pdf', source), 'needs_review')
             # Conflicting document identifiers remain ambiguous without a notice label.
             header = header.replace('Addendum', 'Related paper')
             self.assertEqual(verify_identity('synthetic.pdf', source), 'needs_review')
 
     def test_identity_accepts_font_ligatures_but_not_an_unrelated_title(self):
-        from types import SimpleNamespace
-        reader = SimpleNamespace(pages=[SimpleNamespace(extract_text=lambda: 'A scienti ﬁc data example\nAuthors and text')],
-                                 metadata={'/Subject': 'doi:10.1234/example'})
-        with patch('PyPDF2.PdfReader', return_value=reader):
+        header = ('A scienti ﬁc data example\nAuthors and text', {'Subject': 'doi:10.1234/example'})
+        with patch('ez.pdftext.header', return_value=header):
             self.assertEqual(verify_identity('synthetic.pdf', {'title': 'A scientific data example', 'doi': '10.1234/example'}), 'verified')
             self.assertEqual(verify_identity('synthetic.pdf', {'title': 'An unrelated paper title', 'doi': '10.1234/example'}), 'needs_review')
             self.assertEqual(verify_identity('synthetic.pdf', {'title': 'A scientific data example', 'doi': '10.1234/other'}), 'needs_review')

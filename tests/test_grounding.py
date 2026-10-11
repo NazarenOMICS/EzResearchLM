@@ -1,6 +1,5 @@
 """Verification that works with real NotebookLM behaviour, provider failures and identity routes."""
 import json
-from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -140,8 +139,7 @@ class IdentityTests(unittest.TestCase):
     title = 'Effects of benzothiazinone and ethambutol on the integrity of the corynebacterial cell envelope'
 
     def identity(self, header, record, provider=None):
-        reader = SimpleNamespace(pages=[SimpleNamespace(extract_text=lambda: header)], metadata={})
-        with patch('PyPDF2.PdfReader', return_value=reader):
+        with patch('ez.pdftext.header', return_value=(header, {})):
             return verify_identity('synthetic.pdf', record, provider)
 
     def test_title_with_pmc_route_or_printed_pmid_identifies_a_manuscript_without_doi(self):

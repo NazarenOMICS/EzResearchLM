@@ -3,6 +3,7 @@ from contextlib import redirect_stdout
 from io import StringIO
 import json
 from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -105,7 +106,7 @@ class WorkspaceTests(unittest.TestCase):
         self.assertIn('Inbox for your PDFs', (inbox.parent / 'README.md').read_text(encoding='utf-8'))
 
     def test_a_pdf_left_in_the_inbox_is_taken_before_downloading(self):
-        from PyPDF2 import PdfWriter
+        from pypdf import PdfWriter
         inbox = Path(Store(self.folder).state()['workspace']['inbox'])
         writer = PdfWriter(); writer.add_blank_page(width=90, height=90)
         with (inbox / 'articulo-central.pdf').open('wb') as stream:
@@ -122,7 +123,7 @@ class WorkspaceTests(unittest.TestCase):
         self.assertTrue((inbox / 'articulo-central.pdf').exists())
 
     def test_an_uncertain_inbox_match_asks_for_identity_confirmation(self):
-        from PyPDF2 import PdfWriter
+        from pypdf import PdfWriter
         inbox = Path(Store(self.folder).state()['workspace']['inbox'])
         writer = PdfWriter(); writer.add_blank_page(width=91, height=91)
         with (inbox / '10.1_paid.pdf').open('wb') as stream:
@@ -259,6 +260,35 @@ class PageTests(unittest.TestCase):
         self.assertEqual(find_page('increased L-glutamate efflux in CGXII medium after', pages), 2)
         self.assertIsNone(find_page('Nothing like this appears anywhere in the document text', pages))
         self.assertIsNone(find_page('demasiado corto', pages))
+
+    def test_pdfium_line_break_marker_joins_the_broken_word(self):
+        from ez.pages import find_page, page_text
+        from ez.pdftext import clean
+        self.assertEqual(clean('increased gluta￾\r\nmate efflux'), 'increased glutamate efflux')
+        pages = [page_text(clean('Ethambutol treatment led to an increased gluta￾\r\nmate efflux in CGXII medium.'))]
+        self.assertEqual(find_page('Ethambutol treatment led to an increased glutamate efflux in CGXII medium', pages), 1)
+
+    def test_pdf_text_reads_paths_and_bytes(self):
+        from io import BytesIO
+        from pypdf import PdfWriter
+        from ez import pdftext
+        with tempfile.TemporaryDirectory() as temp:
+            writer = PdfWriter()
+            writer.add_blank_page(width=72, height=72)
+            writer.add_blank_page(width=72, height=72)
+            writer.add_metadata({'/Subject': 'doi:10.1234/example', '/WPS-ARTICLEDOI': '10.1234/example'})
+            buffer = BytesIO()
+            writer.write(buffer)
+            path = Path(temp) / 'doc.pdf'
+            path.write_bytes(buffer.getvalue())
+            self.assertEqual(len(pdftext.page_texts(path)), 2)
+            self.assertEqual(len(pdftext.page_texts(buffer.getvalue(), 1)), 1)
+            self.assertEqual(pdftext.metadata(path)['Subject'], 'doi:10.1234/example')
+            # Publishers' own keys carry the DOI; PDFium alone would drop them.
+            self.assertEqual(pdftext.metadata(buffer.getvalue())['WPS-ARTICLEDOI'], '10.1234/example')
+            path.write_bytes(b'%PDF-1.4 not really a pdf')
+            with self.assertRaises(Exception):
+                pdftext.page_texts(path)
 
     def test_the_report_shows_the_page_next_to_the_source_number(self):
         from ez.deliver import report_markdown

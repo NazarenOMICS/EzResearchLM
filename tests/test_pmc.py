@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from PyPDF2 import PdfWriter
+from pypdf import PdfWriter
 
 from ez.acquisition import Retriever
 from ez.pmc import BASE, locations

@@ -1,9 +1,8 @@
 """Page of the local PDF where a cited passage appears, so a reader can check it quickly."""
 import re
 
-from PyPDF2 import PdfReader
-
 from .acquisition import plain_words
+from . import pdftext
 
 
 def page_text(text):
@@ -13,7 +12,7 @@ def page_text(text):
 
 def page_texts(path):
     try:
-        return [page_text(page.extract_text()) for page in PdfReader(str(path)).pages]
+        return [page_text(text) for text in pdftext.page_texts(path)]
     except Exception:
         return []
 

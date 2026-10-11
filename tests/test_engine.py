@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from PyPDF2 import PdfWriter
+from pypdf import PdfWriter
 
 from ez.cli import create_run
 from ez.contracts import ContractError, draft, digest

@@ -88,7 +88,7 @@ class CliTests(unittest.TestCase):
             self.assertTrue(context['research_history'][0]['evidence_must_be_rechecked'])
 
     def test_pdf_import_keeps_origin_and_requires_identity_decision(self):
-        from PyPDF2 import PdfWriter
+        from pypdf import PdfWriter
         from ez.cli import create_run
         from ez.contracts import draft
         with tempfile.TemporaryDirectory() as temp:

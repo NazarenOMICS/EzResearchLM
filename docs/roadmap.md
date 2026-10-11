@@ -123,6 +123,12 @@ Todo lo anterior está en `main`. El orden para retomar:
    --install-notebooklm` instalaba `notebooklm-py` sin el extra `[browser]`, es decir, sin
    Playwright. Corregido: se instala `notebooklm-py[browser]` y `ez setup --check` informa
    `login_browser_missing` en una instalación anterior. La prueba se repite desde cero.
+
+   Dependencias (2026-10-11): salió `lxml`, que nadie importaba. PyPDF2, abandonada en la
+   3.0.1, se reemplazó por `pypdfium2` para el texto (identidad, `--import-folder`, páginas) y
+   por `pypdf` para la validación estructural y los metadatos. Sobre 68 PDFs de corridas
+   anteriores, la identidad verificada pasó de 31 a 40, sin perder ninguna, y leer todas las
+   páginas, de 149 s a 13 s. `pyflakes` quedó en el extra `dev`.
 2. **Puntuar la corrida** con `gold_set_benchmark/puntuar.py --mision M2` y anotar en
    `gold_set_benchmark/` cuántos de los 10 artículos clave entraron, en especial los dos de
    proteómica de *M. smegmatis* (T6).

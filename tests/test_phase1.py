@@ -6,7 +6,7 @@ import json
 import unittest
 from unittest.mock import patch
 
-from PyPDF2 import PdfWriter
+from pypdf import PdfWriter
 
 from ez.cli import main
 from ez.contracts import digest, draft

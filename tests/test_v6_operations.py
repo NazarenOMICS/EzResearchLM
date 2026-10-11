@@ -98,7 +98,7 @@ class BatchImportTests(unittest.TestCase):
         return code, json.loads(output.getvalue())
 
     def test_a_folder_of_pdfs_is_matched_to_the_missing_sources(self):
-        from PyPDF2 import PdfWriter
+        from pypdf import PdfWriter
         with lock(self.folder):
             store = Store(self.folder); state = store.state()
             sources = read_json(self.folder / 'sources.json')

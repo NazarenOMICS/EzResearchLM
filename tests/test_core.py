@@ -119,7 +119,7 @@ class CoreTests(unittest.TestCase):
                 self.assertFalse(marker.exists(), 'A descendant outlived its operation')
 
     def test_pdf_valid_and_fake(self):
-        from PyPDF2 import PdfWriter
+        from pypdf import PdfWriter
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'x.pdf'
             writer = PdfWriter()

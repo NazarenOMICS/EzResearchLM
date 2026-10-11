@@ -17,7 +17,7 @@ def validate_pdf_bounded(path, timeout=30):
 
 
 def validate_pdf(path):
-    from PyPDF2 import PdfReader
+    from pypdf import PdfReader
     path = Path(path)
     if not path.is_file():
         return {'status': 'invalid', 'reason': 'missing_file'}
@@ -39,7 +39,7 @@ def validate_pdf(path):
     except Exception:
         return {'status': 'invalid', 'reason': 'corrupt_pdf'}
     return {'status': 'valid', 'pages': pages, 'sha256': sha256(path.read_bytes()).hexdigest(),
-            'bytes': path.stat().st_size, 'validator': 'PyPDF2-structural-v1'}
+            'bytes': path.stat().st_size, 'validator': 'pypdf-structural-v1'}
 
 
 if __name__ == '__main__':
