@@ -36,8 +36,11 @@ qué pasó. Una pregunta por mensaje.
 2. **Entorno.** Corre `ez setup --check --json` y sigue `onboarding` en orden: para cada
    paso no hecho, di su texto `say` (adaptado) y haz tu parte. Instalar NotebookLM lo hace
    EZ; el login lo hace la persona en su navegador (abre `login_command` por ella y espera
-   su aviso); el correo para Unpaywall es opcional pero recomendado: si lo da, guárdalo con
-   `ez setup --unpaywall-email`. Vuelve a comprobar después de cada paso.
+   su aviso; la ventana espera hasta 5 minutos a que entre). Si `login_browser_missing` es
+   `true`, a la instalación le falta Playwright y la ventana se cerraría sola: corre antes
+   `ez setup --install-notebooklm`. No uses el navegador integrado del agente para el login:
+   EZ no toma sesiones de otro navegador. El correo para Unpaywall es opcional pero
+   recomendado: si lo da, guárdalo con `ez setup --unpaywall-email`. Vuelve a comprobar después de cada paso.
 3. **Entrevista breve**, de a una pregunta:
    1. «¿Qué quieres investigar y para qué lo necesitas?» (tesis, artículo, clase).
    2. **Proyecto.** Con la pregunta, corre `ez projects --suggest "<pregunta>" --json`.

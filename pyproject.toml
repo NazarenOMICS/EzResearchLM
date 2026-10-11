@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-notebooklm = ["notebooklm-py==0.8.0"]
+notebooklm = ["notebooklm-py[browser]==0.8.0"]
 desktop = ["mcp>=1.2,<2"]
 
 [project.scripts]

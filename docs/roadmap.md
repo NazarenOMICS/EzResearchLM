@@ -1,6 +1,6 @@
 # Hoja de ruta de EZ
 
-Actualizada: 2026-10-09. Este es el **único plan vigente**. Reemplaza a la
+Actualizada: 2026-10-11. Este es el **único plan vigente**. Reemplaza a la
 auditoría P1–P14, al plan v2 por fases (0–7), a la lista de mejoras pendientes y a
 `docs/history/plan-refactor-v6.md`. Esos documentos quedan como registro del porqué de cada
 cambio. `docs/history/ez-refurbish-implementation-plan.md` y `docs/history/refurbish-progress.md` son
@@ -118,6 +118,11 @@ Todo lo anterior está en `main`. El orden para retomar:
    4. «¿qué dice Smith 2019?» (no está en el corpus): debe ofrecer buscar, no responder de memoria;
    5. un párrafo de tesis con marcadores y `ez draft --check`;
    6. alargar la charla hasta que el agente compacte el contexto y repetir un seguimiento.
+
+   Primer intento (2026-10-11, Codex): el login de NotebookLM se cerró solo. `ez setup
+   --install-notebooklm` instalaba `notebooklm-py` sin el extra `[browser]`, es decir, sin
+   Playwright. Corregido: se instala `notebooklm-py[browser]` y `ez setup --check` informa
+   `login_browser_missing` en una instalación anterior. La prueba se repite desde cero.
 2. **Puntuar la corrida** con `gold_set_benchmark/puntuar.py --mision M2` y anotar en
    `gold_set_benchmark/` cuántos de los 10 artículos clave entraron, en especial los dos de
    proteómica de *M. smegmatis* (T6).

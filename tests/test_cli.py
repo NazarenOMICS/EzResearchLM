@@ -2,6 +2,7 @@ from contextlib import redirect_stdout
 from io import StringIO
 from copy import deepcopy
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -134,6 +135,35 @@ class CliTests(unittest.TestCase):
             self.assertTrue(checks['can_plan'])
             self.assertFalse(checks['can_notebook_qa'])
             self.assertIn('--install-notebooklm', checks['next_action'])
+
+    def test_setup_installs_notebooklm_with_login_browser(self):
+        from ez.setup import NOTEBOOKLM_SPEC
+        self.assertTrue(NOTEBOOKLM_SPEC.startswith('notebooklm-py[browser]=='))
+        self.assertIn('notebooklm-py[browser]==', (Path(__file__).resolve().parents[1] / 'pyproject.toml').read_text(encoding='utf-8'))
+
+    def test_setup_flags_isolated_install_without_playwright(self):
+        from ez.process import Result
+        with tempfile.TemporaryDirectory() as folder:
+            scripts = Path(folder) / 'tools/Scripts'
+            scripts.mkdir(parents=True)
+            command = scripts / 'notebooklm.exe'
+            command.write_text('')
+            (scripts / ('python.exe' if os.name == 'nt' else 'python')).write_text('')
+
+            def fake_run(argv, timeout=60, **_):
+                return Result(1, '', 'No module named playwright') if argv[1:] == ['-c', 'import playwright'] else Result(1, '', 'auth')
+            with patch('ez.setup.executable', return_value=str(command)), patch('ez.setup.run', side_effect=fake_run):
+                checks = prepare(Path(folder) / 'runs', check=True)
+            self.assertTrue(checks['login_browser_missing'])
+            self.assertIn('--install-notebooklm', checks['next_action'])
+            self.assertEqual(checks['next_step']['id'], 'notebooklm_installed')
+
+            def installed_run(argv, timeout=60, **_):
+                return Result(0, '', '') if argv[1:] == ['-c', 'import playwright'] else Result(1, '', 'auth')
+            with patch('ez.setup.executable', return_value=str(command)), patch('ez.setup.run', side_effect=installed_run):
+                checks = prepare(Path(folder) / 'runs', check=True)
+            self.assertFalse(checks['login_browser_missing'])
+            self.assertEqual(checks['next_step']['id'], 'notebooklm_login')
 
     def test_setup_rejects_success_exit_with_unknown_notebook_envelope(self):
         from ez.process import Result

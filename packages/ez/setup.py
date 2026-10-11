@@ -11,13 +11,15 @@ from .process import run
 from .notebook_format import valid_listing
 from .state import atomic_json, lock, read_json
 
-NOTEBOOKLM_SPEC = 'notebooklm-py==0.8.0'
+# The [browser] extra brings Playwright, which `notebooklm login` needs to open the sign-in window.
+NOTEBOOKLM_SPEC = 'notebooklm-py[browser]==0.8.0'
 
 
 def onboarding(checks):
     """First-use steps in order: who acts, whether it is done, and what the agent says to the user."""
     return [
-        {'id': 'notebooklm_installed', 'done': checks.get('notebooklm_installed', False), 'who': 'EZ',
+        {'id': 'notebooklm_installed', 'done': checks.get('notebooklm_installed', False) and not checks.get('login_browser_missing'),
+         'who': 'EZ',
          'say': 'Voy a instalar la herramienta que conecta con NotebookLM; tarda uno o dos minutos y no toca tu configuración.',
          'command': 'ez setup --install-notebooklm'},
         {'id': 'notebooklm_login', 'done': checks.get('can_notebook_qa', False), 'who': 'usuario',
@@ -32,6 +34,14 @@ def onboarding(checks):
          'say': '¿Qué quieres investigar y para qué lo necesitas (tesis, artículo, clase)? Cuéntamelo con tus palabras.',
          'command': 'ez research "<pregunta>" --project <proyecto> --plan-only'},
     ]
+
+
+def login_browser_missing(command):
+    """True when the NotebookLM environment lacks Playwright; unknown layouts (pipx, uv) are not flagged."""
+    python = Path(command).parent / ('python.exe' if os.name == 'nt' else 'python')
+    if not python.is_file():
+        return False
+    return run([str(python), '-c', 'import playwright'], timeout=30).returncode != 0
 
 
 def prepare(root, check=False, install_notebooklm=False, unpaywall_email=None):
@@ -83,10 +93,15 @@ def prepare(root, check=False, install_notebooklm=False, unpaywall_email=None):
         if not recognized:
             checks['notebooklm_failure'] = 'invalid_notebooklm_output'
         checks['login_command'] = [command, 'login']
+        if not checks['can_notebook_qa']:
+            checks['login_browser_missing'] = login_browser_missing(command)
     if checks['can_notebook_qa']:
         checks['next_action'] = 'El entorno permite preparar corpus y consultar NotebookLM. Dime qué quieres investigar.'
     elif checks.get('notebooklm_failure') == 'invalid_notebooklm_output':
         checks['next_action'] = 'NotebookLM respondió con un formato no reconocido. EZ debe comprobar la versión compatible antes de iniciar una investigación.'
+    elif checks.get('login_browser_missing'):
+        checks['next_action'] = ('A la instalación de NotebookLM le falta el navegador del login (Playwright): sin él la ventana '
+                                 'se cierra sola. Repárala con ez setup --install-notebooklm y después abre el login.')
     elif checks['notebooklm_installed']:
         checks['next_action'] = 'Puedes preparar el corpus. Para consultar la evidencia, abre el login de NotebookLM y completa el acceso en tu navegador.'
     else:
