@@ -537,6 +537,7 @@ def main(argv=None):
     p = sub.add_parser('setup', help='Preparar el entorno y comprobar el acceso.'); p.add_argument('--check', action='store_true'); p.add_argument('--install-notebooklm', action='store_true')
     p.add_argument('--login', action='store_true', help='Abrir el acceso a NotebookLM con tu cuenta de Google.')
     p.add_argument('--unpaywall-email', help='Correo de contacto que Unpaywall exige para consultar acceso abierto.')
+    p.add_argument('--projects-dir', help='Carpeta visible donde guardar los proyectos (informes, bandeja, notas).')
     p = sub.add_parser('context', help='Guardar preferencias y consultar investigaciones anteriores.'); p.add_argument('--project', default='general'); p.add_argument('--set', nargs=2, action='append', metavar=('FIELD', 'VALUE'))
     p = sub.add_parser('research', help='Iniciar una investigación con una pregunta.'); p.add_argument('question'); p.add_argument('--project', default='general'); p.add_argument('--plan-only', action='store_true'); p.add_argument('--contract', type=Path); p.add_argument('--reuse'); p.add_argument('--require-complete', action='store_true')
     p.add_argument('--update', metavar='CORRIDA', help='Actualizar una investigación anterior: reutiliza sus PDFs verificados, su plan y sus decisiones.')
@@ -601,7 +602,7 @@ def main(argv=None):
             emit(start_login(), args.json)
             return 0
         if args.command == 'setup':
-            emit(prepare(root, args.check, args.install_notebooklm, args.unpaywall_email), args.json)
+            emit(prepare(root, args.check, args.install_notebooklm, args.unpaywall_email, args.projects_dir), args.json)
             return 0
         if args.command == 'projects':
             from .workspace import projects

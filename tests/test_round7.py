@@ -355,7 +355,7 @@ class OnboardingTests(unittest.TestCase):
                 main(['--root', str(Path(temp) / 'runs'), 'setup', '--check', '--json'])
             value = json.loads(output.getvalue())
         self.assertEqual([s['id'] for s in value['onboarding']],
-                         ['notebooklm_installed', 'notebooklm_login', 'unpaywall_email', 'first_question'])
+                         ['notebooklm_installed', 'projects_dir', 'notebooklm_login', 'unpaywall_email', 'first_question'])
         self.assertEqual((value['next_step']['id'], value['next_step']['who']), ('notebooklm_installed', 'EZ'))
         from ez.presenter import render
         self.assertIn('1. [pendiente]', render(value))

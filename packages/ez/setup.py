@@ -40,6 +40,10 @@ def onboarding(checks):
          'who': 'EZ',
          'say': 'Voy a instalar la herramienta que conecta con NotebookLM; tarda uno o dos minutos y no toca tu configuración.',
          'command': 'ez setup --install-notebooklm'},
+        {'id': 'projects_dir', 'done': checks.get('projects_dir_chosen', False), 'who': 'usuario',
+         'say': 'Tus informes, tu bandeja de PDFs y tus notas van a una carpeta que puedas abrir. Propongo '
+                'Documentos\\EZresearchLM\\projects, junto a EZ. ¿Te sirve o prefieres otra?',
+         'command': 'ez setup --projects-dir <carpeta>'},
         {'id': 'notebooklm_login', 'done': checks.get('can_notebook_qa', False), 'who': 'usuario',
          'say': 'Se va a abrir NotebookLM en tu navegador. Entra con tu cuenta de Google y avísame cuando termines. '
                 'EZ nunca ve tu contraseña.',
@@ -130,7 +134,20 @@ def login_browser_missing(command):
     return run([str(python), '-c', 'import playwright'], timeout=30).returncode != 0
 
 
-def prepare(root, check=False, install_notebooklm=False, unpaywall_email=None):
+def write_install_pointer(root):
+    """~/.ezresearch/install.json: where this EZ lives, so an agent in a new chat finds it without asking the person."""
+    import shutil
+    from .paths import runtime_root
+    script = Path(sys.executable).parent / ('ez.exe' if os.name == 'nt' else 'ez')
+    checkout = runtime_root()
+    pointer = {'ez': str(script) if script.is_file() else shutil.which('ez'), 'python': sys.executable,
+               'install_dir': str(checkout) if (checkout / 'AGENTS.md').is_file() else None,
+               'runs_root': str(root), 'updated_at': now()}
+    atomic_json(root.parent / 'install.json', pointer)
+    return pointer
+
+
+def prepare(root, check=False, install_notebooklm=False, unpaywall_email=None, projects_dir=None):
     receipt = None
     if install_notebooklm:
         if check:
@@ -155,12 +172,24 @@ def prepare(root, check=False, install_notebooklm=False, unpaywall_email=None):
             if not config.exists():
                 atomic_json(config, {'schema_version': '2.0', 'operator': 'EZ', 'backend': 'host_agent',
                                      'runs_root': str(root), 'telemetry': False, 'anna_enabled': False, 'created_at': now()})
+            if projects_dir:
+                chosen = Path(projects_dir).expanduser().resolve()
+                chosen.mkdir(parents=True, exist_ok=True)
+                atomic_json(config, dict(read_json(config), projects_dir=str(chosen)))
+                from .workspace import project_dir
+                for old in (root.parent / 'projects').glob('*') if (root.parent / 'projects').is_dir() else []:
+                    if old.is_dir() and old.resolve() != chosen / old.name:
+                        project_dir(root, old.name)  # moves it to the chosen folder, never overwriting
+            write_install_pointer(root)
             if unpaywall_email:
                 if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', unpaywall_email):
                     raise ValueError('El correo para Unpaywall no parece válido.')
                 atomic_json(config, dict(read_json(config), unpaywall_email=unpaywall_email))
                 os.environ['PAPER_SEARCH_MCP_UNPAYWALL_EMAIL'] = unpaywall_email
+    from .workspace import projects_home
     checks = {'python': sys.version.split()[0], 'operator': 'host_agent', 'can_plan': True, 'can_discover': True,
+              'projects_dir': str(projects_home(root)),
+              'projects_dir_chosen': projects_home(root) != root.parent / 'projects',
               'can_notebook_qa': False, 'configuration_exists': config.exists(),
               'runs_root': str(root), 'installation': receipt,
               'unpaywall_configured': bool(os.environ.get('PAPER_SEARCH_MCP_UNPAYWALL_EMAIL') or os.environ.get('UNPAYWALL_EMAIL'))}

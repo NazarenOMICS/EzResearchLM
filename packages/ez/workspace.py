@@ -35,9 +35,22 @@ def home(runs_root):
     return runs_root.parent if runs_root.name == 'runs' else runs_root
 
 
+def projects_home(runs_root):
+    """Where the person's projects live: the folder chosen with ez setup --projects-dir, or <EZ folder>/projects."""
+    import json
+    config = home(runs_root) / 'ez-config.json'
+    try:
+        chosen = json.loads(config.read_text(encoding='utf-8-sig')).get('projects_dir') if config.is_file() else None
+    except (OSError, ValueError):
+        chosen = None
+    return Path(chosen) if chosen else home(runs_root) / 'projects'
+
+
 def project_dir(runs_root, project):
-    folder = home(runs_root) / 'projects' / slug(project)
+    folder = projects_home(runs_root) / slug(project)
     migrate(folder, home(runs_root) / 'proyectos' / slug(project))
+    # A project made before the person chose a visible folder moves there, never overwriting.
+    migrate(folder, home(runs_root) / 'projects' / slug(project))
     return folder
 
 

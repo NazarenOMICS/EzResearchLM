@@ -18,15 +18,18 @@ for NotebookLM. Paste this message to your agent:
 > I want to do research with EZ: https://github.com/NazarenOMICS/EzResearchLM. Install it, read its AGENTS.md and guide me step by step.
 
 The agent installs EZ and guides you step by step, one question at a time. You do not need
-to type commands. EZ talks to you in your language.
+to type commands. EZ talks to you in your language. To pick up another day, in a new chat:
+
+> I want to continue my research in EZ: https://github.com/NazarenOMICS/EzResearchLM
 
 ### For the agent
 
 If someone gave you this link, they want to use EZ, even if they only asked you to download
 or install it:
 
-1. Clone it into the folder they name (`Documents/EzResearchLM` by default) and install it
-   as [SETUP.md](SETUP.md) says.
+1. If `~/.ezresearch/install.json` exists, EZ is already installed: use the `ez` it names and
+   do not clone again. Otherwise ask where to install it (suggest `Documents\EZresearchLM`;
+   never your chat's temporary folder), clone it there and install it as [SETUP.md](SETUP.md) says.
 2. Read [AGENTS.md](AGENTS.md) and [docs/ez-host-operator.md](docs/ez-host-operator.md)
    completely. Your session started before the clone, so it did not load them.
 3. Start the first conversation of that guide right away: introduce yourself as EZ, say

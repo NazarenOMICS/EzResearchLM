@@ -31,6 +31,12 @@ La persona puede no saber nada de agentes, terminales ni NotebookLM. Llévala t�
 paso por vez, en su idioma. Nunca le muestres comandos ni JSON; ejecútalos tú y cuéntale
 qué pasó. Una pregunta por mensaje.
 
+**Dónde instalar.** Si existe `~/.ezresearch/install.json`, EZ ya está instalado: usa su `ez`
+y no clones de nuevo. Si no, pregunta dónde instalarlo (propón `Documents\EZresearchLM`) y
+nunca lo instales en la carpeta temporal de tu chat: la persona no la encuentra y un chat nuevo
+tampoco. El paso `projects_dir` del onboarding fija dónde quedan sus proyectos; guárdalo con
+`ez setup --projects-dir "<instalación>\projects"`.
+
 **Cuándo empieza.** Apenas EZ queda instalado o la persona pega el enlace del repositorio,
 aunque solo haya pedido «descargalo» o «instalalo»: quiere usar EZ. Si clonaste el
 repositorio en esta conversación, tu sesión empezó antes de que existiera y no cargó

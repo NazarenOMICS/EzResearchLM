@@ -4,6 +4,12 @@ EZ trabaja en una carpeta propia, su base operativa. Por defecto es `~/.ezresear
 (en Windows, `C:\Users\<tu usuario>\.ezresearch`). Ahí conviven lo que tú usas y lo que
 EZ necesita para poder verificar cada resultado.
 
+Tus proyectos (`projects/`) pueden estar en otra carpeta, a la vista: durante la primera
+conversación EZ te propone `Documentos\EZresearchLM\projects`, junto a la instalación, y la
+guarda con `ez setup --projects-dir`. Los proyectos que ya tenías se mueven ahí. El registro
+de trabajo (`runs/`) queda siempre en `.ezresearch`. `install.json` le dice a tu agente dónde
+está instalado EZ cuando vuelves en un chat nuevo.
+
 ```
 .ezresearch/
 ├── projects/                       ← lo tuyo

@@ -183,6 +183,12 @@ Todo lo anterior está en `main`. El orden para retomar:
    literales con `[EZ:pdf-<hash>-p<página>]`, autor y año, y si están en la lista de referencias;
    `ez draft --check` valida esos marcadores. En el proyecto real respondió esas tres preguntas en
    7 a 11 segundos. El umbral de cobertura sigue sin medición.
+
+   Instalación (misma prueba): Codex instaló EZ en la carpeta temporal de su chat, los informes
+   quedaron en `~/.ezresearch` (oculta) y en un chat nuevo hubo que pegarle la ruta. Ahora el agente
+   pregunta dónde instalar (`Documents\EZresearchLM` por defecto), `ez setup --projects-dir` deja
+   los proyectos en una carpeta visible y mueve los anteriores, y `~/.ezresearch/install.json`
+   dice dónde está `ez`; el README trae un mensaje para retomar en un chat nuevo.
 2. **Puntuar la corrida** con `gold_set_benchmark/puntuar.py --mision M2` y anotar en
    `gold_set_benchmark/` cuántos de los 10 artículos clave entraron, en especial los dos de
    proteómica de *M. smegmatis* (T6).

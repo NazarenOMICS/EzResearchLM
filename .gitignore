@@ -22,6 +22,7 @@ dist/
 
 # Runtime research artifacts
 ready
+projects/
 runs/*
 !runs/.gitkeep
 

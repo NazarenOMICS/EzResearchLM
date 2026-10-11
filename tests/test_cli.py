@@ -216,3 +216,24 @@ class CliTests(unittest.TestCase):
                     checks = prepare(Path(folder) / 'runs', check=True)
                 self.assertFalse(checks['can_notebook_qa'])
                 self.assertEqual(checks['notebooklm_failure'], 'invalid_notebooklm_output')
+
+
+class ProjectsDirTests(unittest.TestCase):
+    def test_projects_move_to_the_chosen_visible_folder_and_the_install_is_recorded(self):
+        from ez.workspace import ensure
+        with tempfile.TemporaryDirectory() as temp, patch('ez.setup.executable', return_value=None):
+            root = Path(temp) / '.ezresearch' / 'runs'
+            old = ensure(root, 'tesis')
+            (Path(old['inbox']) / 'mio.pdf').write_bytes(b'%PDF-1.4')
+            visible = Path(temp) / 'Documents' / 'EZresearchLM' / 'projects'
+            checks = prepare(root, projects_dir=str(visible))
+            self.assertEqual(Path(checks['projects_dir']), visible.resolve())
+            self.assertTrue((visible / 'tesis' / 'inbox' / 'mio.pdf').exists())
+            self.assertFalse((root.parent / 'projects' / 'tesis').exists())
+            self.assertEqual(Path(ensure(root, 'otro')['project']).parent, visible.resolve())
+            pointer = read_json(root.parent / 'install.json')
+            self.assertEqual(pointer['runs_root'], str(root))
+            self.assertIn('python', pointer)
+            before = sorted(p.name for p in root.parent.iterdir())
+            prepare(root, check=True)
+            self.assertEqual(sorted(p.name for p in root.parent.iterdir()), before)

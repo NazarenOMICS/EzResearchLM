@@ -18,15 +18,18 @@ Google para NotebookLM. Pégale a tu agente este mensaje:
 > Quiero investigar con EZ: https://github.com/NazarenOMICS/EzResearchLM. Instalalo, leé su AGENTS.md y guiame paso a paso.
 
 El agente instala EZ y te guía paso a paso, con una pregunta por vez. No necesitas
-escribir comandos.
+escribir comandos. Para retomar otro día, en un chat nuevo:
+
+> Quiero seguir con mi investigación en EZ: https://github.com/NazarenOMICS/EzResearchLM
 
 ### Para el agente
 
 Si alguien te pasó este enlace, quiere usar EZ, aunque solo te haya pedido descargarlo o
 instalarlo:
 
-1. Clónalo en la carpeta que indique (`Documents/EzResearchLM` por defecto) e instálalo como
-   indica [SETUP.md](SETUP.md).
+1. Si existe `~/.ezresearch/install.json`, EZ ya está instalado: usa el `ez` que indica y no
+   vuelvas a clonar. Si no, pregunta dónde instalarlo (propón `Documents\EZresearchLM`; nunca
+   la carpeta temporal de tu chat), clónalo ahí e instálalo como indica [SETUP.md](SETUP.md).
 2. Lee completos [AGENTS.md](AGENTS.md) y [docs/ez-host-operator.md](docs/ez-host-operator.md).
    Tu sesión empezó antes del clon y no los cargó.
 3. Empieza ya la primera conversación de esa guía: preséntate como EZ, di qué te puede pedir
