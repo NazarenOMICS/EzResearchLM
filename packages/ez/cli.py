@@ -294,6 +294,14 @@ def plan_command(folder, args):
     path.write_text(text, encoding='utf-8')
     args.contract, args.review, args.screening = path, None, None
     result = check_proposal(folder, args)
+    advice = []
+    if len({t.casefold() for _, t in queries}) < 2 and not args.reuse_only:
+        advice.append('Todas las búsquedas usan una sola formulación. Agrega al menos otra por subpregunta: sinónimos, el '
+                      'grupo taxonómico o la población más amplia, el nombre del mecanismo o del método.')
+    if args.max_results < 25 and not args.reuse_only:
+        advice.append(f'Pediste {args.max_results} resultados por búsqueda; con menos de 25 se pierden artículos relevantes.')
+    if advice:
+        result['search_advice'] = advice
     if result['ready']:
         result['next_action'] = ('Plan válido. Muéstrale al usuario en pocas líneas las preguntas, dónde se busca y esto: '
                                  + result['estimate']['text'] + ' Con su visto bueno, ez continue ' + str(folder)
@@ -307,6 +315,14 @@ def split_group(raw):
     """'s1,s2: razón' -> (['s1', 's2'], 'razón')."""
     ids, _, reason = raw.partition(':')
     return [i.strip() for i in ids.split(',') if i.strip()], reason.strip()
+
+
+def close_candidates(candidates, queries):
+    """Candidates whose title and abstract contain every term of at least one search (of two terms or more)."""
+    from .workspace import topic_words
+    searches = [s for s in (topic_words(q['text']) for q in queries) if len(s) >= 2]
+    return [c for c in candidates
+            if any(s <= topic_words((c.get('title') or '') + ' ' + (c.get('abstract') or '')) for s in searches)]
 
 
 def screen_document(folder, args):
@@ -329,6 +345,15 @@ def screen_document(folder, args):
                     raise ContractError(f'{source_id} tiene más de una decisión.')
                 decisions[source_id] = {'source_id': source_id, 'decision': decision, 'reason': reason}
     if args.exclude_rest:
+        # A candidate that contains every term of one of the plan's searches is too close to the question to leave out in
+        # bulk: in a live run (2026-10-11) a key work went out with 68 others under one generic reason.
+        queries = read_json(folder / 'research-contract.json')['plan'].get('queries', [])
+        close = [c for c in close_candidates(request['candidates'], queries) if c['source_id'] not in decisions]
+        if close:
+            listed = '; '.join(f'{c["source_id"]} ({(c.get("title") or "")[:80]})' for c in close[:25])
+            raise ContractError(f'{len(close)} candidatos contienen todos los términos de una búsqueda del plan y no se excluyen '
+                                f'en bloque: {listed}. Decide cada uno con su razón (--include o --exclude "id: razón") y '
+                                'usa --exclude-rest para el resto.')
         for source_id in candidates:
             decisions.setdefault(source_id, {'source_id': source_id, 'decision': 'exclude', 'reason': args.exclude_rest.strip()})
     for source_id in [i.strip() for i in (args.key or '').split(',') if i.strip()]:

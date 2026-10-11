@@ -229,8 +229,10 @@ Las preguntas QA definen la respuesta. Plantea entre 3 y 5, una por subpregunta:
    `locked_by_user: true`.
 5. Armar el plan con `ez plan <corrida> --qa "<pregunta>" … --query proveedor:"<texto>" … --json`
    (`--delivery verified` si va a redactar; `--reuse-only` sin queries para responder solo con
-   la biblioteca del proyecto). Cada búsqueda trae 25 resultados por proveedor
-   (`--max-results`, hasta 100); `--no-citations` omite la ampliación por citas. Cada `--qa` es una subpregunta; los proveedores son `pubmed`,
+   la biblioteca del proyecto). Plantea al menos dos formulaciones por subpregunta, en el idioma
+   de los artículos: sinónimos, el grupo taxonómico o la población más amplia, el nombre del
+   mecanismo o del método; `search_advice` avisa si el plan se queda corto. Cada búsqueda trae
+   25 resultados por proveedor (`--max-results`, hasta 100; no lo bajes); `--no-citations` omite la ampliación por citas. Cada `--qa` es una subpregunta; los proveedores son `pubmed`,
    `europepmc`, `openalex`, `semantic` y `crossref`. `ez plan` valida sin escribir en la
    corrida ni consultar servicios, guarda la propuesta en `proposals/` y devuelve la
    estimación. Con el visto bueno del usuario, importar con el comando que indica:
@@ -253,7 +255,12 @@ Las preguntas QA definen la respuesta. Plantea entre 3 y 5, una por subpregunta:
    si no lo es, `uncertain` si hace falta el criterio del usuario; siempre con una
    razón breve. Marca `"key": true` en los incluidos que son centrales para responder
    (pocos: los que una persona del área citaría sí o sí). Cada candidato trae
-   `open_access` (`yes`, `no`, `unknown`); entre dos equivalentes, prefiere el abierto. Consultar al usuario solo por los dudosos y por las fuentes
+   `open_access` (`yes`, `no`, `unknown`): no decidas por eso. Se incluye por relevancia; un
+   artículo clave sin acceso abierto se pide a la persona antes de descargar. Lee el título y
+   el resumen de cada candidato que nombre el organismo, la población o la intervención de la
+   pregunta, y decídelo con su propia razón; `--exclude-rest` es solo para lo que está
+   claramente fuera de tema, y EZ lo rechaza si alcanzaría a un candidato que contiene todos
+   los términos de una búsqueda del plan. Consultar al usuario solo por los dudosos y por las fuentes
    obligatorias. Registrar las decisiones con
    `ez screen <corrida> --include "id1,id2: razón" --exclude "id3: razón" --exclude-rest "razón" --key id1 --json`
    (`--uncertain "ids: razón"` para las dudosas); con `--check` solo valida. `ez screen` exige

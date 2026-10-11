@@ -189,6 +189,13 @@ Todo lo anterior está en `main`. El orden para retomar:
    pregunta dónde instalar (`Documents\EZresearchLM` por defecto), `ez setup --projects-dir` deja
    los proyectos en una carpeta visible y mueve los anteriores, y `~/.ezresearch/install.json`
    dice dónde está `ez`; el README trae un mensaje para retomar en un chat nuevo.
+
+   Búsqueda y cribado (misma prueba): el plan buscó una sola frase en tres proveedores, con 20
+   resultados, y el cribado excluyó 69 candidatos con una razón genérica; entre ellos, Lim 2019,
+   que tenía todos los términos de la búsqueda. Ahora `--exclude-rest` no alcanza a candidatos
+   con todos los términos de una búsqueda del plan (19 en esa corrida): se deciden uno por uno.
+   `ez plan` avisa (`search_advice`) con una sola formulación o menos de 25 resultados, y la guía
+   ya no pide preferir artículos abiertos al cribar.
 2. **Puntuar la corrida** con `gold_set_benchmark/puntuar.py --mision M2` y anotar en
    `gold_set_benchmark/` cuántos de los 10 artículos clave entraron, en especial los dos de
    proteómica de *M. smegmatis* (T6).

@@ -48,6 +48,10 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(before, (Path(self.run) / 'events.jsonl').read_bytes())
         self.assertEqual(read_json(Path(self.run) / 'research-contract.json')['plan']['status'], 'needs_host_plan')
         self.assertIn('--contract', result['choices'][0]['action'])
+        self.assertIn('una sola formulación', result['search_advice'][0])
+        code, result = call('plan', self.run, '--qa', '¿Qué cambia?', '--query', 'pubmed:ethambutol Corynebacterium',
+                            '--query', 'openalex:arabinogalactan inhibitor Corynebacterineae', '--root', str(self.root))
+        self.assertNotIn('search_advice', result)
 
     def test_plan_rejects_unknown_providers_and_missing_searches(self):
         code, result = call('plan', self.run, '--qa', 'x', '--query', 'google:x', '--root', str(self.root))
@@ -78,6 +82,14 @@ class ScreenTests(test_screening.ScreeningTests):
         code, engine = self.execute(document)
         sources = {s['source_id']: s for s in read_json(self.folder / 'sources.json')}
         self.assertEqual((sources[ids['Off topic work']]['screening'], sources[ids['Relevant work']].get('key')), ('exclude', True))
+
+    def test_bulk_exclusion_does_not_reach_a_candidate_with_every_search_term(self):
+        from ez.cli import close_candidates
+        candidates = [{'source_id': 'a', 'title': 'Cell separation in Corynebacterium glutamicum',
+                       'abstract': 'Mutants were more sensitive to ethambutol.'},
+                      {'source_id': 'b', 'title': 'Corynebacterium glutamicum lysine production', 'abstract': ''}]
+        queries = [{'text': 'Corynebacterium glutamicum ethambutol'}, {'text': 'proteomics'}]
+        self.assertEqual([c['source_id'] for c in close_candidates(candidates, queries)], ['a'])
 
     def test_screen_requires_a_reason_and_a_decision_for_every_candidate(self):
         self.execute()
