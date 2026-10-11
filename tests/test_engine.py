@@ -121,6 +121,24 @@ class EngineTests(unittest.TestCase):
                              {'scope_id': 'sq2', 'status': 'insufficient', 'rationale': 'Falta fuente requerida', 'limitations': ['Fuente requerida ausente']}],
                 'claims': [{'id': 'c1', 'text': 'Afirmación de prueba', 'scope_ids': ['sq1'], 'question_id': 'qa1', 'citation_numbers': [1]}]}
 
+    def test_a_downloaded_pdf_without_confirmed_identity_asks_for_a_check_instead_of_leaving_quietly(self):
+        self.sources[0]['identity_status'] = 'needs_review'
+        with lock(self.folder):
+            store = Store(self.folder); state = store.state()
+            state['sources_hash'] = digest(self.sources)
+            store.commit(state, {'sources.json': self.sources})
+        code, state = self.run_engine()
+        self.assertEqual(code, 2)
+        self.assertEqual(state['legacy_signals'], ['NEEDS_IDENTITY_CONFIRMATION'])
+        self.assertEqual([r['source_id'] for r in state['identity_review']], ['s1'])
+        self.assertEqual(self.service.upload_count, 0)
+        with lock(self.folder):
+            store = Store(self.folder); state = store.state()
+            state['identities_acknowledged'] = True
+            store.update(state)
+        code, state = self.run_engine()
+        self.assertNotIn('NEEDS_IDENTITY_CONFIRMATION', state['legacy_signals'])
+
     def test_partial_delivery_and_resume_do_not_duplicate_remote_work(self):
         code, state = self.run_engine()
         self.assertEqual(code, 2)

@@ -68,6 +68,8 @@ class Pause(Exception):
 PDF_CHOICES = [{'label': 'Ya dejé los PDFs en la bandeja', 'action': 'ez continue'},
                {'label': 'Seguir sin ellos', 'action': 'ez continue --skip-missing'},
                {'label': 'Abrir la bandeja', 'action': 'open the inbox_link'}]
+IDENTITY_CHOICES = [{'label': 'Ya cotejé los PDFs: confirmarlos', 'action': 'ez rescue --confirm-identity --source <ids>'},
+                    {'label': 'Seguir sin los que no correspondan', 'action': 'ez continue --skip-missing'}]
 DELIVERY_CHOICES = [{'label': 'Verificar lo central para redactar', 'action': 'ez continue --verify'},
                     {'label': 'Exportar la bibliografía a Zotero', 'action': 'ez export'},
                     {'label': 'Redactar un párrafo con estas citas', 'action': 'ez draft'},
@@ -508,7 +510,7 @@ class Engine:
             self.checkpoint(inbox_import={k: summary[k] for k in ('imported', 'needs_identity_confirmation')})
         unconfirmed = [s for s in self.sources if s.get('validation_status') == 'valid' and s.get('identity_status') != 'verified'
                        and (s.get('provenance') or {}).get('origin') == INBOX_ORIGIN.origin and s.get('screening', 'include') == 'include']
-        if unconfirmed:
+        if unconfirmed and not self.state.get('identities_acknowledged'):
             names = '; '.join(f'{s["source_id"]} ({s.get("title") or "sin título"})' for s in unconfirmed)
             raise Pause('NEEDS_IDENTITY_CONFIRMATION', 'EZ tomó de la bandeja PDFs que parecen corresponder a estos artículos, pero '
                         f'no pudo confirmar su identidad: {names}. Coteja título y autores de cada PDF y confírmalos con ez rescue '
@@ -572,6 +574,29 @@ class Engine:
                     'lista de pdf-request.md tal cual: título completo sin traducir ni resumir y el DOI de cada uno como enlace. '
                     f'Agrega el enlace a su bandeja ({paths["inbox_link"]}). Si los consigue y los deja ahí, continúa: EZ los toma '
                     'solo. Si no, continúa con ez continue --skip-missing.', 2, PDF_CHOICES)
+
+    def confirm_identities(self):
+        """Downloaded PDFs whose identity EZ could not confirm on its own go to a check, never silently out of the corpus.
+
+        A conservative check fails on real articles too (a DOI broken across lines, a title printed differently), and
+        leaving them out unannounced lost key works in a live run (2026-10-11).
+        """
+        if self.state.get('identities_acknowledged'):
+            return
+        pending = [s for s in self.sources if s.get('screening', 'include') == 'include' and s.get('validation_status') == 'valid'
+                   and s.get('identity_status') != 'verified' and not s.get('duplicate_of')]
+        if not pending:
+            return
+        rows = [{k: v for k, v in (('source_id', s['source_id']), ('title', s.get('title')), ('year', s.get('year')),
+                                   ('doi', s.get('doi')), ('key', s.get('key')), ('pdf_path', s.get('pdf_path'))) if v}
+                for s in pending]
+        self.checkpoint(identity_review=rows)
+        names = '; '.join(f'{r["source_id"]} ({r.get("title") or "sin título"})' for r in rows)
+        raise Pause('NEEDS_IDENTITY_CONFIRMATION', f'EZ descargó {len(rows)} PDF(s) pero no pudo confirmar por sí solo que '
+                    f'correspondan a estos artículos: {names}. Abre la primera página de cada PDF (identity_review[].pdf_path), '
+                    'coteja título, autores y DOI y confirma los que coincidan juntos con ez rescue <corrida> --confirm-identity '
+                    '--source id1,id2 --reviewer host_agent; luego continúa. Los que no coincidan quedan fuera con ez continue '
+                    '--skip-missing. Avisa al usuario si alguno es clave (key).', 2, IDENTITY_CHOICES)
 
     def upload(self):
         verified = [s for s in self.sources if s.get('validation_status') == 'valid' and s.get('identity_status') == 'verified'
@@ -1241,6 +1266,7 @@ class Engine:
             self.request_key_pdfs()
             self.acquire()
             self.request_pdfs()
+            self.confirm_identities()
             self.upload()
             return self.qa(review)
         except ReviewError as exc:

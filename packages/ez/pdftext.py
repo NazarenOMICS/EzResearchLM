@@ -47,8 +47,11 @@ def metadata(source):
     PDFium exposes only the standard keys; publishers such as Wiley keep the article's DOI in their
     own keys (`/WPS-ARTICLEDOI`), which identity needs.
     """
+    import logging
     from io import BytesIO
     from pypdf import PdfReader
+    # pypdf logs every repaired cross-reference ("Ignoring wrong pointing object"); the agent only needs the result.
+    logging.getLogger('pypdf').setLevel(logging.ERROR)
     reader = PdfReader(BytesIO(bytes(source)) if isinstance(source, (bytes, bytearray)) else str(source))
     return {str(key).lstrip('/'): str(value) for key, value in (reader.metadata or {}).items() if str(value).strip()}
 

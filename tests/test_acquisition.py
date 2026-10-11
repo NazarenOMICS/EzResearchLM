@@ -53,6 +53,17 @@ class AcquisitionTests(unittest.TestCase):
             self.assertEqual(verify_identity('synthetic.pdf', {'title': 'A scientific data example', 'doi': '10.1234/example'}), 'verified')
             self.assertEqual(verify_identity('synthetic.pdf', {'title': 'An unrelated paper title', 'doi': '10.1234/example'}), 'needs_review')
             self.assertEqual(verify_identity('synthetic.pdf', {'title': 'A scientific data example', 'doi': '10.1234/other'}), 'needs_review')
+
+    def test_a_doi_broken_across_lines_or_closing_a_sentence_still_identifies_the_work(self):
+        source = {'title': 'A selective block of apical growth in model bacteria', 'doi': '10.1128/mbio.02213-16'}
+        printed = source['title'] + '\nCitation: mBio 8:e02213-16. https://doi.org/10.1128/\r\nmBio.02213-16.\r\nEditor'
+        with patch('ez.pdftext.header', return_value=(printed, {})):
+            self.assertEqual(verify_identity('synthetic.pdf', source), 'verified')
+        # A longer DOI that merely starts with this one is another work.
+        longer = source['title'] + '\nhttps://doi.org/10.1128/mbio.02213-16.s001'
+        with patch('ez.pdftext.header', return_value=(longer, {})):
+            self.assertEqual(verify_identity('synthetic.pdf', source), 'needs_review')
+
     def test_anna_archive_is_not_reachable_from_contracts_or_records(self):
         contract = draft('Pregunta', {})
         contract['acquisition'].update(anna_enabled=True, consent_id='legacy')

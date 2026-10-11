@@ -162,6 +162,13 @@ Todo lo anterior está en `main`. El orden para retomar:
    con su marcador. Ahora `ez status --answer`, `ez draft`, `ez recall` y el informe dan la cita
    de autor y año de cada afirmación (`citation`, «García et al., 2021»), y la guía pide
    mostrarla antes del marcador.
+
+   Prueba larga con Codex (2026-10-11), M2: 2 de 10 artículos clave en el corpus. Schubert 2017 y
+   tcsw.2018 se descargaron pero quedaron fuera en silencio por identidad no confirmada: el DOI
+   impreso estaba cortado por un salto de línea o seguido del punto de la oración. Corregido: el
+   DOI cortado se une y el punto final se acepta; un PDF descargado sin identidad confirmada pausa
+   con `NEEDS_IDENTITY_CONFIRMATION` en vez de quedar fuera. Sobre los PDFs de esa corrida y los 68
+   anteriores, la identidad automática ganó esos dos artículos y otro más, sin perder ninguno.
 2. **Puntuar la corrida** con `gold_set_benchmark/puntuar.py --mision M2` y anotar en
    `gold_set_benchmark/` cuántos de los 10 artículos clave entraron, en especial los dos de
    proteómica de *M. smegmatis* (T6).

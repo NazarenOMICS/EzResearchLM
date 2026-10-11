@@ -95,6 +95,13 @@ class Phase1Tests(unittest.TestCase):
     def test_sources_left_out_of_the_corpus_are_reported_before_review(self):
         self.add_source('s3', identity='needs_review')
         code, state = self.run_engine()
+        # First the check of its identity; the exclusion is reported once the person continues without it.
+        self.assertEqual((code, state['legacy_signals']), (2, ['NEEDS_IDENTITY_CONFIRMATION']))
+        with lock(self.folder):
+            store = Store(self.folder); saved = store.state()
+            saved['identities_acknowledged'] = True
+            store.update(saved)
+        code, state = self.run_engine()
         self.assertEqual(code, 2)
         self.assertEqual(state['corpus_exclusions'], [{'source_id': 's3', 'title': 'Fuente s3', 'reason': 'identity_unconfirmed'}])
         self.assertIn('1 fuentes quedaron fuera del corpus', state['next_action'])

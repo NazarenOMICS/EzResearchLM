@@ -419,11 +419,15 @@ def header_identity(text, metadata, record, provider=None):
         title_matches = len(title_words) >= 3 and ''.join(title_words) in ''.join(plain_words(text[:4000]))
         if not title_matches:
             return 'needs_review'
-        identity_text = text[:4000] + '\n' + metadata
+        # A DOI broken across lines ("https://doi.org/10.1128/" + "mBio.02213-16") is joined back; only after "/" or "-",
+        # since a line ending in "." is usually the sentence's own period.
+        identity_text = re.sub(r'(10\.\d{4,9}/(?:[^\s<>]*[/-])?)[ \t]*\r?\n[ \t]*(?=\w)', r'\1', text[:4000]) + '\n' + metadata
         doi = normalize_doi(record.get('doi'))
         listed = [value.rstrip('.,;:)]}') for value in re.findall(r'10\.\d{4,9}/[^\s<>\x27\x22]+', identity_text)]
         found_dois = set(listed)
-        own_doi = bool(doi) and bool(re.search(re.escape(doi) + r'(?![\w./-])', identity_text))
+        # The DOI must end there: a following letter, slash or ".x" would make it another, longer DOI; a sentence's
+        # closing period does not.
+        own_doi = bool(doi) and bool(re.search(re.escape(doi) + r'(?![\w/-]|\.[\w/-])', identity_text))
         # Other DOIs (data, related articles) are tolerated only after the work's own DOI.
         if own_doi and listed and listed[0] == doi:
             return 'verified'

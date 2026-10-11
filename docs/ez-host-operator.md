@@ -79,8 +79,10 @@ lo usó: ofrécele retomarlos en vez de repetir el onboarding.
 5. **Durante la corrida**, avisa en una línea cada vez que EZ cambia de etapa y cuando la
    persona tiene que actuar. Cuando pidas PDFs, da siempre el enlace clicable a la bandeja
    del proyecto: EZ toma solo lo que la persona deje ahí al continuar. En
-   `NEEDS_IDENTITY_CONFIRMATION`, EZ tomó de la bandeja PDFs que no pudo confirmar: coteja
-   título y autores y confírmalos juntos. En `NEEDS_KEY_PDFS`, antes de descargar nada, muéstrale
+   `NEEDS_IDENTITY_CONFIRMATION`, EZ tomó de la bandeja o descargó PDFs cuya identidad no pudo
+   confirmar solo (`identity_review`, con la ruta de cada PDF): abre la primera página, coteja
+   título, autores y DOI y confirma juntos los que coincidan; si uno es clave (`key`), díselo a
+   la persona. Los que no coincidan quedan fuera con `--skip-missing`. En `NEEDS_KEY_PDFS`, antes de descargar nada, muéstrale
    `key-pdfs.md` tal cual: título en negrita, revista, año y enlace al DOI de cada artículo
    clave sin acceso abierto, con las vías honestas para conseguirlo (acceso institucional,
    préstamo interbibliotecario, pedido a los autores). Espera su respuesta: si los consigue,
