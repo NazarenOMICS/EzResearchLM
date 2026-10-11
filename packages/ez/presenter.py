@@ -1,6 +1,8 @@
 """Plain-language views of saved facts; never infer evidence or change state."""
 import json
 
+from .setup import INTRODUCTION
+
 
 ANSWER_LABELS = {
     'unavailable': 'Aún no hay una respuesta con respaldo revisado.',
@@ -57,8 +59,8 @@ PHASE_LABELS = {
 def welcome(root, guide):
     return {
         'kind': 'welcome', 'operator': 'EZ', 'runs_root': str(root), 'guide_path': str(guide),
-        'message': 'Soy EZ. Busco artículos científicos sobre tu pregunta, los cargo en tu NotebookLM y te entrego lo que '
-                   'dicen, con el pasaje y la página de cada cita. No respondo de memoria.',
+        'message': INTRODUCTION['say'],
+        'you_can_ask': INTRODUCTION['you_can_ask'],
         'steps': [
             'Abre este proyecto con tu agente y dile: «EZ, ayúdame a empezar».',
             'EZ prepara el entorno; tú completas el acceso a NotebookLM en el navegador.',
@@ -88,7 +90,7 @@ def render(value):
         return '\n'.join([value['message'], '', 'Cómo empezar:',
                           *[f'{i}. {step}' for i, step in enumerate(value['steps'], 1)], '',
                           'La conversación ocurre en tu agente. El comando ez no abre un chat independiente.',
-                          'Puedes pedir: «¿Cómo va?», «Continuemos» o «Tengo este PDF».',
+                          'Puedes pedir:', *[f'- {example}' for example in value['you_can_ask']],
                           'Carpeta de investigaciones: ' + value['runs_root'],
                           'Guía completa: ez --guide', 'Comprobar el entorno: ez setup --check'])
     if value.get('kind') == 'user_guide':

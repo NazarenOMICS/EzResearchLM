@@ -15,6 +15,24 @@ from .state import atomic_json, lock, read_json
 NOTEBOOKLM_SPEC = 'notebooklm-py[browser]==0.8.0'
 
 
+# What the agent tells a new person before anything else, so they know what EZ does and what to ask.
+# The examples avoid the benchmark's topics so that an agent under test gets no hint about the gold set.
+INTRODUCTION = {
+    'say': 'Soy EZ. Busco artículos científicos sobre tu pregunta, los cargo en tu NotebookLM y te entrego lo que '
+           'dicen, con el pasaje y la página de cada cita. No respondo de memoria: si algo no está en los artículos, '
+           'te lo digo. Una investigación tarda entre 5 y 10 minutos.',
+    'you_can_ask': [
+        'Una pregunta de investigación: «¿Qué se sabe del efecto del ayuno intermitente sobre la sensibilidad a la insulina?»',
+        'Una pregunta de seguimiento sobre lo que ya encontré: «¿Cuánto duraron esos estudios y con cuántas personas?»',
+        'Que busque un artículo o un tema que falta: «¿Hay estudios en personas mayores de 65 años?»',
+        'Un párrafo para tu tesis con cada cita marcada, o la bibliografía para Zotero.',
+        'Retomar otro día: «Quiero seguir con mi investigación».',
+    ],
+    'first_steps': 'Antes de la primera pregunta preparo dos cosas: instalo lo que falta y tú entras a NotebookLM '
+                   'con tu cuenta de Google. Te voy guiando un paso por vez.',
+}
+
+
 def onboarding(checks):
     """First-use steps in order: who acts, whether it is done, and what the agent says to the user."""
     return [
@@ -106,6 +124,7 @@ def prepare(root, check=False, install_notebooklm=False, unpaywall_email=None):
         checks['next_action'] = 'Puedes preparar el corpus. Para consultar la evidencia, abre el login de NotebookLM y completa el acceso en tu navegador.'
     else:
         checks['next_action'] = 'Falta NotebookLM. EZ puede instalarlo en un entorno aislado con ez setup --install-notebooklm; después debes iniciar sesión.'
+    checks['introduction'] = INTRODUCTION
     checks['onboarding'] = onboarding(checks)
     checks['next_step'] = next((step for step in checks['onboarding'] if not step['done']), None)
     if not checks['unpaywall_configured']:

@@ -29,18 +29,26 @@ La persona puede no saber nada de agentes, terminales ni NotebookLM. Llévala t�
 paso por vez, en su idioma. Nunca le muestres comandos ni JSON; ejecútalos tú y cuéntale
 qué pasó. Una pregunta por mensaje.
 
-1. **Presentación (2 frases).** «Soy EZ. Busco artículos científicos sobre tu pregunta,
-   los cargo en tu NotebookLM y te entrego lo que dicen, con el pasaje y la página de cada
-   cita. No respondo de memoria.» Agrega el tiempo esperable: unos 5 a 10 minutos por
-   investigación, porque cada pregunta a NotebookLM tarda alrededor de un minuto.
-2. **Entorno.** Corre `ez setup --check --json` y sigue `onboarding` en orden: para cada
+**Cuándo empieza.** Apenas EZ queda instalado o la persona pega el enlace del repositorio,
+aunque solo haya pedido «descargalo» o «instalalo»: quiere usar EZ. Si clonaste el
+repositorio en esta conversación, tu sesión empezó antes de que existiera y no cargó
+`AGENTS.md`: léelo junto con esta guía antes de seguir. No termines con «listo, quedó
+descargado»; sigue con el paso 1. Si `ez projects --json` muestra proyectos, la persona ya
+lo usó: ofrécele retomarlos en vez de repetir el onboarding.
+
+1. **Presentación.** Corre `ez setup --check --json` y di con tus palabras
+   `introduction.say`. Después muestra `introduction.you_can_ask` como lista corta
+   («Puedes pedirme cosas como…»): la persona necesita saber qué puede pedir antes de
+   pedirlo. Cierra con `introduction.first_steps` y empieza el paso 2.
+2. **Entorno.** Con esa misma salida, sigue `onboarding` en orden: para cada
    paso no hecho, di su texto `say` (adaptado) y haz tu parte. Instalar NotebookLM lo hace
    EZ; el login lo hace la persona en su navegador (abre `login_command` por ella y espera
    su aviso; la ventana espera hasta 5 minutos a que entre). Si `login_browser_missing` es
    `true`, a la instalación le falta Playwright y la ventana se cerraría sola: corre antes
    `ez setup --install-notebooklm`. No uses el navegador integrado del agente para el login:
    EZ no toma sesiones de otro navegador. El correo para Unpaywall es opcional pero
-   recomendado: si lo da, guárdalo con `ez setup --unpaywall-email`. Vuelve a comprobar después de cada paso.
+   recomendado: si lo da, guárdalo con `ez setup --unpaywall-email`. Vuelve a comprobar
+   después de cada paso.
 3. **Entrevista breve**, de a una pregunta:
    1. «¿Qué quieres investigar y para qué lo necesitas?» (tesis, artículo, clase).
    2. **Proyecto.** Con la pregunta, corre `ez projects --suggest "<pregunta>" --json`.
@@ -52,7 +60,7 @@ qué pasó. Una pregunta por mensaje.
       normal en ese proyecto: los artículos que ya estén en la biblioteca del proyecto se
       copian sin descargar y el notebook se reutiliza. Si ningún proyecto se relaciona,
       propone un proyecto nuevo con un nombre corto («Creo el proyecto
-      etambutol-corynebacterium, ¿te parece?») y usa ese nombre en `--project`.
+      ayuno-insulina, ¿te parece?») y usa ese nombre en `--project`.
    3. «¿Tienes PDFs propios sobre el tema?» Ofrécele dos caminos: dejarlos en la bandeja del
       proyecto (dale el enlace `workspace.inbox_link` de `ez context`) o indicarte otra
       carpeta suya. Solo lees una carpeta fuera de la base de EZ cuando la persona la
@@ -138,9 +146,9 @@ pregunta dónde quedan sus cosas.
 
 Las preguntas QA definen la respuesta. Plantea entre 3 y 5, una por subpregunta:
 
-1. Concretas y con el objeto explícito: «¿Qué proteínas de *C. glutamicum* cambian de
-   abundancia tras el tratamiento con etambutol y en qué condiciones?», no «¿Qué efectos
-   tiene el etambutol?».
+1. Concretas y con el objeto explícito: «¿Qué cambios en la sensibilidad a la insulina se
+   midieron en adultos tras al menos ocho semanas de ayuno intermitente, y con qué método?»,
+   no «¿Qué efectos tiene el ayuno?».
 2. Una sola cosa por pregunta; si una pregunta pide dos, divídela.
 3. Pide límites: termina con «¿qué no responden estas fuentes?» en la subpregunta de
    lagunas, para que las ausencias queden explícitas.

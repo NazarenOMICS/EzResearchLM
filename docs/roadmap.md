@@ -129,6 +129,13 @@ Todo lo anterior está en `main`. El orden para retomar:
    por `pypdf` para la validación estructural y los metadatos. Sobre 68 PDFs de corridas
    anteriores, la identidad verificada pasó de 31 a 40, sin perder ninguna, y leer todas las
    páginas, de 149 s a 13 s. `pyflakes` quedó en el extra `dev`.
+
+   Segundo intento (2026-10-11, Codex): con «descargalo en documents», el agente clonó y se
+   detuvo, sin presentarse ni guiar. La sesión había empezado en una carpeta vacía y nunca
+   cargó `AGENTS.md`. Corregido: los README tienen una sección para el agente y `AGENTS.md`
+   y `CLAUDE.md`, una regla de primer contacto; `ez setup --check` devuelve `introduction`
+   con ejemplos de lo que se puede pedir. Los ejemplos de la guía del agente ya no usan el
+   tema del gold set, y un test lo controla.
 2. **Puntuar la corrida** con `gold_set_benchmark/puntuar.py --mision M2` y anotar en
    `gold_set_benchmark/` cuántos de los 10 artículos clave entraron, en especial los dos de
    proteómica de *M. smegmatis* (T6).

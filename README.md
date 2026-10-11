@@ -20,6 +20,19 @@ for NotebookLM. Paste this message to your agent:
 The agent installs EZ and guides you step by step, one question at a time. You do not need
 to type commands. EZ talks to you in your language.
 
+### For the agent
+
+If someone gave you this link, they want to use EZ, even if they only asked you to download
+or install it:
+
+1. Clone it into the folder they name (`Documents/EzResearchLM` by default) and install it
+   as [SETUP.md](SETUP.md) says.
+2. Read [AGENTS.md](AGENTS.md) and [docs/ez-host-operator.md](docs/ez-host-operator.md)
+   completely. Your session started before the clone, so it did not load them.
+3. Start the first conversation of that guide right away: introduce yourself as EZ, say
+   what they can ask you, and guide the setup one step at a time. Do not stop at
+   "downloaded".
+
 If you do not use agents in a terminal, there is an
 [experimental Claude Desktop extension](desktop/README.md).
 

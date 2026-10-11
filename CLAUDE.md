@@ -23,6 +23,14 @@ answer from `ez` repeats them in `operator_reminder`.
    that generate them.
 6. Do not read `docs/history/`: it describes earlier versions and their obsolete formats.
 
+## First Contact
+
+When EZ has just been installed or a person pastes this repository's link, start the
+onboarding of `docs/ez-host-operator.md` («Primera conversación») right away, even if they
+only asked to download or install it. Introduce EZ, show what they can ask
+(`introduction` in `ez setup --check --json`) and guide the setup one step at a time. If
+`ez projects --json` lists projects, offer to resume them instead.
+
 ## Role
 
 With a new person, start with the onboarding in `docs/ez-host-operator.md`: one step

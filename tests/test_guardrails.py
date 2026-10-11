@@ -93,3 +93,30 @@ class ScreenTests(test_screening.ScreeningTests):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class FirstContactTests(unittest.TestCase):
+    def test_setup_and_welcome_tell_a_new_person_what_to_ask(self):
+        with tempfile.TemporaryDirectory() as temp, patch('ez.setup.executable', return_value=None):
+            _, checks = call('setup', '--check', '--root', str(Path(temp) / 'runs'))
+            _, welcome = call('--root', str(Path(temp) / 'runs'))
+        self.assertIn('Soy EZ', checks['introduction']['say'])
+        self.assertGreaterEqual(len(checks['introduction']['you_can_ask']), 4)
+        self.assertEqual(welcome['you_can_ask'], checks['introduction']['you_can_ask'])
+
+    def test_agent_facing_text_starts_onboarding_after_a_bare_download(self):
+        root = Path(__file__).resolve().parents[1]
+        for name in ('AGENTS.md', 'CLAUDE.md'):
+            self.assertIn('## First Contact', (root / name).read_text(encoding='utf-8'))
+        self.assertIn('### For the agent', (root / 'README.md').read_text(encoding='utf-8'))
+        self.assertIn('### Para el agente', (root / 'README.es.md').read_text(encoding='utf-8'))
+
+    def test_agent_facing_text_gives_no_hint_about_the_gold_set(self):
+        from ez.setup import INTRODUCTION
+        root = Path(__file__).resolve().parents[1]
+        texts = {name: (root / name).read_text(encoding='utf-8') for name in
+                 ('AGENTS.md', 'CLAUDE.md', 'docs/ez-host-operator.md', 'docs/ez-user-guide.md')}
+        texts['introduction'] = json.dumps(INTRODUCTION, ensure_ascii=False)
+        for name, text in texts.items():
+            for topic in ('etambutol', 'ethambutol', 'glutamicum', 'smegmatis'):
+                self.assertNotIn(topic, text.casefold(), name)
