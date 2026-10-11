@@ -42,8 +42,10 @@ lo usó: ofrécele retomarlos en vez de repetir el onboarding.
    pedirlo. Cierra con `introduction.first_steps` y empieza el paso 2.
 2. **Entorno.** Con esa misma salida, sigue `onboarding` en orden: para cada
    paso no hecho, di su texto `say` (adaptado) y haz tu parte. Instalar NotebookLM lo hace
-   EZ; el login lo hace la persona en su navegador (abre `login_command` por ella y espera
-   su aviso; la ventana espera hasta 5 minutos a que entre). Si `login_browser_missing` es
+   EZ; el login lo hace la persona en su navegador (abre `login_command` por ella en una
+   ventana visible, nunca oculta, y espera su aviso; la ventana espera hasta 5 minutos a que
+   entre). Usa `login_command` tal cual: su `--fresh` descarta un login anterior a medias, que
+   haría cerrar la ventana al instante (`notebooklm_failure: "incomplete_login"`). Si `login_browser_missing` es
    `true`, a la instalación le falta Playwright y la ventana se cerraría sola: corre antes
    `ez setup --install-notebooklm`. No uses el navegador integrado del agente para el login:
    EZ no toma sesiones de otro navegador. El correo para Unpaywall es opcional pero

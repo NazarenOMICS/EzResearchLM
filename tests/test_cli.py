@@ -165,6 +165,27 @@ class CliTests(unittest.TestCase):
             self.assertFalse(checks['login_browser_missing'])
             self.assertEqual(checks['next_step']['id'], 'notebooklm_login')
 
+    def test_ez_prefers_its_isolated_notebooklm_over_another_on_path(self):
+        from ez.paths import executable
+        with tempfile.TemporaryDirectory() as home, patch('pathlib.Path.home', return_value=Path(home)), \
+                patch('shutil.which', return_value='C:/other-agent/notebooklm.exe'), patch.dict(os.environ, {}, clear=False):
+            os.environ.pop('EZRESEARCH_NOTEBOOKLM_EXE', None)
+            self.assertEqual(executable('notebooklm'), 'C:/other-agent/notebooklm.exe')
+            isolated = Path(home) / '.ezresearch/tools/notebooklm' / ('Scripts/notebooklm.exe' if os.name == 'nt' else 'bin/notebooklm')
+            isolated.parent.mkdir(parents=True)
+            isolated.write_text('')
+            self.assertEqual(executable('notebooklm'), str(isolated))
+
+    def test_setup_reports_a_half_finished_login_and_offers_a_fresh_one(self):
+        from ez.process import Result
+        missing = Result(2, '{"error": true, "message": "Missing required cookies: SID, __Secure-1PSIDTS"}', '')
+        with tempfile.TemporaryDirectory() as folder, patch('ez.setup.executable', return_value='notebooklm'), \
+                patch('ez.setup.run', return_value=missing):
+            checks = prepare(Path(folder) / 'runs', check=True)
+        self.assertFalse(checks['can_notebook_qa'])
+        self.assertEqual(checks['notebooklm_failure'], 'incomplete_login')
+        self.assertEqual(checks['login_command'], ['notebooklm', 'login', '--fresh'])
+
     def test_setup_rejects_success_exit_with_unknown_notebook_envelope(self):
         from ez.process import Result
         for payload in ('{}', '<html>login</html>', '{"notebooks": [null]}', '{"notebooks": [{"id": "a"}, {"id": "a"}]}'):

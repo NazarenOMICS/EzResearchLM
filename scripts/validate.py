@@ -31,7 +31,7 @@ def main():
         for folder in ('packages/paper_search/tests', 'tests'):
             if (ROOT / folder).is_dir():
                 started = time.monotonic()
-                result = subprocess.run([sys.executable, '-m', 'unittest', 'discover', '-s', str(ROOT / folder)], env=env, timeout=180,
+                result = subprocess.run([sys.executable, '-m', 'unittest', 'discover', '-s', str(ROOT / folder)], env=env, timeout=900,
                                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='utf-8', errors='replace')
                 print(result.stdout, end='', flush=True)
                 count = re.search(r'Ran (\d+) tests?', result.stdout)

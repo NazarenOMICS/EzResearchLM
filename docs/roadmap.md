@@ -141,6 +141,13 @@ Todo lo anterior está en `main`. El orden para retomar:
    y no abrió ningún archivo, así que nada del repositorio podía guiarlo. El mensaje que
    sugieren los README ahora pide instalar, leer `AGENTS.md` y guiar paso a paso. Con ese
    mensaje, la prueba del usuario funcionó mejor.
+
+   Cuarto intento (2026-10-11, Codex): la ventana de login se abrió y se cerró al instante dos
+   veces. EZ tomaba el `notebooklm` de otro agente (Hermes) que estaba antes en el PATH, y el
+   perfil de navegador guardado tenía una sesión a medias (`Missing required cookies: SID`):
+   el login la daba por buena y cerraba. Corregido: EZ usa primero su instalación aislada,
+   `login_command` lleva `--fresh`, la sesión a medias se informa como `incomplete_login` y
+   la guía pide abrir el login en una ventana visible.
 2. **Puntuar la corrida** con `gold_set_benchmark/puntuar.py --mision M2` y anotar en
    `gold_set_benchmark/` cuántos de los 10 artículos clave entraron, en especial los dos de
    proteómica de *M. smegmatis* (T6).

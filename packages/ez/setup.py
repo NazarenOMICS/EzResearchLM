@@ -110,7 +110,12 @@ def prepare(root, check=False, install_notebooklm=False, unpaywall_email=None):
         checks['notebooklm_failure'] = result.reason or ('auth_or_configuration_required' if result.returncode else None)
         if not recognized:
             checks['notebooklm_failure'] = 'invalid_notebooklm_output'
-        checks['login_command'] = [command, 'login']
+        if 'missing required cookies' in (result.stdout + result.stderr).casefold():
+            # A login that closed early leaves a browser profile without the session cookies; the
+            # next login takes it as "already logged in" and closes at once unless it starts fresh.
+            checks['notebooklm_failure'] = 'incomplete_login'
+        # --fresh discards the cached browser profile, so the window always asks for the Google sign-in.
+        checks['login_command'] = [command, 'login', '--fresh']
         if not checks['can_notebook_qa']:
             checks['login_browser_missing'] = login_browser_missing(command)
     if checks['can_notebook_qa']:

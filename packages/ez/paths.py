@@ -54,12 +54,13 @@ def executable(name):
     explicit = os.environ.get('EZRESEARCH_' + name.upper() + '_EXE')
     if explicit:
         return str(Path(explicit).expanduser().resolve()) if Path(explicit).expanduser().is_file() else None
-    found = shutil.which(name)
-    if found:
-        return found
+    # EZ's isolated NotebookLM comes first: it has the pinned version and the login browser, while another
+    # notebooklm on PATH (another agent's, an older one) may lack both.
     runtime = Path.home() / '.ezresearch/tools/notebooklm'
     path = runtime / ('Scripts/notebooklm.exe' if os.name == 'nt' else 'bin/notebooklm')
-    return str(path) if name == 'notebooklm' and path.is_file() else None
+    if name == 'notebooklm' and path.is_file():
+        return str(path)
+    return shutil.which(name)
 
 
 def contained(root, relative):
