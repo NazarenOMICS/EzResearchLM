@@ -134,6 +134,12 @@ class DirectDeliveryTests(unittest.TestCase):
             code = main(['--root', self.temp.name, *arguments, '--json'])
         return code, json.loads(output.getvalue())
 
+    def test_drafting_from_a_direct_delivery_points_to_verification(self):
+        self.assertEqual(self.run_engine()[0], 0)
+        code, material = self.cli('draft', str(self.folder))
+        self.assertEqual(code, 0)
+        self.assertIn('--verify', material['unverified'])
+
     def test_direct_delivery_needs_no_review_and_no_second_query(self):
         code, state = self.run_engine()
         self.assertEqual(code, 0)

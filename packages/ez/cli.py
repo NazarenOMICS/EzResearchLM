@@ -298,6 +298,10 @@ def plan_command(folder, args):
     if len({t.casefold() for _, t in queries}) < 2 and not args.reuse_only:
         advice.append('Todas las búsquedas usan una sola formulación. Agrega al menos otra por subpregunta: sinónimos, el '
                       'grupo taxonómico o la población más amplia, el nombre del mecanismo o del método.')
+    if args.delivery == 'verified':
+        advice.append('La entrega verificada exige que revises a mano cada respuesta de NotebookLM. Salvo que la persona '
+                      'lo pida, planea la entrega directa y, para redactar, usa ez continue <corrida> --verify, que '
+                      'verifica automáticamente las afirmaciones centrales.')
     if args.max_results < 25 and not args.reuse_only:
         advice.append(f'Pediste {args.max_results} resultados por búsqueda; con menos de 25 se pierden artículos relevantes.')
     if advice:
@@ -543,6 +547,9 @@ def draft_command(folder, args):
     emit({'kind': 'draft_material', 'report_path': str(folder / 'report.md'),
           'claims': [{'id': c['id'], 'marker': f'[EZ:{c["id"]}]', 'citation': claim_citation(c), 'text': c['text'],
                       'scope_ids': c['scope_ids']} for c in answer['claims']],
+          **({'unverified': ('Estas afirmaciones son la entrega directa: no pasaron la verificación de respaldo. Antes '
+                               'de redactar para una tesis o un artículo, corre ez continue ' + str(folder) + ' --verify.')}
+             if answer.get('delivery') == 'direct' else {}),
           'next_action': 'Redacta solo con estas afirmaciones; cita cada una con su autor y año (citation) seguido de su '
                          'marcador, y comprueba el borrador con ez draft <corrida> --check <archivo>.'}, args.json)
     return 0

@@ -51,6 +51,7 @@ class DeliverTests(unittest.TestCase):
         self.deliver()
         code, material = self.cli('draft', str(self.folder))
         self.assertEqual((code, material['claims'][0]['marker']), (0, '[EZ:c1]'))
+        self.assertNotIn('unverified', material)
         draft = self.folder.parent / 'borrador.md'
         draft.write_text('# Título\n\nLa afirmación verificada se sostiene en la fuente citada [EZ:c1]. '
                          'Esta otra oración afirma algo de la literatura sin ningún marcador visible.\n', encoding='utf-8')

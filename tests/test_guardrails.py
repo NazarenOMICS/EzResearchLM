@@ -52,6 +52,9 @@ class PlanTests(unittest.TestCase):
         code, result = call('plan', self.run, '--qa', '¿Qué cambia?', '--query', 'pubmed:ethambutol Corynebacterium',
                             '--query', 'openalex:arabinogalactan inhibitor Corynebacterineae', '--root', str(self.root))
         self.assertNotIn('search_advice', result)
+        code, result = call('plan', self.run, '--qa', '¿Qué cambia?', '--query', 'pubmed:ethambutol Corynebacterium',
+                            '--query', 'openalex:arabinogalactan inhibitor', '--delivery', 'verified', '--root', str(self.root))
+        self.assertIn('--verify', result['search_advice'][0])
 
     def test_plan_rejects_unknown_providers_and_missing_searches(self):
         code, result = call('plan', self.run, '--qa', 'x', '--query', 'google:x', '--root', str(self.root))

@@ -40,8 +40,10 @@ Read `docs/ez-host-operator.md` before operating the new `ez` interface. The hos
 prepares contracts and, in verified delivery, QA reviews on the user's behalf; do not
 ask users to edit JSON. New contracts default to `plan.delivery: "direct"`: EZ delivers
 NotebookLM's cited sentences right after QA, without a host review or a second query.
-Choose `"verified"` when the user will draft from the claims. Runs of one project share
-the project's NotebookLM notebook.
+Keep it: when the user will draft, verify the claims they need with
+`ez continue <run> --verify`, which checks them automatically. Do not plan `"verified"`
+delivery: its manual review made the agent read every QA answer and delivered 5 claims in a
+live test. Runs of one project share the project's NotebookLM notebook.
 
 NotebookLM remains the evidence engine. The current implementation is an internal
 candidate; authenticated E2E and closed beta are still required before release.

@@ -219,8 +219,11 @@ Las preguntas QA definen la respuesta. Plantea entre 3 y 5, una por subpregunta:
 4. Completar queries por proveedor, subpreguntas QA, límites temporales y criterio
    de parada. Elegir `plan.delivery`: `direct` (por defecto) entrega las oraciones
    citadas de NotebookLM apenas termina la QA, sin revisión del agente ni segunda
-   consulta; `verified` exige revisión y verificación por afirmación (pasos 8 y 9).
-   Usar `verified` cuando el usuario va a redactar con esas afirmaciones o lo pide.
+   consulta. Úsalo siempre, también para una tesis: cuando la persona vaya a redactar,
+   `ez continue <corrida> --verify` verifica automáticamente las afirmaciones centrales (o las
+   que elijas con `--verify qa1-2,qa3-1`). `verified` exige que revises a mano cada respuesta
+   (pasos 8 y 9); en una prueba real costó la lectura completa de la QA y entregó 5
+   afirmaciones. No lo planees salvo que la persona lo pida expresamente.
    Plantear entre 3 y 5 preguntas QA: cada una tarda alrededor de un minuto en
    NotebookLM, lo mismo que escribirla en su web, y van en serie.
    Las fuentes obligatorias necesitan identificadores verificados y una razón ligada al alcance. No inventar autores, DOI, títulos ni referencias.
@@ -228,7 +231,7 @@ Las preguntas QA definen la respuesta. Plantea entre 3 y 5, una por subpregunta:
    habilitar sus conclusiones. Las obligaciones fijadas por el usuario conservan
    `locked_by_user: true`.
 5. Armar el plan con `ez plan <corrida> --qa "<pregunta>" … --query proveedor:"<texto>" … --json`
-   (`--delivery verified` si va a redactar; `--reuse-only` sin queries para responder solo con
+   (`--reuse-only` sin queries para responder solo con
    la biblioteca del proyecto). Plantea al menos dos formulaciones por subpregunta, en el idioma
    de los artículos: sinónimos, el grupo taxonómico o la población más amplia, el nombre del
    mecanismo o del método; `search_advice` avisa si el plan se queda corto. Cada búsqueda trae

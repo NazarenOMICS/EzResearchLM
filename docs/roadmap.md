@@ -196,6 +196,12 @@ Todo lo anterior está en `main`. El orden para retomar:
    con todos los términos de una búsqueda del plan (19 en esa corrida): se deciden uno por uno.
    `ez plan` avisa (`search_advice`) con una sola formulación o menos de 25 resultados, y la guía
    ya no pide preferir artículos abiertos al cribar.
+
+   Modo de entrega (misma prueba): Codex eligió la entrega verificada «porque es para una tesis»;
+   leyó cada respuesta de QA, escribió la revisión a mano y entregó 5 afirmaciones. La guía y
+   AGENTS.md piden ahora la entrega directa siempre y `ez continue --verify` (automático) para
+   redactar; `ez plan --delivery verified` lo advierte en `search_advice`, y `ez draft` avisa si
+   las afirmaciones no están verificadas.
 2. **Puntuar la corrida** con `gold_set_benchmark/puntuar.py --mision M2` y anotar en
    `gold_set_benchmark/` cuántos de los 10 artículos clave entraron, en especial los dos de
    proteómica de *M. smegmatis* (T6).
