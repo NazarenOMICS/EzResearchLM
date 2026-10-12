@@ -225,6 +225,24 @@ Todo lo anterior está en `main`. El orden para retomar:
    `install.json`, `ez setup --login` y `--projects-dir`, y ya no remite a `docs/history/`. Los
    datos de la prueba anterior quedaron en `~/.ezresearch-prueba-2026-10-11`, para que la prueba
    arranque desde cero y sirvan de base para medir `ez recall`.
+
+   Artículos clave perdidos en la prueba anterior (2026-10-11, analizado con los datos de la
+   corrida y búsquedas en vivo, sin repetir la prueba). De los 8 que faltaron, 4 no aparecieron en
+   la búsqueda, 2 se excluyeron en el cribado y 2 se descargaron sin identidad confirmada (ya
+   corregido):
+   1. Las dos búsquedas del plan eran una sola formulación: la segunda solo agregaba palabras a la
+      primera (en PubMed, de 20 resultados a 0) y ambas tenían el mismo organismo y fármaco. Con el
+      grupo cercano o el blanco del fármaco, 3 de los 4 perdidos salen entre los 6 primeros de algún
+      proveedor; el cuarto está en los puestos 31 y 62 de la búsqueda original. Ahora `ez plan`
+      avisa en `search_advice` cuando una búsqueda contiene todos los términos de otra y cuando
+      todas comparten un núcleo de dos o más términos, y `docs/agent/corpus.md` lo explica.
+   2. La ampliación por citas encontró 3 de los 4 entre 625 registros nuevos, pero quedaron en los
+      puestos 77, 381 y 112, y al cribado pasan 40. El puntaje compara con la pregunta y las QA en
+      español; usando solo las palabras de las búsquedas, los puestos pasan a 47, 308 y 32 y los 4
+      que el agente incluyó suben. Con una sola corrida no se cambia: se mide en la próxima.
+   3. Uno de los excluidos en el cribado ya lo protege la regla de `--exclude-rest`. El otro (2024)
+      no nombra el fármaco en el resumen; rescatarlo exige saber que su vía es la que el fármaco
+      afecta, y no se fuerza con código.
 2. **Puntuar la corrida** con `gold_set_benchmark/puntuar.py --mision M2` y anotar en
    `gold_set_benchmark/` cuántos de los 10 artículos clave entraron, en especial los dos de
    proteómica de *M. smegmatis* (T6).

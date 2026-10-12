@@ -333,6 +333,8 @@ def plan_command(folder, args):
     if len({t.casefold() for _, t in queries}) < 2 and not args.reuse_only:
         advice.append('Todas las búsquedas usan una sola formulación. Agrega al menos otra por subpregunta: sinónimos, el '
                       'grupo taxonómico o la población más amplia, el nombre del mecanismo o del método.')
+    else:
+        advice += narrow_search_advice([t for _, t in queries])
     if args.delivery == 'verified':
         advice.append('La entrega verificada exige que revises a mano cada respuesta de NotebookLM. Salvo que la persona '
                       'lo pida, planea la entrega directa y, para redactar, usa ez continue <corrida> --verify, que '
@@ -354,6 +356,30 @@ def split_group(raw):
     """'s1,s2: razón' -> (['s1', 's2'], 'razón')."""
     ids, _, reason = raw.partition(':')
     return [i.strip() for i in ids.split(',') if i.strip()], reason.strip()
+
+
+def narrow_search_advice(texts):
+    """Warn when the searches are one formulation in disguise: in a live run (2026-10-11) the second search only added words
+    to the first, both kept the same organism and intervention, and four key works outside that intersection never came up."""
+    from .workspace import topic_words
+    terms = {}
+    for text in texts:
+        terms.setdefault(frozenset(topic_words(text)), text)
+    terms = {words: text for words, text in terms.items() if words}
+    advice = []
+    narrowed = [(wide, narrow) for wide in terms for narrow in terms if wide < narrow]
+    if narrowed:
+        wide, narrow = narrowed[0]
+        advice.append(f'«{terms[narrow]}» contiene todos los términos de «{terms[wide]}»: agregar palabras estrecha la búsqueda '
+                      'y no cuenta como otra formulación.')
+    core = frozenset.intersection(*terms) if len(terms) > 1 else frozenset()
+    if len(core) >= 2:
+        from .acquisition import plain_words
+        shared = ' '.join(dict.fromkeys(w for w in plain_words(next(iter(terms.values()))) if w in core))
+        advice.append(f'Todas las búsquedas comparten «{shared}», así que solo traen artículos con esos términos. '
+                      'Agrega formulaciones que saquen uno: el grupo o la población cercana con la misma intervención, y el '
+                      'blanco o el mecanismo de la intervención sin el organismo o la población.')
+    return advice
 
 
 def close_candidates(candidates, queries):

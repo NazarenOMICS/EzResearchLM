@@ -34,10 +34,12 @@ la estimación. Con el visto bueno de la persona, impórtalo con el comando que 
 2. **Búsquedas** (`--query`; proveedores `pubmed`, `europepmc`, `openalex`, `semantic`,
    `crossref`): al menos dos formulaciones por subpregunta, en el idioma de los artículos:
    sinónimos, el grupo taxonómico o la población más amplia, el nombre del mecanismo o del
-   método. Cada búsqueda trae 25 resultados por proveedor (`--max-results`, hasta 100; no lo
-   bajes). `search_advice` avisa si el plan se queda corto. `--no-citations` omite la
-   ampliación por citas; `--reuse-only`, sin búsquedas, responde solo con la biblioteca del
-   proyecto.
+   método. Sumar palabras a una búsqueda la estrecha y no es otra formulación: si todas comparten
+   el organismo o la población y la intervención, agrega una que saque uno de ellos (el grupo
+   cercano con la misma intervención, el blanco o el mecanismo sin el organismo). Cada búsqueda
+   trae 25 resultados por proveedor (`--max-results`, hasta 100; no lo bajes). `search_advice`
+   avisa si el plan se queda corto. `--no-citations` omite la ampliación por citas;
+   `--reuse-only`, sin búsquedas, responde solo con la biblioteca del proyecto.
 3. **Entrega**: directa, siempre (ver `docs/agent/entrega.md`). No uses `--delivery verified`
    salvo que la persona lo pida.
 4. **Fuentes obligatorias**: necesitan identificadores verificados y una razón ligada al

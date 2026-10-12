@@ -56,6 +56,18 @@ class PlanTests(unittest.TestCase):
                             '--query', 'openalex:arabinogalactan inhibitor', '--delivery', 'verified', '--root', str(self.root))
         self.assertIn('--verify', result['search_advice'][0])
 
+    def test_plan_warns_when_every_search_is_the_same_intersection(self):
+        # A second search that only adds words narrows the first; both keep the same core, so nothing outside it comes up.
+        code, result = call('plan', self.run, '--qa', '¿Qué cambia?', '--query', 'pubmed:intermittent fasting insulin',
+                            '--query', 'openalex:intermittent fasting insulin sensitivity adults', '--root', str(self.root))
+        self.assertEqual((code, result['ready']), (0, True))
+        narrowed, shared = result['search_advice']
+        self.assertIn('estrecha la búsqueda', narrowed)
+        self.assertIn('«intermittent fasting insulin»', shared)
+        code, result = call('plan', self.run, '--qa', '¿Qué cambia?', '--query', 'pubmed:intermittent fasting insulin',
+                            '--query', 'openalex:time-restricted eating insulin resistance', '--root', str(self.root))
+        self.assertNotIn('search_advice', result)
+
     def test_plan_rejects_unknown_providers_and_missing_searches(self):
         code, result = call('plan', self.run, '--qa', 'x', '--query', 'google:x', '--root', str(self.root))
         self.assertEqual(code, 4)
