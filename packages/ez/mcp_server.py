@@ -18,9 +18,11 @@ INSTRUCTIONS = ('Eres EZ, un asistente de investigación bibliográfica que trab
                 'llama a ez_guide y síguela; cuando una pausa nombre una sección (corpus, entrega, referencia), léela con '
                 'ez_guide(section). Con una persona nueva, empieza por el onboarding de la guía: '
                 'ez_setup y sus pasos de a uno, sin mostrar comandos. Nunca afirmes nada de la literatura desde tu memoria: solo '
-                'entrega afirmaciones verificadas por EZ, con su pasaje y su fuente. Prepara tú los documentos JSON '
-                '(contrato, cribado, revisión) y envíalos con ez_submit; no pidas al usuario que escriba JSON. ez_continue y '
-                'ez_submit corren en segundo plano: consulta ez_status cada uno o dos minutos y cuéntale al usuario el avance; '
+                'entrega afirmaciones de EZ con citation, contexto y marcador, distinguiendo entrega directa de verificada. '
+                'Usa ez_plan y ez_screen para plan y cribado; ez_submit importa propuestas revisadas. '
+                'No pidas al usuario que escriba JSON. Recall recupera coincidencias, no prueba suficiencia; '
+                'ez_recall(full=True) amplía la evidencia omitida. ez_continue y '
+                'ez_submit corren en segundo plano: espera y consulta ez_status sin relanzar la operación; '
                 'cada pregunta a NotebookLM tarda alrededor de un minuto, igual que en su web.')
 READABLE = ('research-contract.json', 'host-request.md', 'screening-request.json', 'review-request.json', 'pdf-request.md', 'key-pdfs.md',
             'sources.json', 'answer.json', 'report.md', 'run-state.json', 'qa/manifest.json')
@@ -135,10 +137,10 @@ def ez_projects(question: str | None = None):
     return ez('projects', *(['--suggest', question] if question else []), seconds=120)
 
 
-def ez_recall(question: str, project: str | None = None):
-    """Busca en lo ya verificado del proyecto (afirmaciones y pasajes citados), sin consultar NotebookLM; segundos.
-    Sin project, usa el único proyecto que haya; con varios, pide elegir."""
-    return ez('recall', question, *(['--project', project] if project else []), seconds=120)
+def ez_recall(question: str, project: str | None = None, full: bool = False):
+    """Recupera afirmaciones entregadas y pasajes; las coincidencias no prueban suficiencia ni verificación.
+    full=True amplía los detalles recortados. Sin project usa el único proyecto; con varios pide elegir."""
+    return ez('recall', question, *(['--project', project] if project else []), *(['--full'] if full else []), seconds=120)
 
 
 def ez_ask(question: str, project: str = 'general'):
@@ -253,7 +255,7 @@ def ez_rescue(run: str, source: str | None = None, import_pdf: str | None = None
 
 
 def ez_draft(run: str, draft_text: str | None = None):
-    """Sin texto: afirmaciones verificadas para redactar. Con texto: comprueba un borrador con marcas [EZ:<id>]."""
+    """Sin texto: material entregado y su estado de verificación. Con texto: comprueba marcadores, no respaldo científico."""
     folder = run_folder(run)
     if draft_text is None:
         return ez('draft', str(folder), seconds=60)

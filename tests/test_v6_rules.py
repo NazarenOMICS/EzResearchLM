@@ -290,9 +290,10 @@ class DirectQualityTests(unittest.TestCase):
         from ez.deliver import key_claims
         ref = lambda source, text: {'source_id': source, 'cited_text': text}
         merged = merge_repeated([
-            {'id': 'a1', 'text': 'El etambutol inhibe EmbC en C. glutamicum.', 'scope_ids': ['sq1'], 'question_id': 'qa1',
+            {'id': 'a1', 'text': 'La respuesta observada aumentó en adultos.', 'scope_ids': ['sq1'], 'question_id': 'qa1',
              'citation_numbers': [1], 'references': [ref('r1', 'p1')]},
-            {'id': 'b1', 'text': 'El etambutol inhibe a EmbC en C. glutamicum', 'scope_ids': ['sq2'], 'question_id': 'qa2',
+            # H2: retain the positive exact-duplicate test; near matches no longer merge.
+            {'id': 'b1', 'text': 'La respuesta observada aumentó en adultos.', 'scope_ids': ['sq2'], 'question_id': 'qa2',
              'citation_numbers': [3], 'references': [ref('r2', 'p2')]},
             {'id': 'b2', 'text': 'Otra cosa distinta sobre la pared celular.', 'scope_ids': ['sq2'], 'question_id': 'qa2',
              'citation_numbers': [4], 'references': [ref('r3', 'p3')]}])
@@ -312,9 +313,10 @@ class DirectQualityTests(unittest.TestCase):
         negated = dict(short, id='c', text='El etambutol no inhibe EmbC.', question_id='qa3')
         other_source = dict(short, id='d', text='El etambutol inhibe EmbC en Mycobacterium smegmatis mc2 155.', references=ref('r9'))
         merged = merge_repeated([short, longer, negated, other_source])
-        self.assertEqual([c['id'] for c in merged], ['a', 'c', 'd'])
-        self.assertEqual(merged[0]['text'], longer['text'])
-        self.assertEqual(merged[0]['merged_from'][0]['id'], 'b')
+        # H2: a longer sentence introduces a population/condition and is not equivalent.
+        self.assertEqual([c['id'] for c in merged], ['a', 'b', 'c', 'd'])
+        self.assertEqual(merged[0]['text'], short['text'])
+        self.assertNotIn('merged_from', merged[0])
 
     def test_scopes_with_many_claims_keep_the_rest_in_an_annex(self):
         from ez.deliver import report_markdown
@@ -362,7 +364,7 @@ class SentenceTests(unittest.TestCase):
         from ez.audit import plain, statements
         found = [(plain(s), c) for s, c in statements(self.ANSWER)]
         self.assertEqual(found, [
-            ('Las condiciones se detallan por estudio', ''),
+            # H3: a plain label ending in ':' is structural just like a bold label.
             ('Dosis: 16 h de ayuno diario.', 'Ensayo en adultos (García et al., 2021)'),
             ('Insulina: bajó 12 % a las 8 µM.', 'Ensayo en adultos (García et al., 2021) › Resultado observado'),
             ('Dosis: 16 h de ayuno diario.', 'Kim y Lee (2020) › Condición 1: ayuno con ejercicio'),

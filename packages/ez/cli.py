@@ -41,10 +41,14 @@ def compact(value):
         value['corpus_exclusions_summary'] = dict(Counter(e.get('reason') for e in exclusions))
         # Works left out at screening are a decision already taken; the ones the person can act on stay listed.
         value['corpus_exclusions'] = [e for e in exclusions if e.get('reason') != 'excluded_by_screening'][:15]
+        value['omitted_exclusions'] = len(exclusions) - len(value['corpus_exclusions'])
     claims = value.get('claims')
     if isinstance(claims, list) and claims and isinstance(claims[0], dict) and 'references' in claims[0]:
-        value['claims'] = [dict({k: c[k] for k in ('id', 'citation', 'text', 'scope_ids', 'warnings') if k in c},
+        value['claims'] = [dict({k: c[k] for k in ('id', 'marker', 'citation', 'context', 'text', 'scope_ids', 'warnings', 'verification', 'human_check') if k in c},
                                 passages=len(c.get('references', [])),
+                                omitted_passages=len(c.get('references', [])),
+                                passage_sources=[{'source_id': r.get('source_id'), 'page': r.get('page'),
+                                                  'source': r.get('source', {})} for r in c.get('references', [])],
                                 pages=sorted({r['page'] for r in c.get('references', []) if r.get('page')}))
                            for c in claims]
         value['detail'] = 'Pasajes y fuentes completos: report_path, o este mismo comando con --full.'
@@ -53,13 +57,22 @@ def compact(value):
         clip = lambda text, size: text if len(text) <= size else text[:size].rsplit(' ', 1)[0] + ' …'
         value['hits'] = [dict({k: h[k] for k in ('marker', 'citation', 'context', 'text') if h.get(k)},
                               question=clip(h.get('question') or '', 120), passages=len(h.get('passages', [])),
-                              passage=next(({'page': p.get('page'), 'text': clip(p['text'], 250)} for p in h.get('passages', [])), None))
+                              question_truncated=len(h.get('question') or '') > 120,
+                              delivery=h.get('delivery'), verification=h.get('verification'),
+                              omitted_passages=max(0, len(h.get('passages', [])) - 1),
+                              passage=next(({'page': p.get('page'), 'text': clip(p['text'], 250),
+                                             'source': p.get('source', {}), 'truncated': len(p['text']) > 250,
+                                             'omitted_characters': max(0, len(p['text']) - len(clip(p['text'], 250).removesuffix(' …')))}
+                                            for p in h.get('passages', [])), None))
                          for h in value.get('hits', [])]
+        value['omitted_pdf_passages'] = max(0, len(value.get('pdf_passages', [])) - 4)
         value['pdf_passages'] = [dict({k: p[k] for k in ('marker', 'page', 'in_references', 'text')},
+                                      source_id=p['source'].get('source_id'),
+                                      title_truncated=len(p['source'].get('title') or '') > 90,
                                       citation=p['source'].get('citation'), title=clip(p['source'].get('title') or '', 90))
                                  for p in value.get('pdf_passages', [])[:4]]
-        value['detail'] = ('Cada afirmación muestra un pasaje recortado y van los 4 mejores pasajes de PDF; todos, con sus '
-                           'fuentes completas: este comando con --full.')
+        value['detail'] = ('Recortes cuantificados en omitted_passages, omitted_characters y omitted_pdf_passages. '
+                           'No uses evidencia omitida: amplía con --full (MCP: full=true) antes de responder.')
     return value
 
 
@@ -373,33 +386,44 @@ def split_group(raw):
 def narrow_search_advice(texts):
     """Warn when the searches are one formulation in disguise: in a live run (2026-10-11) the second search only added words
     to the first, both kept the same organism and intervention, and four key works outside that intersection never came up."""
+    import re
     from .workspace import topic_words
-    terms = {}
+    terms, advice = {}, []
     for text in texts:
-        terms.setdefault(frozenset(topic_words(text)), text)
+        if re.search(r'\b(?:OR|NOT)\b|\|', text):
+            continue  # A union or an exclusion is not an intersection of its words.
+        # AND, parentheses and quotes keep the intersection; field tags such as [tiab] are not topic words.
+        words = frozenset(topic_words(re.sub(r'\[[^\]]*\]', ' ', text)))
+        if words and words in terms and terms[words] != text:
+            advice.append(f'«{text}» y «{terms[words]}» tienen los mismos términos: son una sola formulación.')
+        terms.setdefault(words, text)
     terms = {words: text for words, text in terms.items() if words}
-    advice = []
     narrowed = [(wide, narrow) for wide in terms for narrow in terms if wide < narrow]
     if narrowed:
         wide, narrow = narrowed[0]
-        advice.append(f'«{terms[narrow]}» contiene todos los términos de «{terms[wide]}»: agregar palabras estrecha la búsqueda '
-                      'y no cuenta como otra formulación.')
+        advice.append(f'«{terms[narrow]}» contiene todos los términos de «{terms[wide]}»: agregar palabras estrecha la '
+                      'búsqueda y no cuenta como otra formulación.')
     core = frozenset.intersection(*terms) if len(terms) > 1 else frozenset()
     if len(core) >= 2:
         from .acquisition import plain_words
         shared = ' '.join(dict.fromkeys(w for w in plain_words(next(iter(terms.values()))) if w in core))
-        advice.append(f'Todas las búsquedas comparten «{shared}», así que solo traen artículos con esos términos. '
-                      'Agrega formulaciones que saquen uno: el grupo o la población cercana con la misma intervención, y el '
-                      'blanco o el mecanismo de la intervención sin el organismo o la población.')
+        # The 2026-10-11 losses came from this; but a species or a binomial can be the agreed scope itself (audit H13).
+        advice.append(f'Todas las búsquedas comparten «{shared}», así que solo traen artículos con todos esos términos. '
+                      f'Si «{shared}» es el alcance acordado (una especie, un binomio), está bien; si no, agrega una '
+                      'formulación que saque uno: el grupo o la población cercana con la misma intervención, o el blanco o '
+                      'el mecanismo sin el organismo.')
     return advice
 
 
 def close_candidates(candidates, queries):
-    """Candidates whose title and abstract contain every term of at least one search (of two terms or more)."""
+    """Protect every nonempty search, including legitimate one-word queries, from blanket exclusion."""
     from .workspace import topic_words
-    searches = [s for s in (topic_words(q['text']) for q in queries) if len(s) >= 2]
+    from .acquisition import plain_words
+    # Topic ranking drops short tokens; an exact one-word query such as DNA must still be protected.
+    searches = [s for s in (set(plain_words(q['text'])) if len(plain_words(q['text'])) == 1
+                           else topic_words(q['text']) for q in queries) if s]
     return [c for c in candidates
-            if any(s <= topic_words((c.get('title') or '') + ' ' + (c.get('abstract') or '')) for s in searches)]
+            if any(s <= set(plain_words((c.get('title') or '') + ' ' + (c.get('abstract') or ''))) for s in searches)]
 
 
 def screen_document(folder, args):
@@ -485,17 +509,16 @@ def verify_command(folder, args):
 
 
 def recall_project(root, args):
-    """The project and question of a recall, also from the forms agents wrote in a live run (2026-10-11): the project or a
-    run id before the question, or no --project at all, which searched an empty «general» and sent them to ez ask."""
+    """The project and question of a recall: --project, a run id before the question, or the only project there is.
+
+    A project name before the question is no longer read as the project: it ate the question's first word (audit H14)."""
     from .workspace import project_names
     names = project_names(root)
     words, project = list(args.question), args.project
     if len(words) > 1 and project is None:
         first = words[0]
         run = Path(root) / Path(first).name / 'research-contract.json'
-        if first in names:
-            project, words = first, words[1:]
-        elif Path(first).name.startswith('ez-') and run.is_file():
+        if Path(first).name.startswith('ez-') and run.is_file():
             project, words = read_json(run).get('context', {}).get('project') or 'general', words[1:]
     if project is None and len(names) == 1:
         project = next(iter(names))
@@ -510,7 +533,7 @@ def recall_project(root, args):
 
 def recall_command(root, args):
     """Search the project's delivered claims and their passages; no NotebookLM query, no new text."""
-    from .vault import MIN_COVERAGE, recall
+    from .vault import recall
     args.project, args.question = recall_project(root, args)
     result = recall(root, args.project, args.question, args.limit)
     pdf_hint = (' Los pdf_passages son pasajes literales de los PDFs del proyecto, con página: cita cada uno con su marcador '
@@ -520,22 +543,24 @@ def recall_command(root, args):
         hint = (', '.join(result['named_works_absent']) + ' no está entre las fuentes del proyecto: no digas qué encontró ni lo '
                 'completes con memoria. Un pdf_passage con in_references que lo nombre solo prueba que otro artículo lo cita. '
                 'Responde con lo que sí hay, si sirve, y ofrece sumarlo con una investigación nueva (ez research).')
-    elif result['evidence'] == 'sufficient':
-        hint = ('Lo ya verificado en el proyecto responde la pregunta. Responde solo con estas afirmaciones y sus pasajes, con '
-                'el marcador de cada una; si una respuesta exige afirmar algo que el pasaje no dice literalmente, usa ez ask.')
-    elif result['pdf_coverage'] >= MIN_COVERAGE:
-        hint = ('Los PDFs del proyecto tienen pasajes literales sobre esto; responde con ellos sin consultar NotebookLM.' + pdf_hint
-                + ' Usa ez ask solo si la pregunta pide comparar o sintetizar entre fuentes y los pasajes no alcanzan.')
-    elif result['hits']:
-        hint = ('Lo ya verificado responde solo en parte (faltan: ' + ', '.join(result['missing_words'][:8]) + '). Di qué '
-                'cubre, con marcadores, y corre ez ask "<pregunta>" --project ' + args.project + ' para el resto.')
+    elif result['hits'] or result['pdf_passages']:
+        hint = ('Se recuperaron coincidencias; EZ no juzga si responden la pregunta. Si una afirmación o un pasaje la '
+                'responde literalmente, con el alcance y el contexto pedidos, contesta con ellos y su marcador, sin consultar '
+                'NotebookLM; amplía con --full si hay recortes. Si no hay respuesta explícita, usa ez ask "<pregunta>" '
+                '--project ' + args.project + '.')
     else:
-        hint = 'Nada de lo ya verificado en el proyecto responde esto. Corre ez ask "<pregunta>" --project ' + args.project + '.'
-    if result['pdf_passages'] and result['pdf_coverage'] < MIN_COVERAGE:
+        hint = 'No se recuperaron coincidencias. Eso no prueba ausencia de respuesta. Usa ez ask "<pregunta>" --project ' + args.project + '.'
+    if result.get('named_works_unresolved') and not result['named_works_absent']:
+        # Added, not replacing the hint: «Smith 2019» alone must not hide what recall did find (2026-10-12).
+        hint += (' No se pudo identificar de forma inequívoca: ' + ', '.join(result['named_works_unresolved']) + '. '
+                 'Puede ser un autor, una sigla o un término técnico con año; no declares presencia ni ausencia sin '
+                 'identificarlo.')
+    if result['pdf_passages']:
         hint += pdf_hint
-    if result['query_language_mismatch']:
-        hint = ('Casi ninguna palabra de la consulta aparece en los PDFs del proyecto, que están en otro idioma: repite ez recall '
-                'sumando los términos en el idioma de los artículos (casi siempre inglés) antes de decidir. ' + hint)
+    if result.get('low_lexical_overlap'):
+        hint += ' Hay poca coincidencia léxica; revisa sinónimos y el idioma de los artículos, que EZ no ha inferido.'
+    if result.get('integrity_issues'):
+        hint = 'Hay PDFs ausentes o cambiados: se omitió su evidencia. Revisa integrity_issues antes de usar el corpus. ' + hint
     emit(dict(result, kind='recall', project=args.project, next_action=hint), args.json)
     return 0
 
@@ -543,6 +568,7 @@ def recall_command(root, args):
 def ask_command(root, args):
     """A follow-up question answered by NotebookLM from the project's verified PDFs: no search, no download."""
     from .library import project_sources
+    from .presenter import claim_citation
     if not project_sources(root, args.project):
         raise ContractError(f'El proyecto «{args.project}» todavía no tiene PDFs verificados. Empieza con ez research.')
     from .context import history
@@ -584,7 +610,7 @@ def ask_command(root, args):
         extra['next_action'] = ('La biblioteca del proyecto responde la pregunta. Responde solo con estas afirmaciones y sus '
                                 'marcadores [EZ:<id>]; no hace falta buscar artículos nuevos.')
     emit(dict(state, path=str(folder), kind='ask', evidence=evidence,
-              claims=[{'id': c['id'], 'text': c['text'], 'marker': f'[EZ:{state["run_id"]}/{c["id"]}]',
+              claims=[{'id': c['id'], 'text': c['text'], 'citation': claim_citation(c), 'marker': f'[EZ:{state["run_id"]}/{c["id"]}]',
                        **({'context': c['context']} if c.get('context') else {})}
                       for c in answer.get('claims', [])],
               uncited_statements=answer.get('uncited_statements', []), **extra), args.json)
@@ -637,6 +663,9 @@ def draft_command(folder, args):
     if answer.get('contract_hash') != state['contract_hash'] or answer.get('corpus_hash') != state.get('corpus_hash') \
             or answer.get('support_protocol') not in CURRENT_PROTOCOLS:
         raise ContractError('La respuesta guardada no corresponde a la versión vigente; usa ez continue.')
+    from .vault import check_claim_pdfs
+    for claim in answer.get('claims', []):
+        check_claim_pdfs(claim, folder.parent)
     if args.check:
         project = read_json(folder / 'research-contract.json').get('context', {}).get('project') or 'general'
 
@@ -650,7 +679,10 @@ def draft_command(folder, args):
                 return None
             if (contract.get('context', {}).get('project') or 'general') != project:
                 return None
-            return valid_answer(other)[0]
+            answer = valid_answer(other)[0]
+            for claim in (answer or {}).get('claims', []):
+                check_claim_pdfs(claim, folder.parent)
+            return answer
         def pdf_page(sha12, page):
             # A literal passage of a verified PDF of the project, found by ez recall.
             from .library import project_sources
@@ -715,11 +747,11 @@ def main(argv=None):
     p = sub.add_parser('status', help='Ver el avance y el siguiente paso.'); p.add_argument('run'); p.add_argument('--answer', action='store_true')
     p = sub.add_parser('wait', help='Esperar a que la corrida se pause o termine (hasta --seconds).'); p.add_argument('run', nargs='?')
     p.add_argument('--project', default='general'); p.add_argument('--seconds', type=int, default=25)
-    p = sub.add_parser('draft', help='Ver las afirmaciones verificadas para redactar o comprobar un borrador.'); p.add_argument('run'); p.add_argument('--check', type=Path, metavar='BORRADOR')
+    p = sub.add_parser('draft', help='Ver material entregado y su estado de verificación o comprobar marcadores.'); p.add_argument('run'); p.add_argument('--check', type=Path, metavar='BORRADOR')
     p = sub.add_parser('ask', help='Pregunta de seguimiento respondida solo con los PDFs ya verificados del proyecto.')
     p.add_argument('question'); p.add_argument('--project', default='general')
-    p = sub.add_parser('recall', help='Buscar en lo ya verificado del proyecto, sin consultar NotebookLM.')
-    p.add_argument('question', nargs='+'); p.add_argument('--project')
+    p = sub.add_parser('recall', help='Recuperar afirmaciones entregadas y pasajes; la coincidencia no prueba suficiencia.')
+    p.add_argument('question', nargs='+', help='Pregunta completa; no se consume una palabra como proyecto.'); p.add_argument('--project', help='Proyecto explícito; se elige automáticamente sólo si hay uno.')
     p.add_argument('--limit', type=int, default=8, help='Afirmaciones a devolver (8 por defecto).')
     p = sub.add_parser('projects', help='Ver los proyectos y cuál se relaciona con una pregunta.')
     p.add_argument('--suggest', metavar='PREGUNTA', help='Ordenar los proyectos según su relación con esta pregunta.')
@@ -900,7 +932,7 @@ def main(argv=None):
                     extra = {'report_path': str(folder / 'report.md')} if (folder / 'report.md').exists() else {}
                     # Author-year citation per claim, for the person; answer.json itself stays as hashed.
                     from .presenter import claim_citation
-                    shown = dict(report, claims=[dict(c, citation=claim_citation(c)) for c in report.get('claims', [])])
+                    shown = dict(report, claims=[dict(c, citation=claim_citation(c), marker=f'[EZ:{c["id"]}]') for c in report.get('claims', [])])
                     emit(dict(shown, **extra, **({'workspace': state['workspace']} if state.get('workspace') else {})), args.json)
                 else:
                     emit(state, args.json)

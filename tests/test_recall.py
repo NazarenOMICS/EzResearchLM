@@ -148,7 +148,9 @@ class FullTextRecallTests(unittest.TestCase):
     def test_a_named_work_outside_the_corpus_is_never_answered(self):
         # In a live run (2026-10-11) «Smith 2019» looked answered by claims from other works.
         absent = self.recall('What did Garcia 2019 find about growth rate in CGXII medium with the drug?')
-        self.assertEqual(absent['named_works_absent'], ['Garcia 2019'])
+        # H6: a surname/year heuristic cannot prove absence of a bibliographic work.
+        self.assertEqual(absent['named_works_absent'], [])
+        self.assertEqual(absent['named_works_unresolved'], ['Garcia 2019'])
         self.assertNotEqual(absent['evidence'], 'sufficient')
         self.assertEqual(self.recall('Kim et al., 2020 growth rate in CGXII medium')['named_works_absent'], [])
         self.assertEqual(self.recall('growth in 10.1128/other.2019. and CGXII medium')['named_works_absent'],
@@ -159,9 +161,12 @@ class FullTextRecallTests(unittest.TestCase):
         self.assertTrue(result['pdf_passages'][0]['in_references'])
         self.assertLess(result['pdf_coverage'], 0.6)
 
-    def test_a_question_in_another_language_than_the_pdfs_is_flagged(self):
-        self.assertTrue(self.recall('¿Qué tasa de crecimiento se midió en el medio CGXII con la droga?')['query_language_mismatch'])
-        self.assertFalse(self.recall('tasa de crecimiento CGXII medium growth rate drug')['query_language_mismatch'])
+    def test_low_overlap_does_not_identify_the_language_of_the_pdfs(self):
+        # H7: the lexical observation survives; the unsupported language diagnosis does not.
+        result = self.recall('¿Qué tasa de crecimiento se midió en el medio CGXII con la droga?')
+        self.assertTrue(result['low_lexical_overlap'])
+        self.assertIsNone(result['query_language_mismatch'])
+        self.assertFalse(self.recall('tasa de crecimiento CGXII medium growth rate drug')['low_lexical_overlap'])
 
     def test_recall_next_action_puts_an_absent_named_work_first(self):
         import tempfile
@@ -172,7 +177,7 @@ class FullTextRecallTests(unittest.TestCase):
         from ez.cli import main
         result = {'claims_in_project': 1, 'hits': [{'text': 'x'}], 'coverage': 0.9, 'evidence': 'partial', 'missing_words': [],
                   'pdf_passages': [], 'pdf_coverage': 0.0, 'pdfs_searched': 1, 'named_works_absent': ['Smith 2019'],
-                  'query_language_mismatch': True}
+                  'query_language_mismatch': None, 'low_lexical_overlap': True}
         output = StringIO()
         with tempfile.TemporaryDirectory() as temp, patch('ez.vault.recall', return_value=result), \
                 patch('ez.workspace.project_names', return_value={'p'}), patch('ez.cli.load_environment'), \
@@ -198,7 +203,10 @@ class FullTextRecallTests(unittest.TestCase):
                 '{"context": {"project": "ayuno"}}', encoding='utf-8')
             form = lambda *words, project=None: recall_project(root, SimpleNamespace(question=list(words), project=project))
             with patch('ez.workspace.project_names', return_value={'ayuno', 'sueno'}):
-                self.assertEqual(form('ayuno', 'insulin fasting'), ('ayuno', 'insulin fasting'))
+                # H14: never consume a word of the question as a project name.
+                with self.assertRaisesRegex(ContractError, 'Proyectos: ayuno, sueno'):
+                    form('ayuno', 'insulin fasting')
+                self.assertEqual(form('insulin fasting', project='ayuno'), ('ayuno', 'insulin fasting'))
                 self.assertEqual(form('ez-0123456789abcdef', 'insulin fasting'), ('ayuno', 'insulin fasting'))
                 self.assertEqual(form('ayuno intermitente', project='ayuno'), ('ayuno', 'ayuno intermitente'))
                 with self.assertRaisesRegex(ContractError, 'Proyectos: ayuno, sueno'):

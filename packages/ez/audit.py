@@ -189,10 +189,19 @@ def statements(answer):
             continue
         heading = HEADING.match(line)
         bold = BOLD_LINE.match(line.strip())
-        if heading or (bold and not MARKERS.search(line)):
-            level = len(re.match(r'\s*(#+)', line)[1]) if heading else 7
+        if heading:
+            level = len(re.match(r'\s*(#+)', line)[1])
             headings = {k: v for k, v in headings.items() if k < level}
-            headings[level] = heading_text(heading[1] if heading else bold[1])
+            bullets = []
+            if MARKERS.search(line):
+                context = ' › '.join(v for _, v in sorted(headings.items()))
+                for sentence in split_sentences(heading[1]):
+                    yield sentence, context
+            headings[level] = heading_text(heading[1])
+            continue
+        if bold and not MARKERS.search(line):
+            headings = {k: v for k, v in headings.items() if k < 7}
+            headings[7] = heading_text(bold[1])
             bullets = []
             continue
         bullet = BULLET.match(line)
@@ -201,12 +210,17 @@ def statements(answer):
             bullets = [b for b in bullets if b[0] < indent]
             path = [v for _, v in sorted(headings.items())] + [label for _, label in bullets if label]
             label = LABEL.match(content)
-            bullets.append((indent, heading_text(label[1]) if label else None))
-            if label and not label[2].strip():
+            label_text = heading_text(label[1]) if label else (heading_text(content) if content.endswith(':') else None)
+            bullets.append((indent, label_text))
+            if (label and not label[2].strip()) or (label_text and content.endswith(':') and not MARKERS.search(content)):
                 continue
         else:
-            bullets, content = [], line.strip()
-            path = [v for _, v in sorted(headings.items())]
+            indent, content = len(line) - len(line.lstrip()), line.strip()
+            bullets = [b for b in bullets if b[0] < indent]
+            path = [v for _, v in sorted(headings.items())] + [label for _, label in bullets if label]
+            if content.endswith(':') and not MARKERS.search(content):
+                bullets.append((indent, heading_text(content)))
+                continue
         context = ' › '.join(p for p in path if p)
         for sentence in split_sentences(content):
             yield sentence, context
@@ -221,7 +235,7 @@ def sentences(answer):
         yield sentence
 
 
-LATEX_MATH = re.compile(r'\\{1,2}\((.+?)\\{1,2}\)')
+LATEX_MATH = re.compile(r'\\{1,2}\((.+?)\\{1,2}\)|\$([^$\n]+)\$')
 GREEK = ('alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho sigma tau upsilon phi chi '
          'psi omega').split()
 LATEX_SYMBOLS = {**{name: chr(0x3B1 + i + (i > 16)) for i, name in enumerate(GREEK)},
@@ -237,14 +251,19 @@ def delatex(math):
     text = re.sub(r'\\(?:text|mathrm|mathit|mathbf|textit|textbf|operatorname)\{([^{}]*)\}', r'\1', text)
     text = text.replace('\\%', '%').replace('\\,', ' ').replace('\\;', ' ').replace('\\ ', ' ')
     text = re.sub(r'\^\{?°\}?', '°', text)
-    text = re.sub(r'_\{([^{}]*)\}', r'\1', text)
-    text = re.sub(r'\^\{([^{}]*)\}', r'^\1', text)
+    text = re.sub(r'_\{([A-Za-z0-9]+)\}', r'\1', text)
+    text = re.sub(r'\^\{([+-]?\d+)\}', r'^\1', text)
     return re.sub(r'\s+', ' ', text).strip()
 
 
 def plain(sentence):
-    """Claim text: no citation markers, no Markdown emphasis and no inline LaTeX."""
-    text = LATEX_MATH.sub(lambda m: delatex(m[1]), MARKERS.sub('', sentence)).replace('**', '')
+    """Remove citation markers/emphasis; convert safe math and preserve unsupported LaTeX."""
+    def safe_math(match):
+        original = match[1] or match[2]
+        converted = delatex(original)
+        # Unknown commands or nested groups must retain their original syntax and delimiters.
+        return match[0] if re.search(r'[\\{}]', converted) else converted
+    text = LATEX_MATH.sub(safe_math, MARKERS.sub('', sentence)).replace('**', '')
     return re.sub(r'(?<![\w*])\*(?=\S)([^*]+?)(?<=\S)\*(?![\w*])', r'\1', text).strip(' :;')
 
 
@@ -300,24 +319,15 @@ def words(text):
     return set(re.findall(r'[a-z0-9]+', ''.join(c for c in plain_text if not unicodedata.combining(c))))
 
 
-NEGATIONS = {'no', 'not', 'sin', 'nunca', 'tampoco', 'ni', 'without', 'never', 'nor', 'unlike', 'excepto'}
-
-
 def same_statement(a, b, tokens_a, tokens_b):
-    """Near-identical wording, or one sentence contained in the other while citing a common source.
-
-    A negation present in only one of them makes them different statements.
-    """
-    if not tokens_a or not tokens_b or (tokens_a ^ tokens_b) & NEGATIONS:
-        return False
-    if len(tokens_a & tokens_b) / len(tokens_a | tokens_b) >= 0.8:
-        return True
-    shared = {r['source_id'] for r in a['references']} & {r['source_id'] for r in b['references']}
-    return bool(shared) and len(tokens_a & tokens_b) / min(len(tokens_a), len(tokens_b)) >= 0.85
+    """Only identical wording and context; token similarity cannot establish semantic equivalence."""
+    normalize = lambda text: re.sub(r'\s+', ' ', text or '').strip()
+    return (bool(tokens_a) and normalize(a.get('context')) == normalize(b.get('context'))
+            and normalize(a['text']) == normalize(b['text']))
 
 
 def merge_repeated(claims):
-    """Merge sentences NotebookLM repeated across answers into the fuller one, with the union of scopes and passages."""
+    """Merge exact repetitions with the same context, preserving the union of scopes and passages."""
     kept = []
     for claim in claims:
         # The same bullet («Concentration: 10 µg/ml») under two studies is two statements, not one.
@@ -327,11 +337,6 @@ def merge_repeated(claims):
         if twin is None:
             kept.append(dict(claim, _words=tokens))
             continue
-        if len(tokens) > len(twin['_words']):
-            # Keep the fuller wording; its own markers are already part of the passages below.
-            twin.update(text=claim['text'], _words=tokens)
-            twin.pop('context', None)
-            twin.update({'context': claim['context']} if claim.get('context') else {})
         twin['scope_ids'] = twin['scope_ids'] + [s for s in claim['scope_ids'] if s not in twin['scope_ids']]
         seen = {(r['source_id'], r['cited_text']) for r in twin['references']}
         twin['references'] = twin['references'] + [r for r in claim['references'] if (r['source_id'], r['cited_text']) not in seen]

@@ -23,7 +23,7 @@ import re
 
 from .state import Store, read_json
 
-# Share of the question's topic words that the three best claims and their passages contain.
+# Historical lexical threshold, retained for evaluation; never a sufficiency decision.
 MIN_COVERAGE = 0.6
 COVERAGE_HITS = 3
 
@@ -45,10 +45,19 @@ def valid_answer(folder):
     return answer, state
 
 
-def records(runs_root, project):
+def check_claim_pdfs(claim, runs_root=None):
+    from .library import verify_pdf
+    for ref in claim.get('references', []):
+        source = ref.get('source') or {}
+        if source.get('content_sha256'):
+            verify_pdf(source, runs_root)
+
+
+def records(runs_root, project, integrity_issues=None):
     """Every delivered claim of the project, newest research first."""
     from .context import history
     from .presenter import claim_citation
+    from .contracts import ContractError
     found = []
     for row in history(Path(runs_root), project, limit=500):
         folder = Path(row['path'])
@@ -56,10 +65,18 @@ def records(runs_root, project):
         if not answer:
             continue
         for claim in answer.get('claims', []):
+            try:
+                check_claim_pdfs(claim, runs_root)
+            except ContractError as exc:
+                if integrity_issues is not None:
+                    integrity_issues.append({'run_id': state['run_id'], 'claim_id': claim['id'], 'problem': str(exc)})
+                continue
             found.append({'key': f'{state["run_id"]}/{claim["id"]}', 'run_id': state['run_id'], 'claim_id': claim['id'],
                           'marker': marker(state['run_id'], claim['id']), 'citation': claim_citation(claim),
                           'text': claim['text'], 'context': claim.get('context'), 'question': row['question'],
                           'delivery': answer.get('delivery', 'verified'), 'date': row['updated_at'][:10], 'path': str(folder),
+                          'verification': {'delivery': answer.get('delivery', 'verified'),
+                                           'protocol': answer.get('support_protocol'), 'human_check': claim.get('human_check')},
                           'passages': [{'text': ref.get('cited_text') or '', 'page': ref.get('page'),
                                         'source': ref.get('source') or {'source_id': ref.get('source_id')}}
                                        for ref in claim.get('references', []) if ref.get('cited_text')]})
@@ -72,7 +89,8 @@ def words(text):
 
 
 PDF_WINDOW, PDF_STEP = 70, 45  # words per passage and step between passages (they overlap)
-REFERENCES_HEADING = re.compile(r'^\s*(references|literature cited|bibliography|referencias|bibliografía)\s*$', re.I | re.M)
+REFERENCES_HEADING = re.compile(r'^\s*(?:\d+[.)]?\s+)?(?:references|literature cited|bibliography|referencias|referências|bibliografía|bibliographie)\s*[:.]?\s*$', re.I | re.M)
+APPENDIX_HEADING = re.compile(r'^\s*(?:\d+[.)]?\s+)?(?:appendix|appendices|apéndice|apêndice|anexo|supplementary material)\b[^\n]*$', re.I | re.M)
 
 
 def pdf_marker(sha256, page):
@@ -84,14 +102,21 @@ def page_cache(runs_root, source):
     import json
     from .pdftext import page_texts
     from .state import atomic_json
+    from .library import check_pdf_integrity, verify_pdf
+    verify_pdf(source, runs_root)
     path = Path(runs_root).parent / 'cache' / 'pages' / (source['content_sha256'] + '.json')
     if path.is_file():
         try:
-            return json.loads(path.read_text(encoding='utf-8'))['pages']
+            cached = json.loads(path.read_text(encoding='utf-8'))
+            if isinstance(cached, dict) and cached.get('sha256') == source['content_sha256'] \
+                    and isinstance(cached.get('pages'), list) and all(isinstance(p, str) for p in cached['pages']):
+                return cached['pages']
         except (OSError, ValueError, KeyError):
             pass
+    # The text comes from bytes hashed in memory, so a file replaced meanwhile cannot leave its text under the old hash.
+    data = check_pdf_integrity(source, runs_root)
     try:
-        pages = page_texts(source['pdf_path'])
+        pages = page_texts(data)
     except Exception:
         return []
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -111,9 +136,13 @@ def pdf_chunks(runs_root, project, sources=None):
                  'source_id': source['source_id']}
         for number, text in enumerate(pages, 1):
             text = text or ''
-            heading = None if in_references else REFERENCES_HEADING.search(text)
-            # A page that holds the references heading is split there: the body above, the reference list below.
-            parts = [(text[:heading.start()], False), (text[heading.start():], True)] if heading else [(text, in_references)]
+            boundaries = sorted([(m.start(), True) for m in REFERENCES_HEADING.finditer(text)]
+                                + [(m.start(), False) for m in APPENDIX_HEADING.finditer(text)])
+            parts, offset = [], 0
+            for position, references in boundaries:
+                parts.append((text[offset:position], in_references))
+                offset, in_references = position, references
+            parts.append((text[offset:], in_references))
             for part, references in parts:
                 tokens = part.split()
                 for start in range(0, max(1, len(tokens) - PDF_WINDOW // 3), PDF_STEP):
@@ -121,8 +150,6 @@ def pdf_chunks(runs_root, project, sources=None):
                     if piece:
                         chunks.append({'marker': pdf_marker(source['content_sha256'], number), 'page': number, 'text': piece,
                                        'in_references': references, 'source': about})
-            if heading:
-                in_references = True
     return chunks
 
 
@@ -141,9 +168,15 @@ def bm25(query, documents):
     return scores
 
 
-NAMED_WORK = re.compile(r"\b([A-ZÁÉÍÓÚÑÄÖÜ][\w'’-]{2,})(?:\s+(?:et\s+al\.?|y\s+col(?:aboradores|\.)?|and\s+colleagues))?,?"
-                        r"\s+\(?((?:19|20)\d{2})\b")
-DOI_IN_TEXT = re.compile(r'\b10\.\d{4,9}/[^\s"\'<>,;]*[^\s"\'<>,;.)]')
+NAMED_WORK = re.compile(r"\b((?:(?:de|del|van|von|la|da)\s+)*[\w'’-]{2,})(?:\s+(?:et\s+al\.?|y\s+col(?:aboradores|\.)?|and\s+colleagues))?,?"
+                        r"\s+\(?((?:19|20)\d{2})\b", re.I)
+DOI_IN_TEXT = re.compile(r'\b10\.\d{4,9}/[^\s"\'<>,;]+')
+# Words that put a year in time, not after an author: «tratados en 2019» named a work «en 2019» (2026-10-12).
+TIME_WORDS = set('''en de del desde hasta durante tras antes despues entre hacia año años ano anos fin inicio mediados
+    enero febrero marzo abril mayo junio julio agosto septiembre setiembre octubre noviembre diciembre
+    in of on at by to from since until till during after before between around through circa ca year years
+    january february march april may june july august september october november december
+    published publicado publicados publicada publicadas posteriores anteriores previos'''.split())
 
 
 def named_works(question):
@@ -153,14 +186,18 @@ def named_works(question):
     from .workspace import STOPWORDS
 
     def author_words(source):
-        authors = source.get('authors') or ''
-        return set(plain_words(' '.join(authors) if isinstance(authors, list) else authors))
+        from .presenter import author_list
+        return set(plain_words(' '.join(author_list(source))))
 
-    works = [(doi, lambda s, d=normalize_doi(doi): bool(s.get('doi')) and normalize_doi(s['doi']) == d)
-             for doi in DOI_IN_TEXT.findall(question)]
+    works = []
+    for doi in DOI_IN_TEXT.findall(question):
+        doi = doi.rstrip('.,')
+        while doi.endswith(')') and doi.count(')') > doi.count('('):
+            doi = doi[:-1]
+        works.append((doi, lambda s, d=normalize_doi(doi): bool(s.get('doi')) and normalize_doi(s['doi']) == d))
     for name, year in NAMED_WORK.findall(question):
         surname = plain_words(name)
-        if ' '.join(surname) in STOPWORDS:
+        if ' '.join(surname) in STOPWORDS or surname[-1] in TIME_WORDS:
             continue
         works.append((f'{name} {year}', lambda s, n=set(surname), y=year:
                       str(s.get('year') or '')[:4] == y and n <= author_words(s)))
@@ -171,7 +208,8 @@ def recall(runs_root, project, question, limit=8, pdf_limit=6):
     """BM25 over each claim with its passages and source titles; coverage says how much of the question they touch."""
     from .library import project_sources
     from .workspace import topic_words
-    rows = records(runs_root, project)
+    integrity_issues = []
+    rows = records(runs_root, project, integrity_issues)
     documents = [words(' '.join([r['text'], r['context'] or ''] + [p['text'] + ' ' + (p['source'].get('title') or '') for p in r['passages']]))
                  for r in rows]
     query = set(words(question))
@@ -179,9 +217,10 @@ def recall(runs_root, project, question, limit=8, pdf_limit=6):
     scored.sort(key=lambda item: -item[0])
     hits, seen = [], set()
     for score, row in scored:
-        if row['text'].casefold() in seen:
+        identity = row.get('key') or (row['text'], row.get('context'), row.get('run_id'), row.get('claim_id'))
+        if identity in seen:
             continue
-        seen.add(row['text'].casefold())
+        seen.add(identity)
         hits.append(dict(row, score=round(score, 2)))
         if len(hits) == limit:
             break
@@ -190,14 +229,18 @@ def recall(runs_root, project, question, limit=8, pdf_limit=6):
     for hit in hits[:COVERAGE_HITS]:
         touched |= topic_words(' '.join([hit['text'], hit['context'] or ''] + [p['text'] for p in hit['passages']]))
     coverage = round(len(asked & touched) / len(asked), 2) if asked else 0.0
-    evidence = 'sufficient' if coverage >= MIN_COVERAGE else 'partial' if hits else 'insufficient'
     sources = project_sources(runs_root, project)
     # A named work counts as the other words did, so «Smith 2019» looked answered by claims from other works (2026-10-11).
     known = sources + [p['source'] for r in rows for p in r['passages']]
-    absent_works = [label for label, is_work in named_works(question) if not any(is_work(s) for s in known)]
-    if absent_works and evidence == 'sufficient':
-        evidence = 'partial'
-    chunks = pdf_chunks(runs_root, project, sources)
+    absent_works = [label for label, is_work in named_works(question) if label.startswith('10.') and not any(is_work(s) for s in known)]
+    unresolved_works = [label for label, is_work in named_works(question) if not label.startswith('10.') and not any(is_work(s) for s in known)]
+    from .contracts import ContractError
+    chunks = []
+    for source in sources:
+        try:
+            chunks.extend(pdf_chunks(runs_root, project, [source]))
+        except ContractError as exc:
+            integrity_issues.append({'source_id': source.get('source_id'), 'problem': str(exc)})
     chunk_words = [words(c['text']) for c in chunks]
     ranked = sorted(((s, c) for s, c in zip(bm25(query, chunk_words), chunks) if s > 0), key=lambda item: -item[0])
     passages, pages_seen = [], set()
@@ -217,10 +260,14 @@ def recall(runs_root, project, question, limit=8, pdf_limit=6):
     vocabulary = set().union(*map(set, chunk_words)) if chunks else set()
     common = topic_words(' '.join(t for t in re.findall(r"[\w'’-]+", question) if not t[:1].isupper())) & vocabulary
     mismatch = bool(chunks) and len(common) < 3 and len(asked - vocabulary) >= max(1, len(common))
+    # Retrieval cannot tell whether the matches answer; the agent reads them («partial» claimed a judgment it never made).
+    evidence = 'needs_judgment' if hits or passages else 'none'
     return {'claims_in_project': len(rows), 'hits': hits, 'coverage': coverage, 'evidence': evidence,
             'missing_words': sorted(asked - touched - pdf_touched), 'pdf_passages': passages, 'pdf_coverage': pdf_coverage,
             'pdfs_searched': len({c['source']['source_id'] for c in chunks}), 'named_works_absent': absent_works,
-            'query_language_mismatch': mismatch}
+            'named_works_unresolved': unresolved_works, 'integrity_issues': integrity_issues,
+            'retrieval_coverage': coverage, 'answer_assessed': False,
+            'low_lexical_overlap': mismatch, 'query_language_mismatch': None}
 
 
 def note_name(source):

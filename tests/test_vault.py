@@ -41,12 +41,14 @@ class VaultTests(unittest.TestCase):
     def test_recall_answers_from_delivered_claims_without_notebooklm(self):
         calls = len(self.case.service.calls)
         code, value = self.cli('recall', '¿Qué resultado experimental describe la fuente?', '--project', 'general')
-        self.assertEqual((code, value['evidence']), (0, 'sufficient'))
+        # H7: retrieval coverage is observable; sufficiency requires assessment of the passages.
+        self.assertEqual((code, value['evidence']), (0, 'needs_judgment'))
+        self.assertFalse(value['answer_assessed'])
         self.assertEqual(value['hits'][0]['marker'], f'[EZ:{self.run_id}/qa1-1]')
         self.assertTrue(value['hits'][0]['passages'])
         self.assertEqual(len(self.case.service.calls), calls)
         code, value = self.cli('recall', 'estructura cristalográfica del transportador', '--project', 'general')
-        self.assertEqual((value['evidence'], value['hits']), ('insufficient', []))
+        self.assertEqual((value['evidence'], value['hits']), ('none', []))
         self.assertIn('ez ask', value['next_action'])
 
     def test_a_draft_may_cite_claims_of_other_researches_of_the_project(self):

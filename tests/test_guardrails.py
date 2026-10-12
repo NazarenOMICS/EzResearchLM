@@ -205,7 +205,8 @@ class CompactOutputTests(unittest.TestCase):
         self.assertEqual(value['corpus_exclusions_summary'], {'excluded_by_screening': 40, 'identity_unconfirmed': 1})
         self.assertNotIn('fulltext_receipts', value)
         self.assertEqual(value['claims'][0], {'id': 'qa1-1', 'citation': '(Garcia et al., 2021)', 'text': 'T',
-                                              'scope_ids': ['sq1'], 'passages': 2, 'pages': [3]})
+                                              'scope_ids': ['sq1'], 'passages': 2, 'omitted_passages': 2, 'pages': [3],
+                                              'passage_sources': [{'source_id': None, 'source': {}, 'page': 3}] * 2})
 
 
 class GuideSectionTests(unittest.TestCase):

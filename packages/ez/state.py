@@ -15,8 +15,8 @@ def read_json(path):
 def link_or_copy(source, destination):
     """Put a PDF that already sits in another run into this one without a second copy on disk.
 
-    Each follow-up copied every PDF of its project: 139 copies of 15 PDFs, 324 MB in one day of a live project
-    (2026-10-11). A hard link shares the bytes; every run still checks them against its recorded hash. Files the person
+    A hard link shares the bytes; readers must check them against the recorded hash before
+    serving evidence or accepting a text cache. Historical size measurements live in docs/evaluation. Files the person
     keeps elsewhere are copied, never linked: editing them must not change the evidence of a run.
     """
     import shutil
