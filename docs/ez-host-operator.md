@@ -110,8 +110,9 @@ Nunca respondas con tu memoria como si fuera evidencia:
    Escribe la consulta también con los términos del idioma de los artículos (casi siempre
    inglés): «duración del ayuno fasting duration insulin sensitivity».
    1. `hits` son afirmaciones de otras investigaciones del proyecto, con marcador
-      `[EZ:<corrida>/<id>]`, la pregunta en que se obtuvieron y sus pasajes. Con `evidence:
-      sufficient`, responde con ellas; con `partial`, responde lo cubierto y sigue al paso 3.
+      `[EZ:<corrida>/<id>]`, la pregunta en que se obtuvieron y un pasaje recortado (`--full`
+      trae todos). Con `evidence: sufficient`, responde con ellas; con `partial`, responde lo
+      cubierto y sigue al paso 3.
    2. `pdf_passages` son pasajes literales con página, cita y marcador `[EZ:pdf-<hash>-p<página>]`:
       úsalos solo para lo que dicen textualmente. Uno con `in_references: true` es una cita a
       otro trabajo, no un resultado: sirve para saber si un artículo («Smith 2019») está

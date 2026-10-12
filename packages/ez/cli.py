@@ -48,6 +48,18 @@ def compact(value):
                                 pages=sorted({r['page'] for r in c.get('references', []) if r.get('page')}))
                            for c in claims]
         value['detail'] = 'Pasajes y fuentes completos: report_path, o este mismo comando con --full.'
+    if value.get('kind') == 'recall':
+        # Each passage carried its whole source record: a recall weighed 31 to 39 KB, more than any other answer.
+        clip = lambda text, size: text if len(text) <= size else text[:size].rsplit(' ', 1)[0] + ' …'
+        value['hits'] = [dict({k: h[k] for k in ('marker', 'citation', 'context', 'text') if h.get(k)},
+                              question=clip(h.get('question') or '', 120), passages=len(h.get('passages', [])),
+                              passage=next(({'page': p.get('page'), 'text': clip(p['text'], 250)} for p in h.get('passages', [])), None))
+                         for h in value.get('hits', [])]
+        value['pdf_passages'] = [dict({k: p[k] for k in ('marker', 'page', 'in_references', 'text')},
+                                      citation=p['source'].get('citation'), title=clip(p['source'].get('title') or '', 90))
+                                 for p in value.get('pdf_passages', [])[:4]]
+        value['detail'] = ('Cada afirmación muestra un pasaje recortado y van los 4 mejores pasajes de PDF; todos, con sus '
+                           'fuentes completas: este comando con --full.')
     return value
 
 

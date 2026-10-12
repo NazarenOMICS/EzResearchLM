@@ -181,6 +181,24 @@ class FullTextRecallTests(unittest.TestCase):
         self.assertIn('Smith 2019 no está entre las fuentes', hint)
         self.assertIn('idioma de los artículos', hint)
 
+    def test_recall_answers_are_summarized_unless_full_is_asked(self):
+        # Every passage carried its whole source record: a recall weighed 31 to 39 KB in a live project (2026-10-11).
+        from ez.cli import compact
+        source = {'title': 'Un título', 'citation': 'Kim y Lee, 2020', 'authors': ['Kim J'] * 40, 'pdf_path': 'x' * 200}
+        hit = {'marker': '[EZ:r/qa1-1]', 'citation': '(Kim y Lee, 2020)', 'text': 'Afirmación.', 'path': 'y' * 200,
+               'question': 'q' * 300, 'score': 3.2, 'passages': [{'text': 'pasaje ' * 100, 'page': 2, 'source': source}] * 3}
+        chunk = {'marker': '[EZ:pdf-ab-p1]', 'page': 1, 'in_references': False, 'score': 2.0, 'text': 'literal', 'source': source}
+        value = compact({'kind': 'recall', 'hits': [hit], 'pdf_passages': [chunk] * 6, 'evidence': 'partial'})
+        shown = value['hits'][0]
+        self.assertEqual((shown['marker'], shown['text'], shown['passages'], shown['passage']['page']),
+                         ('[EZ:r/qa1-1]', 'Afirmación.', 3, 2))
+        self.assertLess(len(shown['passage']['text']), 260)
+        self.assertNotIn('path', shown)
+        self.assertEqual(len(value['pdf_passages']), 4)
+        self.assertEqual(value['pdf_passages'][0]['citation'], 'Kim y Lee, 2020')
+        self.assertNotIn('source', value['pdf_passages'][0])
+        self.assertIn('--full', value['detail'])
+
     def test_draft_check_accepts_only_existing_pdf_pages(self):
         from ez.deliver import check_draft
         exists = lambda sha12, page: sha12 == 'ab' * 6 and page <= 2
