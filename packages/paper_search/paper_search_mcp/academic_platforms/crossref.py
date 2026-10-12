@@ -166,8 +166,8 @@ class CrossRefSearcher(PaperSource):
             return titles[0]
         return str(titles) if titles else ''
 
-    def _extract_authors(self, item: Dict[str, Any]) -> List[str]:
-        """Extract author names from CrossRef item."""
+    def _extract_authors(self, item: Dict[str, Any]) -> List[Dict[str, str]]:
+        """Retain CrossRef's given/family fields and corporate author literals."""
         authors = []
         author_list = item.get('author', [])
 
@@ -175,12 +175,12 @@ class CrossRefSearcher(PaperSource):
             if isinstance(author, dict):
                 given = author.get('given', '')
                 family = author.get('family', '')
-                if given and family:
-                    authors.append(f"{given} {family}")
-                elif family:
-                    authors.append(family)
-                elif given:
-                    authors.append(given)
+                structured = {key: value.strip() for key, value in (('given', given), ('family', family))
+                              if isinstance(value, str) and value.strip()}
+                if structured:
+                    authors.append(structured)
+                elif author.get('name'):
+                    authors.append({'literal': str(author['name']).strip()})
 
         return authors
 
@@ -245,7 +245,9 @@ if __name__ == "__main__":
         print(f"Found {len(papers)} papers for query '{query}':")
         for i, paper in enumerate(papers, 1):
             print(f"{i}. {paper.title} (DOI: {paper.doi})")
-            print(f"   Authors: {', '.join(paper.authors[:3])}{'...' if len(paper.authors) > 3 else ''}")
+            names = [a.get('literal') or ' '.join(a.get(k, '') for k in ('given', 'family')).strip()
+                     if isinstance(a, dict) else a for a in paper.authors[:3]]
+            print(f"   Authors: {', '.join(names)}{'...' if len(paper.authors) > 3 else ''}")
             print(f"   Published: {paper.published_date.year}")
             print(f"   Citations: {paper.citations}")
             publisher = paper.extra.get('publisher', 'N/A') if paper.extra else 'N/A'

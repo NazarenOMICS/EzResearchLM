@@ -44,7 +44,8 @@ def entry(source, remote_id):
         return f'Fuente de NotebookLM {remote_id} (sin metadatos locales).'
     parts = [source.get('title') or source['source_id']]
     if source.get('authors'):
-        authors = source['authors'] if isinstance(source['authors'], str) else ', '.join(source['authors'])
+        from .presenter import author_list
+        authors = ', '.join(author_list(source))
         parts.insert(0, authors)
     if source.get('year'):
         parts.append(f'({source["year"]})')
@@ -222,8 +223,8 @@ def check_draft(answer, text, other_run=None, pdf_page=None):
     return {'kind': 'draft_check', 'valid': not unknown and not refused, 'claims_used': sorted(used - unknown - refused),
             'unknown_markers': sorted(unknown), 'withheld_markers': sorted(refused),
             'unmarked_sentences': unmarked[:50], 'unmarked_count': len(unmarked),
-            'next_action': ('El borrador solo cita afirmaciones verificadas. Revisa las oraciones sin marcador: si afirman '
-                            'hechos de la literatura, deben apoyarse en una afirmación verificada o eliminarse.')
+            'next_action': ('Los marcadores son válidos; esto no verifica el significado ni el respaldo de las frases. '
+                            'Revisa el estado de verificación, el alcance y las oraciones sin marcador.')
             if not unknown and not refused else
             'El borrador cita afirmaciones inexistentes o retenidas. Corrígelo antes de entregarlo.'}
 
@@ -234,8 +235,13 @@ def citation_key(source, used):
     from .presenter import author_list, surname as surname_of
     # The first author, also when the index joined every author in one string with «;»: taking the last word of that
     # string named notes and BibTeX keys after the last author (a live run, 2026-10-11).
-    authors = author_list(source)
-    surname = surname_of(authors[0]).replace(' ', '') if authors else ''
+    authors = source.get('authors')
+    if isinstance(authors, list):
+        first_author = authors[0] if authors else None
+    else:
+        authors = author_list(source)
+        first_author = authors[0] if authors else None
+    surname = surname_of(first_author).replace(' ', '') if first_author else ''
     surname = unicodedata.normalize('NFKD', surname.replace('ß', 'ss')).encode('ascii', 'ignore').decode()
     key = (re.sub(r'[^A-Za-z]', '', surname).lower() or 'fuente') + str(source.get('year') or '')
     candidate, suffix = key, 0
@@ -250,9 +256,8 @@ def export_bibliography(sources, kind='bibtex'):
     """BibTeX or RIS for reference managers, from the sources' recorded metadata only."""
     used, chunks = set(), []
     for source in sources:
-        authors = source.get('authors') or []
-        if not isinstance(authors, list):
-            authors = [a.strip() for a in re.split(r';| and ', str(authors))]
+        from .presenter import author_list
+        authors = author_list(source)
         if kind == 'ris':
             lines = ['TY  - JOUR', f'TI  - {source.get("title", "")}']
             lines += [f'AU  - {a}' for a in authors if a]
@@ -263,6 +268,10 @@ def export_bibliography(sources, kind='bibtex'):
                 lines.append(f'AN  - PMID:{source["pmid"]}')
             chunks.append('\n'.join(lines + ['ER  - ']))
             continue
+        raw_authors = source.get('authors')
+        if isinstance(raw_authors, list) and len(raw_authors) == len(authors):
+            authors = [('{'+str(author.get('literal'))+'}') if isinstance(author, dict) and author.get('literal')
+                       else display for author, display in zip(raw_authors, authors)]
         fields = [('title', '{' + str(source.get('title', '')) + '}'), ('author', ' and '.join(a for a in authors if a)),
                   ('year', source.get('year')), ('journal', source.get('journal')), ('doi', source.get('doi')),
                   ('pmid', source.get('pmid'))]

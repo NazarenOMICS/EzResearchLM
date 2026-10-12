@@ -120,13 +120,19 @@ class EuropePMCSearcher(PaperSource):
             if isinstance(author_list, list):
                 for author in author_list:
                     if isinstance(author, dict):
-                        full_name = author.get('fullName', '')
-                        if full_name:
-                            authors.append(full_name)
+                        given = author.get('firstName') or author.get('foreName') or author.get('givenName')
+                        family = author.get('lastName') or author.get('familyName')
+                        structured = {key: str(value).strip() for key, value in (('given', given), ('family', family))
+                                      if isinstance(value, str) and value.strip()}
+                        if structured:
+                            authors.append(structured)
+                        elif author.get('fullName'):
+                            authors.append({'literal': str(author['fullName']).strip()})
                     elif isinstance(author, str):
-                        authors.append(author)
+                        if author.strip():
+                            authors.append({'literal': author.strip()})
             elif isinstance(author_list, str):
-                authors = [author_list]
+                authors = [{'literal': author_list.strip()}] if author_list.strip() else []
 
             # Extract abstract
             abstract = item.get('abstractText', '')
@@ -247,7 +253,9 @@ if __name__ == "__main__":
         print(f"\n{i}. {paper.title}")
         print(f"   ID: {paper.paper_id}")
         print(f"   DOI: {paper.doi}")
-        print(f"   Authors: {', '.join(paper.authors[:3])}")
+        names = [a.get('literal') or ' '.join(a.get(k, '') for k in ('given', 'family')).strip()
+                 if isinstance(a, dict) else a for a in paper.authors[:3]]
+        print(f"   Authors: {', '.join(names)}")
         print(f"   PDF URL: {paper.pdf_url}")
         if paper.abstract:
             print(f"   Abstract preview: {paper.abstract[:150]}...")

@@ -112,12 +112,19 @@ class PubMedSearcher(PaperSource):
                 authors = []
                 for author in article.findall('.//Author'):
                     last_name = author.find('LastName')
+                    fore_name = author.find('ForeName')
                     initials = author.find('Initials')
                     if last_name is not None and last_name.text:
-                        name = last_name.text.strip()
-                        if initials is not None and initials.text:
-                            name = f"{name} {initials.text.strip()}"
-                        authors.append(name)
+                        given = fore_name.text.strip() if fore_name is not None and fore_name.text else (
+                            initials.text.strip() if initials is not None and initials.text else '')
+                        item = {'family': last_name.text.strip()}
+                        if given:
+                            item['given'] = given
+                        authors.append(item)
+                    else:
+                        collective = author.find('CollectiveName')
+                        if collective is not None and collective.text:
+                            authors.append({'literal': collective.text.strip()})
 
                 abstract_parts = []
                 for abstract_elem in article.findall('.//AbstractText'):
@@ -166,7 +173,9 @@ if __name__ == "__main__":
         print(f"Found {len(papers)} papers for query '{query}':")
         for i, paper in enumerate(papers, 1):
             print(f"{i}. {paper.title}")
-            print(f"   Authors: {', '.join(paper.authors)}")
+            names = [a.get('literal') or ' '.join(a.get(k, '') for k in ('given', 'family')).strip()
+                     if isinstance(a, dict) else a for a in paper.authors]
+            print(f"   Authors: {', '.join(names)}")
             print(f"   DOI: {paper.doi}")
             print(f"   URL: {paper.url}\n")
     except Exception as e:

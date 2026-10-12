@@ -1,7 +1,14 @@
 # paper_search_mcp/paper.py
 from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, TypedDict
+
+
+class Author(TypedDict, total=False):
+    """Structured author metadata; literal is a corporate/group author name."""
+    given: str
+    family: str
+    literal: str
 
 @dataclass
 class Paper:
@@ -9,7 +16,7 @@ class Paper:
     # 核心字段（必填，但允许空值或默认值）
     paper_id: str              # Unique identifier (e.g., arXiv ID, PMID, DOI)
     title: str                 # Paper title
-    authors: List[str]         # List of author names
+    authors: List[str | Author]  # Legacy display names or structured provider names
     abstract: str              # Abstract text
     doi: str                   # Digital Object Identifier
     published_date: Optional[datetime]   # Publication date
@@ -40,10 +47,15 @@ class Paper:
 
     def to_dict(self) -> Dict:
         """Convert paper to dictionary format for serialization"""
+        # Preserve provider structure for author-year citations. Keep the historical
+        # semicolon-delimited value when all names are legacy strings.
+        authors = self.authors
+        serialized_authors = (list(authors) if any(isinstance(a, dict) for a in authors)
+                              else '; '.join(authors) if authors else '')
         return {
             'paper_id': self.paper_id,
             'title': self.title,
-            'authors': '; '.join(self.authors) if self.authors else '',
+            'authors': serialized_authors,
             'abstract': self.abstract,
             'doi': self.doi,
             'published_date': self.published_date.isoformat() if self.published_date else '',

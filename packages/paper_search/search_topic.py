@@ -71,7 +71,8 @@ def extract_ids(paper: Paper) -> tuple[str | None, str | None]:
 
 def record_from_paper(paper: Paper, query: str, source: str) -> dict[str, Any]:
     pmid, pmcid = extract_ids(paper)
-    authors = "; ".join(paper.authors) if paper.authors else ""
+    authors = (list(paper.authors) if any(isinstance(author, dict) for author in paper.authors)
+               else "; ".join(paper.authors) if paper.authors else "")
     year = year_from_paper(paper)
     url = paper.url or ""
     return {

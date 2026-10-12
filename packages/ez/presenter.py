@@ -1,5 +1,6 @@
 """Plain-language views of saved facts; never infer evidence or change state."""
 import json
+import re
 
 from .setup import INTRODUCTION
 
@@ -71,15 +72,41 @@ def welcome(root, guide):
 
 
 def surname(author):
-    """Surname of «Garcia E», «Ana M. Lopez» or «Lopez, Ana M.»: the formats the indexes return."""
+    """Surname only when structure or an index's surname-plus-initials form makes it clear."""
     import re
+    if isinstance(author, dict):
+        # Provider structure is authoritative. In particular, a corporate literal may
+        # contain commas that are part of its name, and a given name is not a surname.
+        return author.get('literal') or author.get('family') or ''
     author = author.strip()
     if ',' in author:
-        return author.split(',')[0].strip()
+        family, given = (part.strip() for part in author.split(',', 1))
+        # An initial after the comma identifies the inverted personal-name form;
+        # a single given-name token is the other legacy inverted form. Multiword
+        # tails remain ambiguous and keep their comma as part of the literal name.
+        given_parts = given.split()
+        if len(given_parts) == 1 or (given_parts and re.fullmatch(r'(?:[A-Z]\.?-?)+', given_parts[-1])):
+            return family
+        return author
     parts = author.split()
-    if len(parts) > 1 and re.fullmatch(r'(?:[A-Z]\.?-?){1,3}', parts[-1]):
+    if len(parts) > 1 and re.fullmatch(r'(?:[A-Z]\.?-?)+', parts[-1]):
         return ' '.join(parts[:-1])  # PubMed: surname followed by initials
-    return parts[-1] if parts else ''
+    if len(parts) < 2 or CORPORATE.search(author):
+        return author
+    # «Ana M. Lopez», the display name OpenAlex and Semantic Scholar send: keeping it whole cited every such work by the
+    # full name (2026-10-12). The last word is the surname, with the particles before it («Jean de la Fontaine»).
+    start = len(parts) - 1
+    while start > 1 and parts[start - 1] in PARTICLES:
+        start -= 1
+    return ' '.join(parts[start:])
+
+
+PARTICLES = {'de', 'del', 'la', 'las', 'los', 'da', 'das', 'do', 'dos', 'di', 'du', 'le', 'van', 'von', 'der', 'den', 'ter', 'ten'}
+CORPORATE_WORDS = ('organization organisation organización organizacion group grupo consortium consorcio committee comité '
+                   'comite society sociedad association asociación asociacion institute instituto network red collaboration '
+                   'colaboración colaboracion agency agencia council consejo foundation fundación fundacion ministry ministerio '
+                   'center centre centro department departamento university universidad investigators team panel board').split()
+CORPORATE = re.compile(r'\b(?:' + '|'.join(CORPORATE_WORDS) + r')\b', re.I)
 
 
 def author_list(source):
@@ -89,14 +116,21 @@ def author_list(source):
     if isinstance(authors, str):
         parts = authors.split(',')
         # «Meniche X, Otal I» (PubMed style joined by commas) is a list; «Lopez, Ana M.» is one inverted name.
-        pubmed_style = len(parts) > 1 and all(re.fullmatch(r"\s*[^\W\d][\w'’ -]* [A-Z]{1,3}\.?\s*", p) for p in parts)
-        authors = authors.split(';') if ';' in authors else parts if pubmed_style else [authors]
-    return [a.strip() for a in authors if str(a).strip()]
+        pubmed_style = len(parts) > 1 and all(re.fullmatch(r"\s*[^\W\d][\w'’ -]* [A-Z]+\.?\s*", p) for p in parts)
+        legacy_and = authors.split(' and ')
+        and_style = (len(legacy_and) > 1 and all(
+            re.fullmatch(r"\s*[^\W\d][\w'’ -]* [A-Z]+\.?\s*", name) for name in legacy_and))
+        authors = (authors.split(';') if ';' in authors else legacy_and if and_style
+                   else parts if pubmed_style else [authors])
+    return [(' '.join(str(a.get(k) or '') for k in ('given', 'family')).strip()
+             or str(a.get('literal') or a.get('name') or '').strip())
+            if isinstance(a, dict) else str(a).strip() for a in authors if str(a).strip()]
 
 
 def short_citation(source):
     """«Garcia et al., 2021»: the author-year form a reader expects next to a claim; None without authors."""
-    names = [n for n in (surname(a) for a in author_list(source)) if n]
+    authors = source.get('authors')
+    names = [n for n in (surname(a) for a in (authors if isinstance(authors, list) else author_list(source))) if n]
     if not names:
         return None
     lead = names[0] if len(names) == 1 else f'{names[0]} y {names[1]}' if len(names) == 2 else f'{names[0]} et al.'
@@ -160,12 +194,12 @@ def render(value):
                 lines.append('  Pasaje: ' + reference['cited_text'])
         return '\n'.join(lines + ['Siguiente paso: ' + value['next_action']])
     if value.get('kind') == 'draft_material':
-        return '\n'.join(['Afirmaciones verificadas para redactar (informe: ' + value['report_path'] + '):',
+        return '\n'.join(['Afirmaciones entregadas para revisar antes de redactar (informe: ' + value['report_path'] + '):',
                           *[f'- {c["marker"]} {stated(c)}' for c in value['claims']], 'Siguiente paso: ' + value['next_action']])
     if value.get('kind') == 'draft_check':
         lines = ['Borrador ' + ('aceptado.' if value['valid'] else 'con errores.')]
         if value['unknown_markers']:
-            lines.append('Marcadores que no corresponden a afirmaciones verificadas: ' + ', '.join(value['unknown_markers']))
+            lines.append('Marcadores que no corresponden a afirmaciones entregadas: ' + ', '.join(value['unknown_markers']))
         if value['withheld_markers']:
             lines.append('Marcadores de afirmaciones retenidas (no se pueden citar): ' + ', '.join(value['withheld_markers']))
         if value['unmarked_count']:

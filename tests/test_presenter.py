@@ -76,6 +76,7 @@ class PresentationTests(unittest.TestCase):
 class CitationTests(unittest.TestCase):
     def test_short_citation_reads_the_author_formats_the_indexes_return(self):
         from ez.presenter import short_citation
+        # A display name gives its last word with its particles; corporate names stay whole (test_audit_followup).
         cases = {('Garcia E',): 'Garcia, 2020', ('Ana M. Lopez',): 'Lopez, 2020', ('Lopez, Ana M.',): 'Lopez, 2020',
                  ('van der Berg JH',): 'van der Berg, 2020', ('Garcia E', 'Lopez A'): 'Garcia y Lopez, 2020',
                  ('Garcia E', 'Lopez A', 'Kim J'): 'Garcia et al., 2020'}
