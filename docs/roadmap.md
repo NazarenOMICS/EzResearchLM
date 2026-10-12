@@ -211,6 +211,13 @@ Todo lo anterior está en `main`. El orden para retomar:
    cuentan y listan aparte (el proyecto real: 3 investigaciones y 9 seguimientos). Sigue pendiente
    que el agente rotule los datos externos («fuente externa, no del corpus»): en la prueba, la
    entrada de UniProt salió sin rótulo pese a la regla.
+
+   Lo que lee el agente (2026-10-11): AGENTS.md mezclaba operación y desarrollo, y pedía leer
+   completa una guía de 30 KB que repetía sus secciones; en la prueba se leyó tres veces y quedó
+   en el contexto de cada llamada. Ahora AGENTS.md (3,3 KB) es solo para operar, el desarrollo
+   está en `docs/development.md`, CLAUDE.md importa AGENTS.md, la guía tiene un núcleo de 10,5 KB
+   y secciones en `docs/agent/` que cada pausa nombra en `read`, y `operator_reminder` bajó de 557
+   a 341 caracteres. Lo que un agente lee al empezar pasa de ~37 KB a ~14 KB; falta medirlo en vivo.
 2. **Puntuar la corrida** con `gold_set_benchmark/puntuar.py --mision M2` y anotar en
    `gold_set_benchmark/` cuántos de los 10 artículos clave entraron, en especial los dos de
    proteómica de *M. smegmatis* (T6).

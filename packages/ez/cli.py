@@ -20,11 +20,10 @@ from . import __version__
 
 
 # Repeated in every JSON answer: a host agent whose context was compacted, or a small model, still sees the rules on each call.
-OPERATOR_REMINDER = ('Reglas de EZ: responde solo con afirmaciones de EZ y sus marcadores [EZ:<id>]. Una pregunta de seguimiento '
-                     'se responde con esas afirmaciones, después con ez recall y si no alcanza con ez ask; artículos nuevos, con ez research; un borrador, con ez draft '
-                     'y ez draft --check. No uses búsqueda web ni tu memoria para afirmaciones bibliográficas; un dato externo que '
-                     'el usuario pida explícitamente va rotulado «fuente externa, no del corpus». El plan se arma con ez plan y el '
-                     'cribado con ez screen; no edites archivos de la corrida ni leas docs/history.')
+OPERATOR_REMINDER = ('Reglas EZ: 1) literatura solo de EZ, con citation y [EZ:…]. 2) Seguimiento: lo entregado, luego ez recall, luego '
+                     'ez ask; artículos nuevos solo con ez research. 3) Ni web ni memoria; dato externo pedido: «fuente externa, '
+                     'no del corpus». 4) Borradores: ez draft y --check. 5) ez plan / ez screen; no editar la corrida. '
+                     '6) No leer docs/history.')
 
 
 FULL = False  # --full: every detail in JSON answers; set by main() for each call
