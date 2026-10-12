@@ -189,3 +189,23 @@ class CompactOutputTests(unittest.TestCase):
         self.assertNotIn('fulltext_receipts', value)
         self.assertEqual(value['claims'][0], {'id': 'qa1-1', 'citation': '(Garcia et al., 2021)', 'text': 'T',
                                               'scope_ids': ['sq1'], 'passages': 2, 'pages': [3]})
+
+
+class GuideSectionTests(unittest.TestCase):
+    def test_every_pause_names_a_guide_section_that_exists(self):
+        from ez.cli import GUIDE_FOR_SIGNAL, guide_for
+        root = Path(__file__).resolve().parents[1]
+        for signal, (path, section) in GUIDE_FOR_SIGNAL.items():
+            with self.subTest(signal=signal):
+                self.assertIn('## ' + section + '\n', (root / path).read_text(encoding='utf-8'))
+        self.assertIn('corpus.md', guide_for({'legacy_signals': ['NEEDS_SCREENING']}))
+        self.assertIn('entrega.md', guide_for({'legacy_signals': [], 'answer': {'status': 'partial'}}))
+        self.assertIsNone(guide_for({'legacy_signals': []}))
+
+    def test_a_paused_run_tells_the_agent_what_to_read(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / 'runs'
+            _, created = call('research', 'Pregunta con plan pendiente', '--plan-only', '--root', str(root))
+            code, state = call('continue', created['path'], '--root', str(root))
+            self.assertIn('NEEDS_PLAN', state['legacy_signals'])
+            self.assertEqual(state['read'], 'docs/agent/corpus.md, sección «El plan»')

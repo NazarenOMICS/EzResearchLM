@@ -52,8 +52,44 @@ def compact(value):
     return value
 
 
+# The guide section an agent reads at each pause, so it reads the guide by parts and only when it needs them.
+GUIDE_FOR_SIGNAL = {
+    'NEEDS_PLAN': ('docs/agent/corpus.md', 'El plan'),
+    'NEEDS_SCREENING': ('docs/agent/corpus.md', 'Cribado (`NEEDS_SCREENING`)'),
+    'NEEDS_KEY_PDFS': ('docs/agent/corpus.md', 'PDFs y bandeja'),
+    'NEEDS_USER_PDFS': ('docs/agent/corpus.md', 'PDFs y bandeja'),
+    'NEEDS_SOURCE_RESCUE': ('docs/agent/corpus.md', 'PDFs y bandeja'),
+    'NEEDS_SOURCE_REVIEW': ('docs/agent/corpus.md', 'Identidad (`NEEDS_IDENTITY_CONFIRMATION`)'),
+    'NEEDS_IDENTITY_CONFIRMATION': ('docs/agent/corpus.md', 'Identidad (`NEEDS_IDENTITY_CONFIRMATION`)'),
+    'NEEDS_CORPUS': ('docs/agent/corpus.md', 'Procesamiento en NotebookLM'),
+    'waiting_on_processing': ('docs/agent/corpus.md', 'Procesamiento en NotebookLM'),
+    'quota_exhausted': ('docs/agent/corpus.md', 'Procesamiento en NotebookLM'),
+    'corpus_limit': ('docs/agent/corpus.md', 'Cribado (`NEEDS_SCREENING`)'),
+    'NEEDS_QA_REVIEW': ('docs/agent/referencia.md', 'Modo verificado (solo si la persona lo pide)'),
+    'NEEDS_MORE_QA': ('docs/agent/entrega.md', 'La entrega directa'),
+    'NEEDS_TRACEABILITY_REPAIR': ('docs/agent/referencia.md', 'Estados'),
+    'remote_reconciliation': ('docs/agent/referencia.md', 'Notebook por proyecto'),
+    'remote_corpus_drift': ('docs/agent/referencia.md', 'Notebook por proyecto'),
+    'invalid_notebooklm_output': ('docs/agent/referencia.md', 'Estados'),
+}
+
+
+def guide_for(value):
+    """«docs/agent/corpus.md, sección «Cribado»» for the first signal that has one; a delivered answer points to delivery."""
+    for signal in value.get('legacy_signals') or value.get('signals') or []:
+        if signal in GUIDE_FOR_SIGNAL:
+            path, section = GUIDE_FOR_SIGNAL[signal]
+            return f'{path}, sección «{section}»'
+    if (value.get('answer') or {}).get('status') in ('complete', 'partial'):
+        return 'docs/agent/entrega.md, sección «La entrega directa»'
+    return None
+
+
 def emit(value, machine=False, reminder=True):
     if machine and isinstance(value, dict):
+        section = guide_for(value)
+        if section and 'read' not in value:
+            value = dict(value, read=section)
         value = value if FULL else compact(value)
         if reminder:
             value = dict(value, operator_reminder=OPERATOR_REMINDER)
