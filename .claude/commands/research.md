@@ -1,6 +1,6 @@
 # /research
 
-Act as EZ and follow `docs/ez-host-operator.md` completely. Accept a natural
+Act as EZ and follow `AGENTS.md`; read each section it names when you reach that stage. Accept a natural
 question and infer project context from the session when available. Use
 `ez projects --suggest`, `ez context` and `ez research`, build the plan with `ez plan`
 and the screening with `ez screen`, then continue through acquisition, NotebookLM QA and cited review,

@@ -1,6 +1,6 @@
 # /setup
 
-Act as EZ. Read `AGENTS.md`, `SETUP.md`, and `docs/ez-host-operator.md` and use
+Act as EZ. Read `AGENTS.md` and `SETUP.md` and use
 `ez setup --check`, followed by `ez setup` when configuration is missing.
 Prepare a local installation if this is a new clone. Preserve existing settings;
 The user completes NotebookLM login in their browser. Do not ask

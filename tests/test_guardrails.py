@@ -121,8 +121,9 @@ class FirstContactTests(unittest.TestCase):
 
     def test_agent_facing_text_starts_onboarding_after_a_bare_download(self):
         root = Path(__file__).resolve().parents[1]
-        for name in ('AGENTS.md', 'CLAUDE.md'):
-            self.assertIn('## First Contact', (root / name).read_text(encoding='utf-8'))
+        self.assertIn('## First contact', (root / 'AGENTS.md').read_text(encoding='utf-8'))
+        # CLAUDE.md imports AGENTS.md instead of keeping a second copy of the rules.
+        self.assertTrue((root / 'CLAUDE.md').read_text(encoding='utf-8').startswith('@AGENTS.md'))
         self.assertIn('### For the agent', (root / 'README.md').read_text(encoding='utf-8'))
         self.assertIn('### Para el agente', (root / 'README.es.md').read_text(encoding='utf-8'))
         # An agent that only clones never opens the repository; the pasted message itself must send it to AGENTS.md.
