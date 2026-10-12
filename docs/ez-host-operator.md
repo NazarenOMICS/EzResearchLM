@@ -117,7 +117,12 @@ Nunca respondas con tu memoria como si fuera evidencia:
       otro trabajo, no un resultado: sirve para saber si un artículo («Smith 2019») está
       citado, nunca para decir qué encontró. Para métodos, condiciones, dosis o referencias,
       suelen alcanzar.
-   3. Si responder exige afirmar algo que ningún pasaje dice literalmente, sigue al paso 3.
+   3. `named_works_absent` lista los trabajos que la pregunta nombra («Smith 2019», un DOI) y
+      que no están entre las fuentes del proyecto: no digas qué encontraron; ofrece sumarlos con
+      una investigación nueva.
+   4. Con `query_language_mismatch: true`, la consulta casi no coincide con el texto de los
+      PDFs: repítela sumando los términos en el idioma de los artículos antes de decidir.
+   5. Si responder exige afirmar algo que ningún pasaje dice literalmente, sigue al paso 3.
 3. Si `ez recall` no alcanza, corre `ez ask "<pregunta>" --project <proyecto>`: NotebookLM
    responde con los PDFs del proyecto, sin buscar ni descargar, en uno o dos minutos. Si se
    corta, repite exactamente la misma pregunta: EZ la retoma. `evidence` dice si alcanzó:

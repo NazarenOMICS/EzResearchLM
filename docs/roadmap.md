@@ -243,6 +243,26 @@ Todo lo anterior está en `main`. El orden para retomar:
    3. Uno de los excluidos en el cribado ya lo protege la regla de `--exclude-rest`. El otro (2024)
       no nombra el fármaco en el resumen; rescatarlo exige saber que su vía es la que el fármaco
       afecta, y no se fuerza con código.
+
+   Medición de `ez recall` (2026-10-11), sin repetir la prueba: los 9 seguimientos de la sesión de
+   Codex, repetidos con el código actual sobre el proyecto tal como estaba en cada uno, comparados
+   con lo que respondieron `ez ask` y Codex. `ez recall` habría evitado NotebookLM en 3; dio por
+   suficientes 2 que no lo eran: crecimiento sin datos (0,62) y «Smith 2019», que no existe (0,67).
+   Los aciertos suficientes tenían 0,60, 0,64 y 0,83: ningún umbral separa los casos, así que el
+   0,6 queda. Los pasajes de PDF nunca cambiaron una decisión: las 9 consultas estaban solo en
+   español y los PDFs en inglés, así que coincidían en el nombre del organismo y ganaban tablas de
+   cepas y listas de referencias; con los términos en inglés, los pasajes pasan a ser los
+   pertinentes. Cambios:
+   1. Un trabajo nombrado en la pregunta (autor y año, o DOI) que no está entre las fuentes del
+      proyecto impide `sufficient` y aparece en `named_works_absent`, con su aviso.
+   2. Los pasajes de listas de referencias se siguen mostrando pero no cuentan para
+      `pdf_coverage`.
+   3. `query_language_mismatch` avisa cuando menos de 3 palabras de la consulta que no son nombres
+      propios aparecen en los PDFs; en la sesión, 7 de las 9 consultas.
+
+   Pendiente: las respuestas de `ez ask` guardan como afirmaciones frases de introducción y de
+   lagunas («A continuación se detallan…», «El corpus no ofrece…»), y `ez recall` las pone
+   primero; así falló el seguimiento de condiciones de cultivo.
 2. **Puntuar la corrida** con `gold_set_benchmark/puntuar.py --mision M2` y anotar en
    `gold_set_benchmark/` cuántos de los 10 artículos clave entraron, en especial los dos de
    proteómica de *M. smegmatis* (T6).

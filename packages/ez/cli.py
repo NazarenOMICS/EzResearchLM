@@ -479,7 +479,11 @@ def recall_command(root, args):
     pdf_hint = (' Los pdf_passages son pasajes literales de los PDFs del proyecto, con página: cita cada uno con su marcador '
                 '[EZ:pdf-…] y su autor y año, solo para lo que dicen textualmente. Uno con in_references es una cita a otro '
                 'trabajo, no un resultado del artículo.')
-    if result['evidence'] == 'sufficient':
+    if result['named_works_absent']:
+        hint = (', '.join(result['named_works_absent']) + ' no está entre las fuentes del proyecto: no digas qué encontró ni lo '
+                'completes con memoria. Un pdf_passage con in_references que lo nombre solo prueba que otro artículo lo cita. '
+                'Responde con lo que sí hay, si sirve, y ofrece sumarlo con una investigación nueva (ez research).')
+    elif result['evidence'] == 'sufficient':
         hint = ('Lo ya verificado en el proyecto responde la pregunta. Responde solo con estas afirmaciones y sus pasajes, con '
                 'el marcador de cada una; si una respuesta exige afirmar algo que el pasaje no dice literalmente, usa ez ask.')
     elif result['pdf_coverage'] >= MIN_COVERAGE:
@@ -492,6 +496,9 @@ def recall_command(root, args):
         hint = 'Nada de lo ya verificado en el proyecto responde esto. Corre ez ask "<pregunta>" --project ' + args.project + '.'
     if result['pdf_passages'] and result['pdf_coverage'] < MIN_COVERAGE:
         hint += pdf_hint
+    if result['query_language_mismatch']:
+        hint = ('Casi ninguna palabra de la consulta aparece en los PDFs del proyecto, que están en otro idioma: repite ez recall '
+                'sumando los términos en el idioma de los artículos (casi siempre inglés) antes de decidir. ' + hint)
     emit(dict(result, kind='recall', project=args.project, next_action=hint), args.json)
     return 0
 

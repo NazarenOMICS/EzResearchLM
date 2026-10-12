@@ -145,6 +145,42 @@ class FullTextRecallTests(unittest.TestCase):
         cited = self.recall('Garcia 2019 earlier work')['pdf_passages'][0]
         self.assertEqual((cited['page'], cited['in_references']), (2, True))
 
+    def test_a_named_work_outside_the_corpus_is_never_answered(self):
+        # In a live run (2026-10-11) «Smith 2019» looked answered by claims from other works.
+        absent = self.recall('What did Garcia 2019 find about growth rate in CGXII medium with the drug?')
+        self.assertEqual(absent['named_works_absent'], ['Garcia 2019'])
+        self.assertNotEqual(absent['evidence'], 'sufficient')
+        self.assertEqual(self.recall('Kim et al., 2020 growth rate in CGXII medium')['named_works_absent'], [])
+        self.assertEqual(self.recall('growth in 10.1128/other.2019. and CGXII medium')['named_works_absent'],
+                         ['10.1128/other.2019'])
+
+    def test_reference_lists_do_not_count_towards_answering(self):
+        result = self.recall('Garcia 2019 earlier work')
+        self.assertTrue(result['pdf_passages'][0]['in_references'])
+        self.assertLess(result['pdf_coverage'], 0.6)
+
+    def test_a_question_in_another_language_than_the_pdfs_is_flagged(self):
+        self.assertTrue(self.recall('¿Qué tasa de crecimiento se midió en el medio CGXII con la droga?')['query_language_mismatch'])
+        self.assertFalse(self.recall('tasa de crecimiento CGXII medium growth rate drug')['query_language_mismatch'])
+
+    def test_recall_next_action_puts_an_absent_named_work_first(self):
+        import tempfile
+        from contextlib import redirect_stdout
+        from io import StringIO
+        import json
+        from unittest.mock import patch
+        from ez.cli import main
+        result = {'claims_in_project': 1, 'hits': [{'text': 'x'}], 'coverage': 0.9, 'evidence': 'partial', 'missing_words': [],
+                  'pdf_passages': [], 'pdf_coverage': 0.0, 'pdfs_searched': 1, 'named_works_absent': ['Smith 2019'],
+                  'query_language_mismatch': True}
+        output = StringIO()
+        with tempfile.TemporaryDirectory() as temp, patch('ez.vault.recall', return_value=result), \
+                patch('ez.cli.load_environment'), redirect_stdout(output):
+            main(['recall', 'Smith 2019', '--project', 'p', '--root', temp, '--json'])
+        hint = json.loads(output.getvalue())['next_action']
+        self.assertIn('Smith 2019 no está entre las fuentes', hint)
+        self.assertIn('idioma de los artículos', hint)
+
     def test_draft_check_accepts_only_existing_pdf_pages(self):
         from ez.deliver import check_draft
         exists = lambda sha12, page: sha12 == 'ab' * 6 and page <= 2

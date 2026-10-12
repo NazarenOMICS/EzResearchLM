@@ -99,12 +99,12 @@ def page_cache(runs_root, source):
     return pages
 
 
-def pdf_chunks(runs_root, project):
+def pdf_chunks(runs_root, project, sources=None):
     """Overlapping passages of every verified PDF of the project, with page and whether they sit in the references."""
     from .library import project_sources
     from .presenter import short_citation
     chunks = []
-    for source in project_sources(runs_root, project):
+    for source in project_sources(runs_root, project) if sources is None else sources:
         pages = page_cache(runs_root, source)
         in_references = False
         about = {'title': source.get('title'), 'citation': short_citation(source), 'doi': source.get('doi'),
@@ -141,8 +141,35 @@ def bm25(query, documents):
     return scores
 
 
+NAMED_WORK = re.compile(r"\b([A-ZÁÉÍÓÚÑÄÖÜ][\w'’-]{2,})(?:\s+(?:et\s+al\.?|y\s+col(?:aboradores|\.)?|and\s+colleagues))?,?"
+                        r"\s+\(?((?:19|20)\d{2})\b")
+DOI_IN_TEXT = re.compile(r'\b10\.\d{4,9}/[^\s"\'<>,;]*[^\s"\'<>,;.)]')
+
+
+def named_works(question):
+    """Works the question names by author and year («Smith 2019», «García et al., 2021») or by DOI, each with a test
+    that tells whether a source is that work."""
+    from .acquisition import normalize_doi, plain_words
+    from .workspace import STOPWORDS
+
+    def author_words(source):
+        authors = source.get('authors') or ''
+        return set(plain_words(' '.join(authors) if isinstance(authors, list) else authors))
+
+    works = [(doi, lambda s, d=normalize_doi(doi): bool(s.get('doi')) and normalize_doi(s['doi']) == d)
+             for doi in DOI_IN_TEXT.findall(question)]
+    for name, year in NAMED_WORK.findall(question):
+        surname = plain_words(name)
+        if ' '.join(surname) in STOPWORDS:
+            continue
+        works.append((f'{name} {year}', lambda s, n=set(surname), y=year:
+                      str(s.get('year') or '')[:4] == y and n <= author_words(s)))
+    return works
+
+
 def recall(runs_root, project, question, limit=8, pdf_limit=6):
     """BM25 over each claim with its passages and source titles; coverage says how much of the question they touch."""
+    from .library import project_sources
     from .workspace import topic_words
     rows = records(runs_root, project)
     documents = [words(' '.join([r['text']] + [p['text'] + ' ' + (p['source'].get('title') or '') for p in r['passages']]))
@@ -164,9 +191,15 @@ def recall(runs_root, project, question, limit=8, pdf_limit=6):
         touched |= topic_words(' '.join([hit['text']] + [p['text'] for p in hit['passages']]))
     coverage = round(len(asked & touched) / len(asked), 2) if asked else 0.0
     evidence = 'sufficient' if coverage >= MIN_COVERAGE else 'partial' if hits else 'insufficient'
-    chunks = pdf_chunks(runs_root, project)
-    ranked = sorted(((s, c) for s, c in zip(bm25(query, [words(c['text']) for c in chunks]), chunks) if s > 0),
-                    key=lambda item: -item[0])
+    sources = project_sources(runs_root, project)
+    # A named work counts as the other words did, so «Smith 2019» looked answered by claims from other works (2026-10-11).
+    known = sources + [p['source'] for r in rows for p in r['passages']]
+    absent_works = [label for label, is_work in named_works(question) if not any(is_work(s) for s in known)]
+    if absent_works and evidence == 'sufficient':
+        evidence = 'partial'
+    chunks = pdf_chunks(runs_root, project, sources)
+    chunk_words = [words(c['text']) for c in chunks]
+    ranked = sorted(((s, c) for s, c in zip(bm25(query, chunk_words), chunks) if s > 0), key=lambda item: -item[0])
     passages, pages_seen = [], set()
     for score, chunk in ranked:
         if chunk['marker'] in pages_seen:  # one passage per page: the best one
@@ -175,11 +208,19 @@ def recall(runs_root, project, question, limit=8, pdf_limit=6):
         passages.append(dict(chunk, score=round(score, 2)))
         if len(passages) == pdf_limit:
             break
-    pdf_touched = set().union(*(topic_words(p['text']) for p in passages[:COVERAGE_HITS])) if passages else set()
+    # A reference list only shows that a work is cited, so it does not count towards answering.
+    body = [p for p in passages if not p['in_references']][:COVERAGE_HITS]
+    pdf_touched = set().union(*(topic_words(p['text']) for p in body)) if body else set()
     pdf_coverage = round(len(asked & pdf_touched) / len(asked), 2) if asked else 0.0
+    # Questions in one language over PDFs in another match little more than the organism's name (9 of 9 follow-ups of a
+    # live run, 2026-10-11); a word that is not a proper name and appears in the PDFs is what tells them apart.
+    vocabulary = set().union(*map(set, chunk_words)) if chunks else set()
+    common = topic_words(' '.join(t for t in re.findall(r"[\w'’-]+", question) if not t[:1].isupper())) & vocabulary
+    mismatch = bool(chunks) and len(common) < 3 and len(asked - vocabulary) >= max(1, len(common))
     return {'claims_in_project': len(rows), 'hits': hits, 'coverage': coverage, 'evidence': evidence,
             'missing_words': sorted(asked - touched - pdf_touched), 'pdf_passages': passages, 'pdf_coverage': pdf_coverage,
-            'pdfs_searched': len({c['source']['source_id'] for c in chunks})}
+            'pdfs_searched': len({c['source']['source_id'] for c in chunks}), 'named_works_absent': absent_works,
+            'query_language_mismatch': mismatch}
 
 
 def note_name(source):
