@@ -2,11 +2,10 @@
 from copy import deepcopy
 from hashlib import sha256
 from pathlib import Path
-import shutil
 
 from .contracts import ContractError, digest
 from .doctor import diagnose
-from .state import Store, lock, read_json
+from .state import Store, link_or_copy, lock, read_json
 
 
 def history(root, project, limit=20):
@@ -61,7 +60,7 @@ def reuse_sources(origin, destination):
             blob = destination / 'reused' / (source['content_sha256'] + '.pdf')
             blob.parent.mkdir(exist_ok=True)
             if not blob.exists():
-                shutil.copyfile(path, blob)
+                link_or_copy(path, blob)
             if sha256(blob.read_bytes()).hexdigest() != source['content_sha256']:
                 raise ContractError('La copia de evidencia no conserva el hash original.')
             source['reused_from'] = {'run_id': old_state['run_id'], 'sources_hash': old_state['sources_hash'],

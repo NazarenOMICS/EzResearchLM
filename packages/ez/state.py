@@ -12,6 +12,20 @@ def read_json(path):
     return json.loads(Path(path).read_text(encoding='utf-8-sig'))
 
 
+def link_or_copy(source, destination):
+    """Put a PDF that already sits in another run into this one without a second copy on disk.
+
+    Each follow-up copied every PDF of its project: 139 copies of 15 PDFs, 324 MB in one day of a live project
+    (2026-10-11). A hard link shares the bytes; every run still checks them against its recorded hash. Files the person
+    keeps elsewhere are copied, never linked: editing them must not change the evidence of a run.
+    """
+    import shutil
+    try:
+        os.link(source, destination)
+    except OSError:
+        shutil.copyfile(source, destination)
+
+
 def atomic_json(path, value):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)

@@ -277,6 +277,28 @@ Todo lo anterior está en `main`. El orden para retomar:
    Resultado sobre esas respuestas: 193 de 193 fragmentos con contexto, LaTeX en 0 afirmaciones y
    2 uniones, ambas legítimas. Las corridas ya entregadas conservan su `answer.json`; el cambio
    vale para las entregas nuevas.
+
+   Base offline (2026-10-11), revisada con la carpeta del proyecto y la sesión de la prueba
+   anterior. `ez recall` evitó NotebookLM en 3 de 9 seguimientos (medición anterior); el agente
+   lo usó antes de `ez ask` en los 9. Cambios:
+   1. Notas y claves BibTeX con el autor equivocado: con los autores en una cadena unida por «;»,
+      `citation_key` tomaba al último (5 de 12 notas, también en `ez export`), y las listas de
+      PubMed unidas por comas y la «ß» rompían la clave y la cita visible. Ahora toma al primero
+      en los tres formatos, y cada nota de fuente lleva su cita y sus autores.
+   2. Cada `ez recall` pesaba de 27 a 39 KB en el contexto del agente, porque cada pasaje repetía
+      su fuente completa. La salida resumida lleva un pasaje recortado por afirmación y los 4
+      mejores pasajes de PDF, unos 8 KB; `--full` trae todo.
+   3. El agente escribió `ez recall <corrida> "<pregunta>"` y `ez recall <proyecto> "<pregunta>"`
+      y recibió un error de argparse; sin `--project`, buscaba en un proyecto «general» vacío y
+      terminaba en `ez ask`. Ahora entiende esas formas, usa el único proyecto si hay uno y, si
+      no, lista los proyectos con la forma correcta.
+   4. Cada seguimiento copiaba todos los PDFs del proyecto: 139 copias de 15 PDFs, 324 MB en un
+      día. Entre corridas los PDFs se comparten con hardlinks (copia si el disco no los admite);
+      lo que la persona importa de sus carpetas se sigue copiando.
+
+   Pendiente (base online): al retomar una creación de notebook interrumpida, EZ adopta el
+   notebook pero no lo marca como del proyecto, así que no entra en `notebooks.json` y la corrida
+   siguiente crea otro y vuelve a subir los PDFs. Pasó en la prueba anterior.
 2. **Puntuar la corrida** con `gold_set_benchmark/puntuar.py --mision M2` y anotar en
    `gold_set_benchmark/` cuántos de los 10 artículos clave entraron, en especial los dos de
    proteómica de *M. smegmatis* (T6).

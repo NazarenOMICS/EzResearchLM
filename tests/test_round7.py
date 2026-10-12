@@ -417,5 +417,27 @@ class ScorerTests(unittest.TestCase):
         self.assertNotIn('Afirmación de prueba', text)
 
 
+class SharedPdfTests(unittest.TestCase):
+    def test_a_pdf_reused_by_another_run_shares_its_bytes_instead_of_copying_them(self):
+        # Every follow-up copied all the project's PDFs: 139 copies of 15 PDFs in one day of a live project (2026-10-11).
+        import os
+        from hashlib import sha256
+        from ez.library import adopt
+        from ez.state import link_or_copy
+        with tempfile.TemporaryDirectory() as temp:
+            original = Path(temp) / 'first' / 'paper.pdf'
+            original.parent.mkdir()
+            original.write_bytes(b'%PDF-1.4 bytes')
+            entry = {'source_id': 's1', 'pdf_path': str(original), '_run_id': 'ez-first',
+                     'content_sha256': sha256(b'%PDF-1.4 bytes').hexdigest()}
+            (Path(temp) / 'second').mkdir()
+            adopted = adopt(Path(temp) / 'second', entry)
+            self.assertTrue(os.path.samefile(adopted['pdf_path'], original))
+            with patch('ez.state.os.link', side_effect=OSError('another volume')):
+                link_or_copy(original, Path(temp) / 'copy.pdf')
+            self.assertFalse(os.path.samefile(Path(temp) / 'copy.pdf', original))
+            self.assertEqual((Path(temp) / 'copy.pdf').read_bytes(), original.read_bytes())
+
+
 if __name__ == '__main__':
     unittest.main()

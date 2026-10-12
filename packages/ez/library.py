@@ -2,10 +2,9 @@
 from copy import deepcopy
 from hashlib import sha256
 from pathlib import Path
-import shutil
 
 from .contracts import ContractError
-from .state import read_json
+from .state import link_or_copy, read_json
 
 
 def project_sources(runs_root, project, exclude_run=None):
@@ -46,7 +45,7 @@ def adopt(run_folder, entry, keep=None):
     blob = Path(run_folder) / 'reused' / (source['content_sha256'] + '.pdf')
     blob.parent.mkdir(exist_ok=True)
     if not blob.exists():
-        shutil.copyfile(source['pdf_path'], blob)
+        link_or_copy(source['pdf_path'], blob)
     if sha256(blob.read_bytes()).hexdigest() != source['content_sha256']:
         blob.unlink()
         raise ContractError('Un PDF de la biblioteca del proyecto cambió después de verificarse; no se reutiliza.')

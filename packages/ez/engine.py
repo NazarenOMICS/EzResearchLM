@@ -14,7 +14,7 @@ from .paths import contained, executable
 from .policies import evaluate
 from .process import run
 from .notebook_format import valid_response
-from .state import Store, atomic_json, read_json
+from .state import Store, atomic_json, link_or_copy, read_json
 
 
 def numbers_missing(text, passages):
@@ -646,7 +646,7 @@ class Engine:
                 staged = contained(self.folder, 'upload/' + title)
                 staged.parent.mkdir(exist_ok=True)
                 if not staged.exists():
-                    shutil.copyfile(path, staged)
+                    link_or_copy(path, staged)
                 if sha256(staged.read_bytes()).hexdigest() != source['content_sha256']:
                     raise Pause('NEEDS_TRACEABILITY_REPAIR', 'La copia preparada para subida cambió.', 4)
                 source['upload_pending'] = True
