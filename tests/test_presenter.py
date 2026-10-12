@@ -84,6 +84,25 @@ class CitationTests(unittest.TestCase):
         self.assertEqual(short_citation({'authors': 'Garcia E; Lopez A; Kim J', 'year': 2021}), 'Garcia et al., 2021')
         self.assertIsNone(short_citation({'title': 'Sin autores'}))
 
+    def test_citation_keys_and_notes_take_the_first_author(self):
+        # Authors joined by «;» in one string named a note and a BibTeX key after the last author (2026-10-11).
+        from ez.deliver import citation_key
+        from ez.vault import note_header
+        joined = {'authors': 'Eva Garcia; Ana Lopez; Jun Kim', 'year': 2017, 'title': 'Un trabajo'}
+        self.assertEqual(citation_key(joined, set()), 'garcia2017')
+        for authors, key in ((['Garcia E', 'Kim J'], 'garcia2020'), (['Garcia, Eva'], 'garcia2020'),
+                             (['van der Berg JH'], 'vanderberg2020')):
+            self.assertEqual(citation_key({'authors': authors, 'year': 2020}, set()), key)
+        self.assertEqual(citation_key({'authors': 'Meniche X, Otal I, Kim JH.', 'year': 2008}, set()), 'meniche2008')
+        self.assertEqual(citation_key({'authors': ['Haußmann U'], 'year': 2009}, set()), 'haussmann2009')
+        from ez.presenter import short_citation
+        self.assertEqual(short_citation({'authors': 'Meniche X, Otal I, Kim JH', 'year': 2008}), 'Meniche et al., 2008')
+        self.assertEqual(short_citation({'authors': 'Lopez, Ana M.', 'year': 2008}), 'Lopez, 2008')
+        header = '\n'.join(note_header(joined))
+        self.assertIn('citation: "Garcia et al., 2017"', header)
+        self.assertIn('  - "Jun Kim"', header)
+        self.assertIn('Garcia et al., 2017. Eva Garcia, Ana Lopez, Jun Kim.', header)
+
     def test_claim_citation_lists_each_source_once_and_the_report_shows_it(self):
         from ez.presenter import claim_citation
         a = {'source_id': 's1', 'authors': ['Garcia E', 'Lopez A', 'Kim J'], 'year': 2021, 'title': 'Uno'}

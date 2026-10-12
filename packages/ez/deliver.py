@@ -231,12 +231,12 @@ def check_draft(answer, text, other_run=None, pdf_page=None):
 def citation_key(source, used):
     """surnameYEAR, with a, b, c… when two works share it."""
     import unicodedata
-    authors = source.get('authors') or []
-    first = str((authors if isinstance(authors, list) else [authors])[0] if authors else '')
-    tokens = first.split(',')[0].split() if ',' in first else first.split()
-    # "Garcia E" (PubMed) puts initials last; "Eva Garcia" puts the surname last.
-    surname = (tokens[0] if ',' in first or (len(tokens) > 1 and re.fullmatch(r'[A-Z]{1,3}\.?', tokens[-1])) else tokens[-1]) if tokens else ''
-    surname = unicodedata.normalize('NFKD', surname).encode('ascii', 'ignore').decode()
+    from .presenter import author_list, surname as surname_of
+    # The first author, also when the index joined every author in one string with «;»: taking the last word of that
+    # string named notes and BibTeX keys after the last author (a live run, 2026-10-11).
+    authors = author_list(source)
+    surname = surname_of(authors[0]).replace(' ', '') if authors else ''
+    surname = unicodedata.normalize('NFKD', surname.replace('ß', 'ss')).encode('ascii', 'ignore').decode()
     key = (re.sub(r'[^A-Za-z]', '', surname).lower() or 'fuente') + str(source.get('year') or '')
     candidate, suffix = key, 0
     while candidate in used:

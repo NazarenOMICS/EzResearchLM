@@ -82,12 +82,21 @@ def surname(author):
     return parts[-1] if parts else ''
 
 
-def short_citation(source):
-    """«Garcia et al., 2021»: the author-year form a reader expects next to a claim; None without authors."""
+def author_list(source):
+    """The authors as a list, whether the index gave a list or one string joined by «;»."""
+    import re
     authors = source.get('authors') or []
     if isinstance(authors, str):
-        authors = [a for a in authors.split(';') if a.strip()] if ';' in authors else [authors]
-    names = [n for n in (surname(a) for a in authors) if n]
+        parts = authors.split(',')
+        # «Meniche X, Otal I» (PubMed style joined by commas) is a list; «Lopez, Ana M.» is one inverted name.
+        pubmed_style = len(parts) > 1 and all(re.fullmatch(r"\s*[^\W\d][\w'’ -]* [A-Z]{1,3}\.?\s*", p) for p in parts)
+        authors = authors.split(';') if ';' in authors else parts if pubmed_style else [authors]
+    return [a.strip() for a in authors if str(a).strip()]
+
+
+def short_citation(source):
+    """«Garcia et al., 2021»: the author-year form a reader expects next to a claim; None without authors."""
+    names = [n for n in (surname(a) for a in author_list(source)) if n]
     if not names:
         return None
     lead = names[0] if len(names) == 1 else f'{names[0]} y {names[1]}' if len(names) == 2 else f'{names[0]} et al.'

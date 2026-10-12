@@ -230,6 +230,20 @@ def note_name(source):
     return (key + ' ' if key else '') + slug(source.get('title') or source.get('source_id') or 'fuente', 50)
 
 
+def note_header(source):
+    """Properties and title of a source note: what the person looks a work up by in Obsidian."""
+    from .presenter import author_list, short_citation
+    authors, citation = author_list(source), short_citation(source)
+    lines = ['---', 'title: "' + str(source.get('title') or '').replace('"', "'") + '"']
+    # Obsidian finds a note by its properties: the person looks a work up by «Radmacher et al., 2005», not by its title.
+    lines += ['citation: "' + citation.replace('"', "'") + '"'] if citation else []
+    lines += ['authors:'] + ['  - "' + a.replace('"', "'") + '"' for a in authors] if authors else []
+    lines += [f'{field}: {source[field]}' for field in ('year', 'doi', 'pmid', 'pmcid', 'content_sha256') if source.get(field)]
+    lines += ['---', '', f'# {source.get("title") or source.get("source_id")}', '']
+    lines += [f'{citation}. ' + ', '.join(authors[:20]) + (' y otros.' if len(authors) > 20 else '.'), ''] if citation else []
+    return lines
+
+
 def write(runs_root, project):
     """Rebuild the project's notes/ from its delivered researches; existing notes are regenerated, never merged."""
     from .presenter import stated
@@ -260,9 +274,7 @@ def write(runs_root, project):
     written = set()
     for key, entry in sources.items():
         source = entry['source']
-        lines = ['---', 'title: "' + str(source.get('title') or '').replace('"', "'") + '"']
-        lines += [f'{field}: {source[field]}' for field in ('year', 'doi', 'pmid', 'pmcid', 'content_sha256') if source.get(field)]
-        lines += ['---', '', f'# {source.get("title") or source.get("source_id")}', '']
+        lines = note_header(source)
         if source.get('doi'):
             lines += [f'DOI: [{source["doi"]}](https://doi.org/{source["doi"]})', '']
         lines += ['## Pasajes citados por NotebookLM', '']
