@@ -717,7 +717,7 @@ def main(argv=None):
     p.add_argument('--project', default='general'); p.add_argument('--seconds', type=int, default=25)
     p = sub.add_parser('draft', help='Ver las afirmaciones verificadas para redactar o comprobar un borrador.'); p.add_argument('run'); p.add_argument('--check', type=Path, metavar='BORRADOR')
     p = sub.add_parser('ask', help='Pregunta de seguimiento respondida solo con los PDFs ya verificados del proyecto.')
-    p.add_argument('question', nargs='+'); p.add_argument('--project')
+    p.add_argument('question'); p.add_argument('--project', default='general')
     p = sub.add_parser('recall', help='Buscar en lo ya verificado del proyecto, sin consultar NotebookLM.')
     p.add_argument('question', nargs='+'); p.add_argument('--project')
     p.add_argument('--limit', type=int, default=8, help='Afirmaciones a devolver (8 por defecto).')
