@@ -1,0 +1,54 @@
+{
+  "validation": "four audit suites against baseline c3e66c7 snapshot and current checkout",
+  "suite_modules": [
+    "tests.test_audit_regressions",
+    "tests.test_audit_evidence",
+    "tests.test_audit_authors",
+    "tests.test_audit_persistence"
+  ],
+  "interpreter": "C:\\Users\\Administrator\\AppData\\Local\\hermes\\hermes-agent\\venv\\Scripts\\python.exe",
+  "dependency_paths": [
+    "packages",
+    "packages/paper_search",
+    "tests",
+    "venv site-packages"
+  ],
+  "baseline": {
+    "ez_import": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\\baseline\\packages\\ez\\__init__.py",
+    "count": 31,
+    "failures": 30,
+    "errors": 10,
+    "result": "FAILED",
+    "output": "baseline-regressions.txt"
+  },
+  "current": {
+    "ez_import": "C:\\Users\\Administrator\\Documents\\desarrollo\\packages\\ez\\__init__.py",
+    "count": 31,
+    "failures": 0,
+    "errors": 0,
+    "result": "OK",
+    "output": "current-regressions.txt"
+  },
+  "isolated_home": [
+    "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\\homes\\baseline",
+    "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\\homes\\current"
+  ],
+  "isolated_dot_ezresearch_exists": false,
+  "baseline_defect_to_current": {
+    "H1": "baseline error/fail: recall passage lost context identity; current pass",
+    "H2": "baseline failure: dedup merged different contexts/quantities; current pass",
+    "H3": "baseline failures: citation segmentation/heading and formatting/math; current pass",
+    "H4": "baseline failure/error: changed or missing PDF cache content accepted; current pass",
+    "H5": "baseline failure: references were not ended at appendix; current pass",
+    "H6": "baseline failures: short lowercase author-year and balanced DOI parsing; current pass",
+    "H7": "baseline failure: lexical coverage presented as evidence sufficiency; current pass",
+    "H8": "baseline errors/failures in structured author handling/serialization; current pass",
+    "H9": "baseline failure/error: second migration/arbitrary runs root and preservation; current pass",
+    "H10": "baseline failure: interrupted notebook creation not adopted/shared; current pass",
+    "H11": "baseline error: MCP recall rejected full=true; current pass",
+    "H12": "baseline failure: invalid listing could return ready; current pass",
+    "H13": "baseline failure: single-term advice / binomial scope behavior; current pass",
+    "H14": "baseline failure: recall parser consumed question word; current pass"
+  },
+  "non_regression_errors": []
+}

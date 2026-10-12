@@ -1,0 +1,501 @@
+test_H11_mcp_full (tests.test_audit_regressions.AuditRegressions.test_H11_mcp_full) ... ERROR
+test_H12_invalid_listing_never_ready (tests.test_audit_regressions.AuditRegressions.test_H12_invalid_listing_never_ready) ... FAIL
+test_H13_single_term_protection_and_binomial_advice (tests.test_audit_regressions.AuditRegressions.test_H13_single_term_protection_and_binomial_advice) ... FAIL
+test_H14_do_not_consume_question_word (tests.test_audit_regressions.AuditRegressions.test_H14_do_not_consume_question_word) ... FAIL
+test_H1_context_and_passage_identity (tests.test_audit_regressions.AuditRegressions.test_H1_context_and_passage_identity) ... ERROR
+test_H2_context_quantity_negation_not_merged (tests.test_audit_regressions.AuditRegressions.test_H2_context_quantity_negation_not_merged) ... 
+  test_H2_context_quantity_negation_not_merged (tests.test_audit_regressions.AuditRegressions.test_H2_context_quantity_negation_not_merged) (pair=({'id': 'a', 'text': 'The measured response in participants after the observation period was 10 units above baseline.', 'context': 'Grupo A', 'scope_ids': ['s'], 'question_id': 'q', 'citation_numbers': [1], 'references': [{'source_id': 'shared', 'cited_text': 'The measured response in participants after the observation period was 10 units above baseline.'}]}, {'id': 'b', 'text': 'The measured response in participants after the observation period was 10 units above baseline.', 'context': 'Grupo B', 'scope_ids': ['s'], 'question_id': 'q', 'citation_numbers': [1], 'references': [{'source_id': 'shared', 'cited_text': 'The measured response in participants after the observation period was 10 units above baseline.'}]})) ... FAIL
+  test_H2_context_quantity_negation_not_merged (tests.test_audit_regressions.AuditRegressions.test_H2_context_quantity_negation_not_merged) (pair=({'id': 'a', 'text': 'The measured response in participants after the observation period was 10 units above baseline.', 'context': 'Study A', 'scope_ids': ['s'], 'question_id': 'q', 'citation_numbers': [1], 'references': [{'source_id': 'shared', 'cited_text': 'The measured response in participants after the observation period was 10 units above baseline.'}]}, {'id': 'b', 'text': 'The measured response in participants after the observation period was 10 units above baseline.', 'context': 'Study B', 'scope_ids': ['s'], 'question_id': 'q', 'citation_numbers': [1], 'references': [{'source_id': 'shared', 'cited_text': 'The measured response in participants after the observation period was 10 units above baseline.'}]})) ... FAIL
+  test_H2_context_quantity_negation_not_merged (tests.test_audit_regressions.AuditRegressions.test_H2_context_quantity_negation_not_merged) (pair=({'id': 'a', 'text': 'The measured response in participants after the observation period was 10 units above baseline.', 'context': 'Adults', 'scope_ids': ['s'], 'question_id': 'q', 'citation_numbers': [1], 'references': [{'source_id': 'shared', 'cited_text': 'The measured response in participants after the observation period was 10 units above baseline.'}]}, {'id': 'b', 'text': 'The measured response in participants after the observation period was 20 units above baseline.', 'context': 'Adults', 'scope_ids': ['s'], 'question_id': 'q', 'citation_numbers': [1], 'references': [{'source_id': 'shared', 'cited_text': 'The measured response in participants after the observation period was 20 units above baseline.'}]})) ... FAIL
+test_H3_cited_heading_is_substantive (tests.test_audit_regressions.AuditRegressions.test_H3_cited_heading_is_substantive) ... FAIL
+test_H3_numbered_plain_label_and_indented_continuation (tests.test_audit_regressions.AuditRegressions.test_H3_numbered_plain_label_and_indented_continuation) ... 
+  test_H3_numbered_plain_label_and_indented_continuation (tests.test_audit_regressions.AuditRegressions.test_H3_numbered_plain_label_and_indented_continuation) (answer='1. Solo adultos:\n\t- Outcome increased over the observation period [1].') ... FAIL
+  test_H3_numbered_plain_label_and_indented_continuation (tests.test_audit_regressions.AuditRegressions.test_H3_numbered_plain_label_and_indented_continuation) (answer='- **Solo adultos:**\n    Outcome increased over the observation period [1].') ... FAIL
+  test_H3_numbered_plain_label_and_indented_continuation (tests.test_audit_regressions.AuditRegressions.test_H3_numbered_plain_label_and_indented_continuation) (answer='Solo **adultos**:\n    Outcome increased over the observation period [1].') ... FAIL
+test_H3_unsafe_math_preserved (tests.test_audit_regressions.AuditRegressions.test_H3_unsafe_math_preserved) ... FAIL
+test_H4_cache_rejects_changed_deleted_pdf (tests.test_audit_regressions.AuditRegressions.test_H4_cache_rejects_changed_deleted_pdf) ... 
+  test_H4_cache_rejects_changed_deleted_pdf (tests.test_audit_regressions.AuditRegressions.test_H4_cache_rejects_changed_deleted_pdf) (data=b'changed') ... FAIL
+  test_H4_cache_rejects_changed_deleted_pdf (tests.test_audit_regressions.AuditRegressions.test_H4_cache_rejects_changed_deleted_pdf) (data=None) ... FAIL
+test_H5_references_end_at_appendix (tests.test_audit_regressions.AuditRegressions.test_H5_references_end_at_appendix) ... FAIL
+test_H6_short_lowercase_names_and_balanced_doi (tests.test_audit_regressions.AuditRegressions.test_H6_short_lowercase_names_and_balanced_doi) ... 
+  test_H6_short_lowercase_names_and_balanced_doi (tests.test_audit_regressions.AuditRegressions.test_H6_short_lowercase_names_and_balanced_doi) (question='li 2020') ... FAIL
+  test_H6_short_lowercase_names_and_balanced_doi (tests.test_audit_regressions.AuditRegressions.test_H6_short_lowercase_names_and_balanced_doi) (question='10.1234/item(2020)') ... FAIL
+test_H7_coverage_is_not_sufficiency_or_language_detection (tests.test_audit_regressions.AuditRegressions.test_H7_coverage_is_not_sufficiency_or_language_detection) ... FAIL
+test_H8_structured_authors (tests.test_audit_regressions.AuditRegressions.test_H8_structured_authors) ... ERROR
+test_H9_second_move_and_nonstandard_root (tests.test_audit_regressions.AuditRegressions.test_H9_second_move_and_nonstandard_root) ... 
+  test_H9_second_move_and_nonstandard_root (tests.test_audit_regressions.AuditRegressions.test_H9_second_move_and_nonstandard_root) (name='runs') ... ERROR
+  test_H9_second_move_and_nonstandard_root (tests.test_audit_regressions.AuditRegressions.test_H9_second_move_and_nonstandard_root) (name='researches') ... FAIL
+test_changed_pdf_with_delivered_claim_is_not_returned (tests.test_audit_evidence.EvidenceFlowTests.test_changed_pdf_with_delivered_claim_is_not_returned) ... ERROR
+test_context_survives_delivery_memory_draft_status_and_mcp (tests.test_audit_evidence.EvidenceFlowTests.test_context_survives_delivery_memory_draft_status_and_mcp) ... ERROR
+test_named_work_gate_has_high_coverage_and_language_is_unknown (tests.test_audit_evidence.EvidenceFlowTests.test_named_work_gate_has_high_coverage_and_language_is_unknown) ... ERROR
+test_recall_retains_identical_text_different_context_and_sources (tests.test_audit_evidence.EvidenceFlowTests.test_recall_retains_identical_text_different_context_and_sources) ... FAIL
+test_shared_pdf_changes_replacement_and_deletion_are_explicit (tests.test_audit_evidence.EvidenceFlowTests.test_shared_pdf_changes_replacement_and_deletion_are_explicit) ... 
+  test_shared_pdf_changes_replacement_and_deletion_are_explicit (tests.test_audit_evidence.EvidenceFlowTests.test_shared_pdf_changes_replacement_and_deletion_are_explicit) (action='modify') ... FAIL
+test_shared_pdf_changes_replacement_and_deletion_are_explicit (tests.test_audit_evidence.EvidenceFlowTests.test_shared_pdf_changes_replacement_and_deletion_are_explicit) ... FAIL
+test_ambiguous_legacy_names_are_not_reduced_to_a_guessed_surname (tests.test_audit_authors.AuthorAuditTests.test_ambiguous_legacy_names_are_not_reduced_to_a_guessed_surname) ... FAIL
+test_crossref_preserves_given_family_and_corporate_name (tests.test_audit_authors.AuthorAuditTests.test_crossref_preserves_given_family_and_corporate_name) ... FAIL
+test_europepmc_preserves_structured_and_literal_authors (tests.test_audit_authors.AuthorAuditTests.test_europepmc_preserves_structured_and_literal_authors) ... FAIL
+test_paper_and_search_record_serialize_author_objects (tests.test_audit_authors.AuthorAuditTests.test_paper_and_search_record_serialize_author_objects) ... ERROR
+test_presenter_and_exports_accept_structured_and_legacy_authors (tests.test_audit_authors.AuthorAuditTests.test_presenter_and_exports_accept_structured_and_legacy_authors) ... ERROR
+test_pubmed_keeps_fore_name_family_and_collective_name (tests.test_audit_authors.AuthorAuditTests.test_pubmed_keeps_fore_name_family_and_collective_name) ... FAIL
+test_interrupted_notebook_create_is_adopted_registered_and_reused (tests.test_audit_persistence.PersistenceAuditTests.test_interrupted_notebook_create_is_adopted_registered_and_reused) ... FAIL
+test_login_requires_a_valid_notebook_listing_in_both_paths (tests.test_audit_persistence.PersistenceAuditTests.test_login_requires_a_valid_notebook_listing_in_both_paths) ... FAIL
+test_project_copy_failure_preserves_origin_and_configuration (tests.test_audit_persistence.PersistenceAuditTests.test_project_copy_failure_preserves_origin_and_configuration) ... FAIL
+test_project_move_collision_preserves_origin_and_config (tests.test_audit_persistence.PersistenceAuditTests.test_project_move_collision_preserves_origin_and_config) ... FAIL
+test_projects_move_twice_for_standard_and_arbitrary_runs_roots (tests.test_audit_persistence.PersistenceAuditTests.test_projects_move_twice_for_standard_and_arbitrary_runs_roots) ... 
+  test_projects_move_twice_for_standard_and_arbitrary_runs_roots (tests.test_audit_persistence.PersistenceAuditTests.test_projects_move_twice_for_standard_and_arbitrary_runs_roots) (root_name='runs') ... ERROR
+  test_projects_move_twice_for_standard_and_arbitrary_runs_roots (tests.test_audit_persistence.PersistenceAuditTests.test_projects_move_twice_for_standard_and_arbitrary_runs_roots) (root_name='researches') ... FAIL
+
+======================================================================
+ERROR: test_H11_mcp_full (tests.test_audit_regressions.AuditRegressions.test_H11_mcp_full)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_regressions.py", line 127, in test_H11_mcp_full
+    ez_recall('whole question', 'p', full=True)
+TypeError: ez_recall() got an unexpected keyword argument 'full'
+
+======================================================================
+ERROR: test_H1_context_and_passage_identity (tests.test_audit_regressions.AuditRegressions.test_H1_context_and_passage_identity)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_regressions.py", line 21, in test_H1_context_and_passage_identity
+    self.assertEqual(shown['context'], 'Solo adultos')
+                     ~~~~~^^^^^^^^^^^
+KeyError: 'context'
+
+======================================================================
+ERROR: test_H8_structured_authors (tests.test_audit_regressions.AuditRegressions.test_H8_structured_authors)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_regressions.py", line 104, in test_H8_structured_authors
+    self.assertEqual(short_citation({'authors': [{'given': 'Ana', 'family': 'de la Cruz'}], 'year': 2020}),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ADMINI~1\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\packages\ez\presenter.py", line 99, in short_citation
+    names = [n for n in (surname(a) for a in author_list(source)) if n]
+                                             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ADMINI~1\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\packages\ez\presenter.py", line 94, in author_list
+    return [a.strip() for a in authors if str(a).strip()]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ADMINI~1\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\packages\ez\presenter.py", line 94, in <listcomp>
+    return [a.strip() for a in authors if str(a).strip()]
+            ^^^^^^^
+AttributeError: 'dict' object has no attribute 'strip'
+
+======================================================================
+ERROR: test_H9_second_move_and_nonstandard_root (tests.test_audit_regressions.AuditRegressions.test_H9_second_move_and_nonstandard_root) (name='runs')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_regressions.py", line 122, in test_H9_second_move_and_nonstandard_root
+    self.assertEqual((b / 'p/evidence.txt').read_text(), 'preserve')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Roaming\uv\python\cpython-3.11-windows-x86_64-none\Lib\pathlib.py", line 1058, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Roaming\uv\python\cpython-3.11-windows-x86_64-none\Lib\pathlib.py", line 1044, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\tmp1g5mrmsz\\B\\p\\evidence.txt'
+
+======================================================================
+ERROR: test_changed_pdf_with_delivered_claim_is_not_returned (tests.test_audit_evidence.EvidenceFlowTests.test_changed_pdf_with_delivered_claim_is_not_returned)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_evidence.py", line 124, in test_changed_pdf_with_delivered_claim_is_not_returned
+    self.assertEqual(records(folder, 'p', issues), [])
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: records() takes 2 positional arguments but 3 were given
+
+======================================================================
+ERROR: test_context_survives_delivery_memory_draft_status_and_mcp (tests.test_audit_evidence.EvidenceFlowTests.test_context_survives_delivery_memory_draft_status_and_mcp)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_evidence.py", line 35, in test_context_survives_delivery_memory_draft_status_and_mcp
+    self.assertEqual(answer['claims'][0]['context'], 'Solo adultos')
+                     ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+KeyError: 'context'
+
+======================================================================
+ERROR: test_named_work_gate_has_high_coverage_and_language_is_unknown (tests.test_audit_evidence.EvidenceFlowTests.test_named_work_gate_has_high_coverage_and_language_is_unknown)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_evidence.py", line 134, in test_named_work_gate_has_high_coverage_and_language_is_unknown
+    self.assertFalse(result['answer_assessed'])
+                     ~~~~~~^^^^^^^^^^^^^^^^^^^
+KeyError: 'answer_assessed'
+
+======================================================================
+ERROR: test_paper_and_search_record_serialize_author_objects (tests.test_audit_authors.AuthorAuditTests.test_paper_and_search_record_serialize_author_objects)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_authors.py", line 59, in test_paper_and_search_record_serialize_author_objects
+    self.assertEqual(paper.to_dict()["authors"], [{"given": "Ana", "family": "de la Cruz"}])
+                     ^^^^^^^^^^^^^^^
+  File "C:\Users\ADMINI~1\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\packages\paper_search\paper_search_mcp\paper.py", line 46, in to_dict
+    'authors': '; '.join(self.authors) if self.authors else '',
+               ^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: sequence item 0: expected str instance, dict found
+
+======================================================================
+ERROR: test_presenter_and_exports_accept_structured_and_legacy_authors (tests.test_audit_authors.AuthorAuditTests.test_presenter_and_exports_accept_structured_and_legacy_authors)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_authors.py", line 69, in test_presenter_and_exports_accept_structured_and_legacy_authors
+    self.assertEqual(author_list(source), ["Ana M. de la Cruz"])
+                     ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ADMINI~1\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\packages\ez\presenter.py", line 94, in author_list
+    return [a.strip() for a in authors if str(a).strip()]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ADMINI~1\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\packages\ez\presenter.py", line 94, in <listcomp>
+    return [a.strip() for a in authors if str(a).strip()]
+            ^^^^^^^
+AttributeError: 'dict' object has no attribute 'strip'
+
+======================================================================
+ERROR: test_projects_move_twice_for_standard_and_arbitrary_runs_roots (tests.test_audit_persistence.PersistenceAuditTests.test_projects_move_twice_for_standard_and_arbitrary_runs_roots) (root_name='runs')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_persistence.py", line 28, in test_projects_move_twice_for_standard_and_arbitrary_runs_roots
+    self.assertEqual((second / 'project' / 'evidence.txt').read_text(encoding='utf-8'), 'source remains')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Roaming\uv\python\cpython-3.11-windows-x86_64-none\Lib\pathlib.py", line 1058, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Roaming\uv\python\cpython-3.11-windows-x86_64-none\Lib\pathlib.py", line 1044, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\tmpop1tpclq\\B\\project\\evidence.txt'
+
+======================================================================
+FAIL: test_H12_invalid_listing_never_ready (tests.test_audit_regressions.AuditRegressions.test_H12_invalid_listing_never_ready)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_regressions.py", line 138, in test_H12_invalid_listing_never_ready
+    self.assertNotEqual(start_login()['login_status'], 'ready')
+AssertionError: 'ready' == 'ready'
+
+======================================================================
+FAIL: test_H13_single_term_protection_and_binomial_advice (tests.test_audit_regressions.AuditRegressions.test_H13_single_term_protection_and_binomial_advice)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_regressions.py", line 142, in test_H13_single_term_protection_and_binomial_advice
+    self.assertEqual(close_candidates([candidate], [{'text': 'photosynthesis'}]), [candidate])
+AssertionError: Lists differ: [] != [{'source_id': 'a', 'title': 'Photosynthesis measured'}]
+
+Second list contains 1 additional elements.
+First extra element 0:
+{'source_id': 'a', 'title': 'Photosynthesis measured'}
+
+- []
++ [{'source_id': 'a', 'title': 'Photosynthesis measured'}]
+
+======================================================================
+FAIL: test_H14_do_not_consume_question_word (tests.test_audit_regressions.AuditRegressions.test_H14_do_not_consume_question_word)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_regressions.py", line 150, in test_H14_do_not_consume_question_word
+    self.assertEqual(result, ('adultos', 'adultos respuesta'))
+AssertionError: Tuples differ: ('adultos', 'respuesta') != ('adultos', 'adultos respuesta')
+
+First differing element 1:
+'respuesta'
+'adultos respuesta'
+
+- ('adultos', 'respuesta')
++ ('adultos', 'adultos respuesta')
+?              ++++++++
+
+
+======================================================================
+FAIL: test_H2_context_quantity_negation_not_merged (tests.test_audit_regressions.AuditRegressions.test_H2_context_quantity_negation_not_merged) (pair=({'id': 'a', 'text': 'The measured response in participants after the observation period was 10 units above baseline.', 'context': 'Grupo A', 'scope_ids': ['s'], 'question_id': 'q', 'citation_numbers': [1], 'references': [{'source_id': 'shared', 'cited_text': 'The measured response in participants after the observation period was 10 units above baseline.'}]}, {'id': 'b', 'text': 'The measured response in participants after the observation period was 10 units above baseline.', 'context': 'Grupo B', 'scope_ids': ['s'], 'question_id': 'q', 'citation_numbers': [1], 'references': [{'source_id': 'shared', 'cited_text': 'The measured response in participants after the observation period was 10 units above baseline.'}]}))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_regressions.py", line 35, in test_H2_context_quantity_negation_not_merged
+    self.assertEqual(len(merge_repeated(pair)), 2)
+AssertionError: 1 != 2
+
+======================================================================
+FAIL: test_H2_context_quantity_negation_not_merged (tests.test_audit_regressions.AuditRegressions.test_H2_context_quantity_negation_not_merged) (pair=({'id': 'a', 'text': 'The measured response in participants after the observation period was 10 units above baseline.', 'context': 'Study A', 'scope_ids': ['s'], 'question_id': 'q', 'citation_numbers': [1], 'references': [{'source_id': 'shared', 'cited_text': 'The measured response in participants after the observation period was 10 units above baseline.'}]}, {'id': 'b', 'text': 'The measured response in participants after the observation period was 10 units above baseline.', 'context': 'Study B', 'scope_ids': ['s'], 'question_id': 'q', 'citation_numbers': [1], 'references': [{'source_id': 'shared', 'cited_text': 'The measured response in participants after the observation period was 10 units above baseline.'}]}))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_regressions.py", line 35, in test_H2_context_quantity_negation_not_merged
+    self.assertEqual(len(merge_repeated(pair)), 2)
+AssertionError: 1 != 2
+
+======================================================================
+FAIL: test_H2_context_quantity_negation_not_merged (tests.test_audit_regressions.AuditRegressions.test_H2_context_quantity_negation_not_merged) (pair=({'id': 'a', 'text': 'The measured response in participants after the observation period was 10 units above baseline.', 'context': 'Adults', 'scope_ids': ['s'], 'question_id': 'q', 'citation_numbers': [1], 'references': [{'source_id': 'shared', 'cited_text': 'The measured response in participants after the observation period was 10 units above baseline.'}]}, {'id': 'b', 'text': 'The measured response in participants after the observation period was 20 units above baseline.', 'context': 'Adults', 'scope_ids': ['s'], 'question_id': 'q', 'citation_numbers': [1], 'references': [{'source_id': 'shared', 'cited_text': 'The measured response in participants after the observation period was 20 units above baseline.'}]}))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_regressions.py", line 35, in test_H2_context_quantity_negation_not_merged
+    self.assertEqual(len(merge_repeated(pair)), 2)
+AssertionError: 1 != 2
+
+======================================================================
+FAIL: test_H3_cited_heading_is_substantive (tests.test_audit_regressions.AuditRegressions.test_H3_cited_heading_is_substantive)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_regressions.py", line 46, in test_H3_cited_heading_is_substantive
+    self.assertTrue(list(statements('## Response increased over the observation period [1].')))
+AssertionError: [] is not true
+
+======================================================================
+FAIL: test_H3_numbered_plain_label_and_indented_continuation (tests.test_audit_regressions.AuditRegressions.test_H3_numbered_plain_label_and_indented_continuation) (answer='1. Solo adultos:\n\t- Outcome increased over the observation period [1].')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_regressions.py", line 43, in test_H3_numbered_plain_label_and_indented_continuation
+    self.assertEqual(rows[-1][1], 'Solo adultos')
+AssertionError: '' != 'Solo adultos'
++ Solo adultos
+
+======================================================================
+FAIL: test_H3_numbered_plain_label_and_indented_continuation (tests.test_audit_regressions.AuditRegressions.test_H3_numbered_plain_label_and_indented_continuation) (answer='- **Solo adultos:**\n    Outcome increased over the observation period [1].')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_regressions.py", line 43, in test_H3_numbered_plain_label_and_indented_continuation
+    self.assertEqual(rows[-1][1], 'Solo adultos')
+AssertionError: '' != 'Solo adultos'
++ Solo adultos
+
+======================================================================
+FAIL: test_H3_numbered_plain_label_and_indented_continuation (tests.test_audit_regressions.AuditRegressions.test_H3_numbered_plain_label_and_indented_continuation) (answer='Solo **adultos**:\n    Outcome increased over the observation period [1].')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_regressions.py", line 43, in test_H3_numbered_plain_label_and_indented_continuation
+    self.assertEqual(rows[-1][1], 'Solo adultos')
+AssertionError: '' != 'Solo adultos'
++ Solo adultos
+
+======================================================================
+FAIL: test_H3_unsafe_math_preserved (tests.test_audit_regressions.AuditRegressions.test_H3_unsafe_math_preserved)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_regressions.py", line 52, in test_H3_unsafe_math_preserved
+    self.assertIn(expr, plain('Ratio ' + expr + ' [1]'))
+AssertionError: '\\(\\frac{a_{b}}{c}\\)' not found in 'Ratio \\frac{ab}{c}'
+
+======================================================================
+FAIL: test_H4_cache_rejects_changed_deleted_pdf (tests.test_audit_regressions.AuditRegressions.test_H4_cache_rejects_changed_deleted_pdf) (data=b'changed')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_regressions.py", line 70, in test_H4_cache_rejects_changed_deleted_pdf
+    with self.subTest(data=data), self.assertRaisesRegex(ContractError, 'integrity'):
+AssertionError: ContractError not raised
+
+======================================================================
+FAIL: test_H4_cache_rejects_changed_deleted_pdf (tests.test_audit_regressions.AuditRegressions.test_H4_cache_rejects_changed_deleted_pdf) (data=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_regressions.py", line 70, in test_H4_cache_rejects_changed_deleted_pdf
+    with self.subTest(data=data), self.assertRaisesRegex(ContractError, 'integrity'):
+AssertionError: ContractError not raised
+
+======================================================================
+FAIL: test_H5_references_end_at_appendix (tests.test_audit_regressions.AuditRegressions.test_H5_references_end_at_appendix)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_regressions.py", line 79, in test_H5_references_end_at_appendix
+    self.assertEqual([(c['text'], c['in_references']) for c in chunks],
+AssertionError: Lists differ: [('Body outcome. 7. References: Citation list.', False), [39 chars]lse)] != [('Body outcome.', False), ('7. References: Citation list[50 chars]lse)]
+
+First differing element 0:
+('Body outcome. 7. References: Citation list.', False)
+('Body outcome.', False)
+
+Second list contains 1 additional elements.
+First extra element 2:
+('Appendix A Supplementary result.', False)
+
++ [('Body outcome.', False),
+- [('Body outcome. 7. References: Citation list.', False),
+? ^  --------------                                ^^^^
+
++  ('7. References: Citation list.', True),
+? ^                                  ^^^
+
+   ('Appendix A Supplementary result.', False)]
+
+======================================================================
+FAIL: test_H6_short_lowercase_names_and_balanced_doi (tests.test_audit_regressions.AuditRegressions.test_H6_short_lowercase_names_and_balanced_doi) (question='li 2020')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_regressions.py", line 90, in test_H6_short_lowercase_names_and_balanced_doi
+    self.assertTrue(works)
+AssertionError: [] is not true
+
+======================================================================
+FAIL: test_H6_short_lowercase_names_and_balanced_doi (tests.test_audit_regressions.AuditRegressions.test_H6_short_lowercase_names_and_balanced_doi) (question='10.1234/item(2020)')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_regressions.py", line 91, in test_H6_short_lowercase_names_and_balanced_doi
+    self.assertTrue(any(matches(source) for _, matches in works))
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_H7_coverage_is_not_sufficiency_or_language_detection (tests.test_audit_regressions.AuditRegressions.test_H7_coverage_is_not_sufficiency_or_language_detection)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_regressions.py", line 99, in test_H7_coverage_is_not_sufficiency_or_language_detection
+    self.assertNotEqual(result['evidence'], 'sufficient')
+AssertionError: 'sufficient' == 'sufficient'
+
+======================================================================
+FAIL: test_H9_second_move_and_nonstandard_root (tests.test_audit_regressions.AuditRegressions.test_H9_second_move_and_nonstandard_root) (name='researches')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_regressions.py", line 121, in test_H9_second_move_and_nonstandard_root
+    self.assertEqual(projects_home(root), b.resolve())
+AssertionError: Windo[20 chars]inistrator/AppData/Local/Temp/tmpwe98w1nn/researches/projects') != Windo[20 chars]inistrator/AppData/Local/Temp/tmpwe98w1nn/B')
+
+======================================================================
+FAIL: test_recall_retains_identical_text_different_context_and_sources (tests.test_audit_evidence.EvidenceFlowTests.test_recall_retains_identical_text_different_context_and_sources)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_evidence.py", line 75, in test_recall_retains_identical_text_different_context_and_sources
+    self.assertEqual([h['context'] for h in result['hits']], ['Grupo A', 'Grupo B', 'Estudio C'])
+AssertionError: Lists differ: ['Grupo A'] != ['Grupo A', 'Grupo B', 'Estudio C']
+
+Second list contains 2 additional elements.
+First extra element 1:
+'Grupo B'
+
+- ['Grupo A']
++ ['Grupo A', 'Grupo B', 'Estudio C']
+
+======================================================================
+FAIL: test_shared_pdf_changes_replacement_and_deletion_are_explicit (tests.test_audit_evidence.EvidenceFlowTests.test_shared_pdf_changes_replacement_and_deletion_are_explicit) (action='modify')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_evidence.py", line 103, in test_shared_pdf_changes_replacement_and_deletion_are_explicit
+    with self.subTest(action=action), self.assertRaisesRegex(ContractError, 'integrity'):
+AssertionError: ContractError not raised
+
+======================================================================
+FAIL: test_shared_pdf_changes_replacement_and_deletion_are_explicit (tests.test_audit_evidence.EvidenceFlowTests.test_shared_pdf_changes_replacement_and_deletion_are_explicit)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_evidence.py", line 107, in test_shared_pdf_changes_replacement_and_deletion_are_explicit
+    self.assertEqual(result['pdf_passages'], [])
+AssertionError: Lists differ: [{'marker': '[EZ:pdf-52c3935626c1-p1]', 'p[158 chars].58}] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+{'marker': '[EZ:pdf-52c3935626c1-p1]', 'page': 1, 'text': 'Response increased 10 units', 'in_references': False, 'source': {'title': None, 'citation': None, 'doi': None, 'source_id': 's'}, 'score': 0.58}
+
++ []
+- [{'in_references': False,
+-   'marker': '[EZ:pdf-52c3935626c1-p1]',
+-   'page': 1,
+-   'score': 0.58,
+-   'source': {'citation': None, 'doi': None, 'source_id': 's', 'title': None},
+-   'text': 'Response increased 10 units'}]
+
+======================================================================
+FAIL: test_ambiguous_legacy_names_are_not_reduced_to_a_guessed_surname (tests.test_audit_authors.AuthorAuditTests.test_ambiguous_legacy_names_are_not_reduced_to_a_guessed_surname)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_authors.py", line 88, in test_ambiguous_legacy_names_are_not_reduced_to_a_guessed_surname
+    self.assertEqual(surname("Research Council"), "Research Council")
+AssertionError: 'Council' != 'Research Council'
+- Council
++ Research Council
+
+
+======================================================================
+FAIL: test_crossref_preserves_given_family_and_corporate_name (tests.test_audit_authors.AuthorAuditTests.test_crossref_preserves_given_family_and_corporate_name)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_authors.py", line 23, in test_crossref_preserves_given_family_and_corporate_name
+    self.assertEqual(authors, [
+AssertionError: Lists differ: ['Ana M. de la Cruz'] != [{'given': 'Ana M.', 'family': 'de la Cruz[41 chars]on'}]
+
+First differing element 0:
+'Ana M. de la Cruz'
+{'given': 'Ana M.', 'family': 'de la Cruz'}
+
+Second list contains 1 additional elements.
+First extra element 1:
+{'literal': 'Council, Research Division'}
+
+- ['Ana M. de la Cruz']
++ [{'family': 'de la Cruz', 'given': 'Ana M.'},
++  {'literal': 'Council, Research Division'}]
+
+======================================================================
+FAIL: test_europepmc_preserves_structured_and_literal_authors (tests.test_audit_authors.AuthorAuditTests.test_europepmc_preserves_structured_and_literal_authors)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_authors.py", line 36, in test_europepmc_preserves_structured_and_literal_authors
+    self.assertEqual(paper.authors, [
+AssertionError: Lists differ: ['Ana M. de la Cruz', 'Council, Research Division'] != [{'given': 'Ana M.', 'family': 'de la Cruz[41 chars]on'}]
+
+First differing element 0:
+'Ana M. de la Cruz'
+{'given': 'Ana M.', 'family': 'de la Cruz'}
+
+- ['Ana M. de la Cruz', 'Council, Research Division']
++ [{'family': 'de la Cruz', 'given': 'Ana M.'},
++  {'literal': 'Council, Research Division'}]
+
+======================================================================
+FAIL: test_pubmed_keeps_fore_name_family_and_collective_name (tests.test_audit_authors.AuthorAuditTests.test_pubmed_keeps_fore_name_family_and_collective_name)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_authors.py", line 51, in test_pubmed_keeps_fore_name_family_and_collective_name
+    self.assertEqual(paper.authors, [
+AssertionError: Lists differ: ['de la Cruz AM'] != [{'given': 'Ana Maria', 'family': 'de la C[44 chars]on'}]
+
+First differing element 0:
+'de la Cruz AM'
+{'given': 'Ana Maria', 'family': 'de la Cruz'}
+
+Second list contains 1 additional elements.
+First extra element 1:
+{'literal': 'Council, Research Division'}
+
+- ['de la Cruz AM']
++ [{'family': 'de la Cruz', 'given': 'Ana Maria'},
++  {'literal': 'Council, Research Division'}]
+
+======================================================================
+FAIL: test_interrupted_notebook_create_is_adopted_registered_and_reused (tests.test_audit_persistence.PersistenceAuditTests.test_interrupted_notebook_create_is_adopted_registered_and_reused)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_persistence.py", line 96, in test_interrupted_notebook_create_is_adopted_registered_and_reused
+    self.assertTrue(state.get('notebook_shared'))
+AssertionError: None is not true
+
+======================================================================
+FAIL: test_login_requires_a_valid_notebook_listing_in_both_paths (tests.test_audit_persistence.PersistenceAuditTests.test_login_requires_a_valid_notebook_listing_in_both_paths)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_persistence.py", line 119, in test_login_requires_a_valid_notebook_listing_in_both_paths
+    self.assertNotEqual(start_login()['login_status'], 'ready')
+AssertionError: 'ready' == 'ready'
+
+======================================================================
+FAIL: test_project_copy_failure_preserves_origin_and_configuration (tests.test_audit_persistence.PersistenceAuditTests.test_project_copy_failure_preserves_origin_and_configuration)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_persistence.py", line 74, in test_project_copy_failure_preserves_origin_and_configuration
+    with self.assertRaisesRegex(OSError, 'simulated copy failure'):
+AssertionError: OSError not raised
+
+======================================================================
+FAIL: test_project_move_collision_preserves_origin_and_config (tests.test_audit_persistence.PersistenceAuditTests.test_project_move_collision_preserves_origin_and_config)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_persistence.py", line 48, in test_project_move_collision_preserves_origin_and_config
+    with self.assertRaises(ValueError):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_projects_move_twice_for_standard_and_arbitrary_runs_roots (tests.test_audit_persistence.PersistenceAuditTests.test_projects_move_twice_for_standard_and_arbitrary_runs_roots) (root_name='researches')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Temp\ez-audit-c7a91841ef9e46c2b25dd076a44826e9\baseline\tests\test_audit_persistence.py", line 27, in test_projects_move_twice_for_standard_and_arbitrary_runs_roots
+    self.assertEqual(projects_home(root), second.resolve())
+AssertionError: Windo[20 chars]inistrator/AppData/Local/Temp/tmp9czowuwm/researches/projects') != Windo[20 chars]inistrator/AppData/Local/Temp/tmp9czowuwm/B')
+
+----------------------------------------------------------------------
+Ran 31 tests in 4.588s
+
+FAILED (failures=30, errors=10)

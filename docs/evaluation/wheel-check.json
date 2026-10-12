@@ -1,0 +1,21 @@
+{
+  "status": "passed",
+  "version": "0.2.0a3",
+  "python": "3.11.15 (main, Jun 23 2026, 15:20:37) [MSC v.1944 64 bit (AMD64)]",
+  "isolated_python": true,
+  "installed_module": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\ez-authors-final-wheel-d12eb35959b8485b91fccca94c7b4245\\venv\\Lib\\site-packages\\ez\\__init__.py",
+  "host_guide_sha256": "b8d1a93f7091cd8ce284729d660c0ed4c09d3c74f59087b1aade53674e0f2bc8",
+  "checks": [
+    "installed_imports",
+    "four_schemas",
+    "host_guide",
+    "welcome",
+    "offline_user_guide",
+    "context",
+    "research",
+    "continue_needs_plan",
+    "doctor"
+  ],
+  "authenticated_e2e": false,
+  "clean_windows_machine": false
+}

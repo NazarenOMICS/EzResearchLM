@@ -1,0 +1,14 @@
+...
+----------------------------------------------------------------------
+Ran 3 tests in 0.218s
+
+OK
+.......................................................usage: python.exe -m unittest [-h] --root ROOT --output OUTPUT [--repo REPO]
+python.exe -m unittest: error: --output must be outside the read-only evidence root
+....{"case_id": "paper", "elapsed_seconds": 0.0, "exit_code": 124, "failure_code": "deadline_exceeded", "independent_review": "pending"}
+{"case_id": "control", "elapsed_seconds": 0.0, "exit_code": 124, "failure_code": "deadline_exceeded", "independent_review": "pending"}
+............................................................................................................................................................................................................
+----------------------------------------------------------------------
+Ran 263 tests in 268.699s
+
+OK

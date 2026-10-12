@@ -1,0 +1,36 @@
+test_H11_mcp_full (tests.test_audit_regressions.AuditRegressions.test_H11_mcp_full) ... ok
+test_H12_invalid_listing_never_ready (tests.test_audit_regressions.AuditRegressions.test_H12_invalid_listing_never_ready) ... ok
+test_H13_single_term_protection_and_binomial_advice (tests.test_audit_regressions.AuditRegressions.test_H13_single_term_protection_and_binomial_advice) ... ok
+test_H14_do_not_consume_question_word (tests.test_audit_regressions.AuditRegressions.test_H14_do_not_consume_question_word) ... ok
+test_H1_context_and_passage_identity (tests.test_audit_regressions.AuditRegressions.test_H1_context_and_passage_identity) ... ok
+test_H2_context_quantity_negation_not_merged (tests.test_audit_regressions.AuditRegressions.test_H2_context_quantity_negation_not_merged) ... ok
+test_H3_cited_heading_is_substantive (tests.test_audit_regressions.AuditRegressions.test_H3_cited_heading_is_substantive) ... ok
+test_H3_numbered_plain_label_and_indented_continuation (tests.test_audit_regressions.AuditRegressions.test_H3_numbered_plain_label_and_indented_continuation) ... ok
+test_H3_unsafe_math_preserved (tests.test_audit_regressions.AuditRegressions.test_H3_unsafe_math_preserved) ... ok
+test_H4_cache_rejects_changed_deleted_pdf (tests.test_audit_regressions.AuditRegressions.test_H4_cache_rejects_changed_deleted_pdf) ... ok
+test_H5_references_end_at_appendix (tests.test_audit_regressions.AuditRegressions.test_H5_references_end_at_appendix) ... ok
+test_H6_short_lowercase_names_and_balanced_doi (tests.test_audit_regressions.AuditRegressions.test_H6_short_lowercase_names_and_balanced_doi) ... ok
+test_H7_coverage_is_not_sufficiency_or_language_detection (tests.test_audit_regressions.AuditRegressions.test_H7_coverage_is_not_sufficiency_or_language_detection) ... ok
+test_H8_structured_authors (tests.test_audit_regressions.AuditRegressions.test_H8_structured_authors) ... ok
+test_H9_second_move_and_nonstandard_root (tests.test_audit_regressions.AuditRegressions.test_H9_second_move_and_nonstandard_root) ... ok
+test_changed_pdf_with_delivered_claim_is_not_returned (tests.test_audit_evidence.EvidenceFlowTests.test_changed_pdf_with_delivered_claim_is_not_returned) ... ok
+test_context_survives_delivery_memory_draft_status_and_mcp (tests.test_audit_evidence.EvidenceFlowTests.test_context_survives_delivery_memory_draft_status_and_mcp) ... ok
+test_named_work_gate_has_high_coverage_and_language_is_unknown (tests.test_audit_evidence.EvidenceFlowTests.test_named_work_gate_has_high_coverage_and_language_is_unknown) ... ok
+test_recall_retains_identical_text_different_context_and_sources (tests.test_audit_evidence.EvidenceFlowTests.test_recall_retains_identical_text_different_context_and_sources) ... ok
+test_shared_pdf_changes_replacement_and_deletion_are_explicit (tests.test_audit_evidence.EvidenceFlowTests.test_shared_pdf_changes_replacement_and_deletion_are_explicit) ... ok
+test_ambiguous_legacy_names_are_not_reduced_to_a_guessed_surname (tests.test_audit_authors.AuthorAuditTests.test_ambiguous_legacy_names_are_not_reduced_to_a_guessed_surname) ... ok
+test_crossref_preserves_given_family_and_corporate_name (tests.test_audit_authors.AuthorAuditTests.test_crossref_preserves_given_family_and_corporate_name) ... ok
+test_europepmc_preserves_structured_and_literal_authors (tests.test_audit_authors.AuthorAuditTests.test_europepmc_preserves_structured_and_literal_authors) ... ok
+test_paper_and_search_record_serialize_author_objects (tests.test_audit_authors.AuthorAuditTests.test_paper_and_search_record_serialize_author_objects) ... ok
+test_presenter_and_exports_accept_structured_and_legacy_authors (tests.test_audit_authors.AuthorAuditTests.test_presenter_and_exports_accept_structured_and_legacy_authors) ... ok
+test_pubmed_keeps_fore_name_family_and_collective_name (tests.test_audit_authors.AuthorAuditTests.test_pubmed_keeps_fore_name_family_and_collective_name) ... ok
+test_interrupted_notebook_create_is_adopted_registered_and_reused (tests.test_audit_persistence.PersistenceAuditTests.test_interrupted_notebook_create_is_adopted_registered_and_reused) ... ok
+test_login_requires_a_valid_notebook_listing_in_both_paths (tests.test_audit_persistence.PersistenceAuditTests.test_login_requires_a_valid_notebook_listing_in_both_paths) ... ok
+test_project_copy_failure_preserves_origin_and_configuration (tests.test_audit_persistence.PersistenceAuditTests.test_project_copy_failure_preserves_origin_and_configuration) ... ok
+test_project_move_collision_preserves_origin_and_config (tests.test_audit_persistence.PersistenceAuditTests.test_project_move_collision_preserves_origin_and_config) ... ok
+test_projects_move_twice_for_standard_and_arbitrary_runs_roots (tests.test_audit_persistence.PersistenceAuditTests.test_projects_move_twice_for_standard_and_arbitrary_runs_roots) ... ok
+
+----------------------------------------------------------------------
+Ran 31 tests in 7.382s
+
+OK
