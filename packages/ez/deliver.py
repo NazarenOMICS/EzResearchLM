@@ -1,7 +1,7 @@
 """Deliverables derived deterministically from answer.json: the evidence report and draft checks."""
 import re
 
-from .presenter import GAP_LABELS, REASON_LABELS, claim_citation
+from .presenter import GAP_LABELS, REASON_LABELS, claim_citation, stated
 
 STATUS = {'complete': 'Respuesta completa para el alcance acordado.',
           'partial': 'Respuesta parcial: algunas subpreguntas quedaron sin respaldo verificado.',
@@ -78,7 +78,7 @@ def report_markdown(answer, contract, state):
         lines += ['## Lo central', '', f'{len(answer["claims"])} afirmaciones en total; estas son las respaldadas por más fuentes.', '']
         for claim in key_claims(answer):
             cited = sorted({number[(r.get('source') or {}).get('source_id') or r['source_id']] for r in claim['references']})
-            lines.append(f'- {claim["text"]}{cited_as(claim)} [{", ".join(map(str, cited))}] `[EZ:{claim["id"]}]`')
+            lines.append(f'- {stated(claim)}{cited_as(claim)} [{", ".join(map(str, cited))}] `[EZ:{claim["id"]}]`')
         lines.append('')
     lines += ['## Respuesta por subpregunta', '']
     gaps = {g['scope_id']: g for g in answer.get('gaps', [])}
@@ -93,7 +93,7 @@ def report_markdown(answer, contract, state):
             claims = [c for c in claims if c['id'] in shown]
         for claim in claims:
             cited = sorted({number[(r.get('source') or {}).get('source_id') or r['source_id']] for r in claim['references']})
-            lines.append(f'- {claim["text"]}{cited_as(claim)} [{", ".join(map(str, cited))}] `[EZ:{claim["id"]}]`')
+            lines.append(f'- {stated(claim)}{cited_as(claim)} [{", ".join(map(str, cited))}] `[EZ:{claim["id"]}]`')
             for ref in claim['references']:
                 key = (ref.get('source') or {}).get('source_id') or ref['source_id']
                 warning = ' (no se encontró literal en el texto indexado; revísalo en el PDF)' if ref.get('found_in_fulltext') is False else ''
@@ -162,7 +162,7 @@ def report_markdown(answer, contract, state):
         lines += ['## Anexo: resto de las afirmaciones', '']
         for scope, claim in annex:
             cited = sorted({number[(r.get('source') or {}).get('source_id') or r['source_id']] for r in claim['references']})
-            lines.append(f'- ({scope["id"]}) {claim["text"]}{cited_as(claim)} [{", ".join(map(str, cited))}] `[EZ:{claim["id"]}]`')
+            lines.append(f'- ({scope["id"]}) {stated(claim)}{cited_as(claim)} [{", ".join(map(str, cited))}] `[EZ:{claim["id"]}]`')
             for ref in claim['references']:
                 key = (ref.get('source') or {}).get('source_id') or ref['source_id']
                 page = f', p. {ref["page"]}' if ref.get('page') else ''

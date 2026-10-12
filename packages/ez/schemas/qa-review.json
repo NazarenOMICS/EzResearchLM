@@ -14,7 +14,8 @@
     "claims": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["id", "text", "scope_ids", "question_id", "citation_numbers"], "properties": {
       "id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"}, "text": {"type": "string", "pattern": "\\S", "maxLength": 10000},
       "scope_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
-      "question_id": {"type": "string"}, "citation_numbers": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "integer", "minimum": 1}}
+      "question_id": {"type": "string"}, "citation_numbers": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "integer", "minimum": 1}},
+      "context": {"type": "string", "maxLength": 2000}
     }}}
   }
 }

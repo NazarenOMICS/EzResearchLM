@@ -260,9 +260,23 @@ Todo lo anterior está en `main`. El orden para retomar:
    3. `query_language_mismatch` avisa cuando menos de 3 palabras de la consulta que no son nombres
       propios aparecen en los PDFs; en la sesión, 7 de las 9 consultas.
 
-   Pendiente: las respuestas de `ez ask` guardan como afirmaciones frases de introducción y de
-   lagunas («A continuación se detallan…», «El corpus no ofrece…»), y `ez recall` las pone
-   primero; así falló el seguimiento de condiciones de cultivo.
+
+   Afirmaciones que salen de listas (2026-10-11), medido sobre las respuestas guardadas de la
+   prueba anterior, sin consultar NotebookLM. NotebookLM responde en listas anidadas por estudio
+   y condición, y EZ guardaba cada viñeta suelta: 176 de 262 afirmaciones eran fragmentos como
+   «Concentración de EMB: 10 µg/ml», sin decir de qué estudio ni de qué condición. Además, 92
+   tenían LaTeX crudo (`\(10\text{ }\mu\text{g/ml}\)`), y de las 18 uniones de afirmaciones
+   repetidas, 16 juntaban el mismo fragmento de condiciones o estudios distintos, mezclando sus
+   pasajes. Así falló el seguimiento de condiciones de cultivo en `ez recall`. Cambios:
+   1. Cada afirmación guarda en `context` los títulos y rótulos bajo los que estaba; el informe,
+      `ez status`, `ez draft`, `ez ask`, las notas del proyecto, `ez recall` y la verificación lo
+      usan. Los títulos y las viñetas que solo rotulan dejan de contarse como oraciones.
+   2. El LaTeX simple pasa a texto plano (µg/ml, °C, OD600, ≈, letras griegas).
+   3. Dos afirmaciones con distinto contexto ya no se unen por tener el mismo texto.
+
+   Resultado sobre esas respuestas: 193 de 193 fragmentos con contexto, LaTeX en 0 afirmaciones y
+   2 uniones, ambas legítimas. Las corridas ya entregadas conservan su `answer.json`; el cambio
+   vale para las entregas nuevas.
 2. **Puntuar la corrida** con `gold_set_benchmark/puntuar.py --mision M2` y anotar en
    `gold_set_benchmark/` cuántos de los 10 artículos clave entraron, en especial los dos de
    proteómica de *M. smegmatis* (T6).

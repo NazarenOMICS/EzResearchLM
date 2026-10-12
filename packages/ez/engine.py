@@ -1099,7 +1099,7 @@ class Engine:
         verified, withheld = [], []
         for claim in claims:
             verdict = verdicts[claim['id']]
-            summary = {k: claim[k] for k in ('id', 'text', 'scope_ids', 'question_id', 'citation_numbers')}
+            summary = {k: claim[k] for k in ('id', 'text', 'scope_ids', 'question_id', 'citation_numbers', 'context') if k in claim}
             human = self.human_check(claim)
             if human and human['judgement'] == 'unsupported':
                 withheld.append(dict(summary, reason='human_rejected', verification=verdict, human_check=human))
@@ -1194,7 +1194,8 @@ class Engine:
         chosen = [by_id[i] for i in claim_ids] if claim_ids else key_claims(answer, limit)
         planned = {q['id']: q['scope_ids'] for q in self.contract['plan']['notebook_questions']}
         claims = [{'id': c['id'], 'text': c['text'], 'question_id': c['question_id'], 'citation_numbers': c['citation_numbers'],
-                   'scope_ids': [x for x in c['scope_ids'] if x in planned[c['question_id']]] or planned[c['question_id']]}
+                   'scope_ids': [x for x in c['scope_ids'] if x in planned[c['question_id']]] or planned[c['question_id']],
+                   **({'context': c['context']} if c.get('context') else {})}
                   for c in chosen]
         covered = {x for c in claims for x in c['scope_ids']}
         # Keep the direct delivery next to the run: the verified answer replaces answer.json and report.md.
@@ -1222,7 +1223,7 @@ class Engine:
         coverage = {s['id']: 'insufficient' for s in self.contract['scope']}
         delivered, withheld = [], []
         for claim in claims:
-            summary = {k: claim[k] for k in ('id', 'text', 'scope_ids', 'question_id', 'citation_numbers')}
+            summary = {k: claim[k] for k in ('id', 'text', 'scope_ids', 'question_id', 'citation_numbers', 'context') if k in claim}
             human = self.human_check(claim)
             if human and human['judgement'] == 'unsupported':
                 withheld.append(dict(summary, reason='human_rejected', human_check=human))

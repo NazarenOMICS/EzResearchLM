@@ -94,6 +94,11 @@ def short_citation(source):
     return f'{lead}, {source["year"]}' if source.get('year') else lead
 
 
+def stated(claim):
+    """The claim as a reader needs it: the headings and list labels it sits under, then its text."""
+    return f'{claim["context"]} — {claim["text"]}' if claim.get('context') else claim['text']
+
+
 def claim_citation(claim):
     """Author-year citation of a claim's sources, in reference order: «(García et al., 2021; Kim y Lee, 2023)».
 
@@ -139,7 +144,7 @@ def render(value):
     if value.get('kind') == 'verify_sample':
         lines = [f'Revisión humana: {value["checked"]} afirmaciones ya revisadas. Para revisar ahora:']
         for claim in value['claims']:
-            lines.append(f'\n{claim["id"]}: {claim["text"]}')
+            lines.append(f'\n{claim["id"]}: {stated(claim)}')
             for reference in claim.get('references', []):
                 source = reference.get('source', {})
                 lines.append('  ' + cite(reference) + (f' — {source["pdf_path"]}' if source.get('pdf_path') else ''))
@@ -147,7 +152,7 @@ def render(value):
         return '\n'.join(lines + ['Siguiente paso: ' + value['next_action']])
     if value.get('kind') == 'draft_material':
         return '\n'.join(['Afirmaciones verificadas para redactar (informe: ' + value['report_path'] + '):',
-                          *[f'- {c["marker"]} {c["text"]}' for c in value['claims']], 'Siguiente paso: ' + value['next_action']])
+                          *[f'- {c["marker"]} {stated(c)}' for c in value['claims']], 'Siguiente paso: ' + value['next_action']])
     if value.get('kind') == 'draft_check':
         lines = ['Borrador ' + ('aceptado.' if value['valid'] else 'con errores.')]
         if value['unknown_markers']:
@@ -240,7 +245,7 @@ def render(value):
         lines.append('Este es el último estado guardado; no se consultó el servicio ahora.')
     for claim in value.get('claims', []):
         markers = ' '.join(f'[{claim["question_id"]}:{n}]' for n in claim['citation_numbers'])
-        lines.append('\n' + claim['text'] + ' ' + markers)
+        lines.append('\n' + stated(claim) + ' ' + markers)
         for reference in claim.get('references', []):
             label = (f'{claim["question_id"]}:{reference["citation_number"]}' if reference.get('role', 'qa') == 'qa'
                      else 'verificación')
@@ -268,7 +273,7 @@ def render(value):
     if value.get('withheld_claims'):
         lines.append('\nNo se pudo afirmar:')
         for claim in value['withheld_claims']:
-            lines.append(f'- {claim["text"]} ({REASON_LABELS.get(claim["reason"], claim["reason"])})')
+            lines.append(f'- {stated(claim)} ({REASON_LABELS.get(claim["reason"], claim["reason"])})')
     if value.get('gaps'):
         lines.append('Qué falta y por qué:')
         for gap in value['gaps']:

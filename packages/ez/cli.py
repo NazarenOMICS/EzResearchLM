@@ -547,7 +547,8 @@ def ask_command(root, args):
         extra['next_action'] = ('La biblioteca del proyecto responde la pregunta. Responde solo con estas afirmaciones y sus '
                                 'marcadores [EZ:<id>]; no hace falta buscar artículos nuevos.')
     emit(dict(state, path=str(folder), kind='ask', evidence=evidence,
-              claims=[{'id': c['id'], 'text': c['text'], 'marker': f'[EZ:{state["run_id"]}/{c["id"]}]'}
+              claims=[{'id': c['id'], 'text': c['text'], 'marker': f'[EZ:{state["run_id"]}/{c["id"]}]',
+                       **({'context': c['context']} if c.get('context') else {})}
                       for c in answer.get('claims', [])],
               uncited_statements=answer.get('uncited_statements', []), **extra), args.json)
     return code
@@ -626,6 +627,7 @@ def draft_command(folder, args):
         return 0 if result['valid'] else 4
     emit({'kind': 'draft_material', 'report_path': str(folder / 'report.md'),
           'claims': [{'id': c['id'], 'marker': f'[EZ:{c["id"]}]', 'citation': claim_citation(c), 'text': c['text'],
+                      **({'context': c['context']} if c.get('context') else {}),
                       'scope_ids': c['scope_ids']} for c in answer['claims']],
           **({'unverified': ('Estas afirmaciones son la entrega directa: no pasaron la verificación de respaldo. Antes '
                                'de redactar para una tesis o un artículo, corre ez continue ' + str(folder) + ' --verify.')}

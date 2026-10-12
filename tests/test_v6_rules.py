@@ -347,6 +347,43 @@ class SentenceTests(unittest.TestCase):
                          ['Blanco: en C. glutamicum el etambutol inhibe EmbC (Radmacher et al. 2005).',
                           'Se observó hinchazón polar.', 'Ver Fig. 2 para M. tuberculosis.'])
 
+    ANSWER = ('Las condiciones se detallan por estudio:\n\n---\n\n'
+              '### 1. Ensayo en adultos (García et al., 2021)\n'
+              '* **Dosis:** 16 h de ayuno diario [1].\n'
+              '* **Resultado observado:**\n'
+              '  * **Insulina:** bajó \\\\(12\\text{ }\\%\\\\) a las \\\\(8\\text{ }\\mu\\text{M}\\\\) [2].\n'
+              '### 2. Kim y Lee (2020)\n'
+              '**Condición 1: ayuno con ejercicio**\n'
+              '* **Dosis:** 16 h de ayuno diario [3].\n'
+              'Ningún estudio midió adolescentes [4].')
+
+    def test_list_items_keep_the_headings_and_labels_they_sit_under(self):
+        # A bullet like «Dose: 16 h» says nothing alone; in a live run 63% of the claims were such bullets.
+        from ez.audit import plain, statements
+        found = [(plain(s), c) for s, c in statements(self.ANSWER)]
+        self.assertEqual(found, [
+            ('Las condiciones se detallan por estudio', ''),
+            ('Dosis: 16 h de ayuno diario.', 'Ensayo en adultos (García et al., 2021)'),
+            ('Insulina: bajó 12 % a las 8 µM.', 'Ensayo en adultos (García et al., 2021) › Resultado observado'),
+            ('Dosis: 16 h de ayuno diario.', 'Kim y Lee (2020) › Condición 1: ayuno con ejercicio'),
+            ('Ningún estudio midió adolescentes.', 'Kim y Lee (2020) › Condición 1: ayuno con ejercicio')])
+
+    def test_inline_latex_becomes_plain_text(self):
+        from ez.audit import plain
+        self.assertEqual(plain('A \\\\(30\\text{ }^\\circ\\text{C}\\\\), \\\\(\\text{OD}_{600} \\approx 10\\\\) y '
+                               '\\\\(10^{6}\\\\) células con \\\\(\\Sigma\\text{FIC} \\leq 0.5\\\\) [1].'),
+                         'A 30 °C, OD600 ≈ 10 y 10^6 células con ΣFIC ≤ 0.5.')
+
+    def test_the_same_bullet_under_two_studies_stays_two_claims(self):
+        from ez.audit import merge_repeated
+        from ez.presenter import stated
+        ref = lambda source: [{'source_id': source, 'cited_text': source}]
+        first = {'id': 'a', 'text': 'Dosis: 16 h de ayuno diario.', 'context': 'Ensayo en adultos (García et al., 2021)',
+                 'scope_ids': ['sq1'], 'question_id': 'qa1', 'citation_numbers': [1], 'references': ref('r1')}
+        second = dict(first, id='b', context='Kim y Lee (2020)', references=ref('r2'))
+        self.assertEqual([c['id'] for c in merge_repeated([first, second])], ['a', 'b'])
+        self.assertEqual(stated(first), 'Ensayo en adultos (García et al., 2021) — Dosis: 16 h de ayuno diario.')
+
 
 if __name__ == '__main__':
     unittest.main()

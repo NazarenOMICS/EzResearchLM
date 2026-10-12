@@ -58,7 +58,7 @@ def records(runs_root, project):
         for claim in answer.get('claims', []):
             found.append({'key': f'{state["run_id"]}/{claim["id"]}', 'run_id': state['run_id'], 'claim_id': claim['id'],
                           'marker': marker(state['run_id'], claim['id']), 'citation': claim_citation(claim),
-                          'text': claim['text'], 'question': row['question'],
+                          'text': claim['text'], 'context': claim.get('context'), 'question': row['question'],
                           'delivery': answer.get('delivery', 'verified'), 'date': row['updated_at'][:10], 'path': str(folder),
                           'passages': [{'text': ref.get('cited_text') or '', 'page': ref.get('page'),
                                         'source': ref.get('source') or {'source_id': ref.get('source_id')}}
@@ -172,7 +172,7 @@ def recall(runs_root, project, question, limit=8, pdf_limit=6):
     from .library import project_sources
     from .workspace import topic_words
     rows = records(runs_root, project)
-    documents = [words(' '.join([r['text']] + [p['text'] + ' ' + (p['source'].get('title') or '') for p in r['passages']]))
+    documents = [words(' '.join([r['text'], r['context'] or ''] + [p['text'] + ' ' + (p['source'].get('title') or '') for p in r['passages']]))
                  for r in rows]
     query = set(words(question))
     scored = [(score, row) for score, row in zip(bm25(query, documents), rows) if score > 0]
@@ -188,7 +188,7 @@ def recall(runs_root, project, question, limit=8, pdf_limit=6):
     asked = topic_words(question)
     touched = set()
     for hit in hits[:COVERAGE_HITS]:
-        touched |= topic_words(' '.join([hit['text']] + [p['text'] for p in hit['passages']]))
+        touched |= topic_words(' '.join([hit['text'], hit['context'] or ''] + [p['text'] for p in hit['passages']]))
     coverage = round(len(asked & touched) / len(asked), 2) if asked else 0.0
     evidence = 'sufficient' if coverage >= MIN_COVERAGE else 'partial' if hits else 'insufficient'
     sources = project_sources(runs_root, project)
@@ -232,6 +232,7 @@ def note_name(source):
 
 def write(runs_root, project):
     """Rebuild the project's notes/ from its delivered researches; existing notes are regenerated, never merged."""
+    from .presenter import stated
     from .workspace import project_dir, report_name
     folder = project_dir(runs_root, project) / 'notes'
     rows = records(runs_root, project)
@@ -269,7 +270,7 @@ def write(runs_root, project):
             page = f' (p. {passage["page"]})' if passage['page'] else ''
             lines += ['> ' + re.sub(r'\s+', ' ', text).strip() + page, '']
             for row in passage['claims']:
-                lines.append(f'- {row["text"]} {row["marker"]} en [[{research_names[row["run_id"]]}]]')
+                lines.append(f'- {stated(row)} {row["marker"]} en [[{research_names[row["run_id"]]}]]')
             lines.append('')
         target = folder / 'sources' / (names[key] + '.md')
         target.write_text('\n'.join(lines), encoding='utf-8')
@@ -279,7 +280,7 @@ def write(runs_root, project):
                  + ('entrega verificada' if claims[0]['delivery'] == 'verified' else 'entrega directa'), '']
         for row in claims:
             linked = sorted({names[p['source'].get('content_sha256') or p['source'].get('source_id')] for p in row['passages']})
-            lines.append(f'- {row["text"]} {row["marker"]} ' + ' '.join(f'[[{n}]]' for n in linked))
+            lines.append(f'- {stated(row)} {row["marker"]} ' + ' '.join(f'[[{n}]]' for n in linked))
         target = folder / 'researches' / (research_names[run_id] + '.md')
         target.write_text('\n'.join(lines) + '\n', encoding='utf-8')
         written.add(target)

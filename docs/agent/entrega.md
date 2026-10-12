@@ -11,6 +11,10 @@ cada oración de NotebookLM con al menos una cita con pasaje es una afirmación 
 Las oraciones casi idénticas entre respuestas se unen con todos sus pasajes, y con más de 8
 afirmaciones el informe empieza por «Lo central»: las respaldadas por más fuentes.
 
+Una afirmación que sale de una lista trae `context`: los títulos y rótulos bajo los que estaba
+(«Estudio en adultos (García et al., 2021) › Resultado observado»). Muéstralo con ella, porque
+sin él «Dosis: 16 h de ayuno» no dice de qué estudio ni de qué condición es.
+
 Lee `ez status <corrida> --answer --json` (resumido; `--full` trae los pasajes). Entrega solo
 lo habilitado, con su `citation` y su marcador, y di también qué falta y por qué (`gaps`), las
 afirmaciones retenidas (`withheld_claims`), las preguntas no consultadas
