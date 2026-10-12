@@ -1,6 +1,6 @@
 # Hoja de ruta de EZ
 
-Actualizada: 2026-10-11. Este es el **único plan vigente**. Reemplaza a la
+Actualizada: 2026-10-12. Este es el **único plan vigente**. Reemplaza a la
 auditoría P1–P14, al plan v2 por fases (0–7), a la lista de mejoras pendientes y a
 `docs/history/plan-refactor-v6.md`. Esos documentos quedan como registro del porqué de cada
 cambio. `docs/history/ez-refurbish-implementation-plan.md` y `docs/history/refurbish-progress.md` son
@@ -111,11 +111,11 @@ Unpaywall configurado:
 Todo lo anterior está en `main`. El orden para retomar:
 
 1. **Prueba real en Windows con Codex**, desde un clon nuevo de `main` y con
-   `~/.ezresearch` borrado. Repetir la pregunta del etambutol y comprobar:
+   un perfil temporal aislado. Usar una pregunta independiente del gold set y comprobar:
    1. plan con `ez plan` y cribado con `ez screen`, sin JSON ni scripts escritos por el agente;
    2. segunda ronda de cribado por citas y cuántos artículos agrega;
    3. seguimientos en orden: afirmaciones entregadas, `ez recall`, `ez ask`, `ez research`;
-   4. «¿qué dice Smith 2019?» (no está en el corpus): debe ofrecer buscar, no responder de memoria;
+   4. preguntar por un identificador ausente del corpus: debe ofrecer buscar, no responder de memoria;
    5. un párrafo de tesis con marcadores y `ez draft --check`;
    6. alargar la charla hasta que el agente compacte el contexto y repetir un seguimiento.
 
@@ -299,12 +299,11 @@ Todo lo anterior está en `main`. El orden para retomar:
    Pendiente (base online): al retomar una creación de notebook interrumpida, EZ adopta el
    notebook pero no lo marca como del proyecto, así que no entra en `notebooks.json` y la corrida
    siguiente crea otro y vuelve a subir los PDFs. Pasó en la prueba anterior.
-2. **Puntuar la corrida** con `gold_set_benchmark/puntuar.py --mision M2` y anotar en
-   `gold_set_benchmark/` cuántos de los 10 artículos clave entraron, en especial los dos de
-   proteómica de *M. smegmatis* (T6).
+2. **Evaluar la corrida** con el protocolo separado de evaluación; no mostrar al operador
+   los autores, identificadores ni resultados esperados del gold set durante la ejecución.
 3. **Medir `ez recall`**: en cuántos seguimientos alcanzó sin consultar NotebookLM y si
-   alguna vez dio por suficiente algo que no lo era. Ajustar el umbral de cobertura (0,6,
-   puesto sin medición) según eso.
+   alguna vez se interpretó una coincidencia como respuesta completa. La cobertura léxica no
+   decide suficiencia; cualquier cambio de umbral exige una evaluación independiente.
 4. **A3**: comparación con ChatGPT con búsqueda y con NotebookLM manual.
 5. **C1 y D2**: instalación en un Windows limpio solo con el README, y prueba de la extensión
    de Claude Desktop.
@@ -430,3 +429,56 @@ Mientras tanto, la vía para usuarios sin terminal es la extensión de escritori
 1. Cada cambio del plan se registra en este archivo con la fecha.
 2. Un ítem pasa a "Hecho" cuando está en la rama con pruebas, o, si es de medición, cuando su informe está en `gold_set_benchmark/`.
 3. Un ítem nuevo entra en la fase que corresponde por dependencia, no al final.
+
+## Corrección operativa (2026-10-12)
+
+Las mediciones y notas históricas anteriores se conservan tal como se registraron; esta
+corrección supersede las instrucciones o estados operativos que entren en conflicto con ella.
+La [auditoría del 2026-10-12](evaluation/audit-2026-10-12.md) detalla el alcance revisado.
+
+1. `ez recall` informa cobertura léxica, nunca suficiencia: `evidence` queda en `needs_judgment`
+   (recuperó algo; el agente juzga si responde) o `none`, `answer_assessed` es `false` y
+   `query_language_mismatch` es `null`.
+   `low_lexical_overlap` solo señala poca coincidencia de palabras; no infiere el idioma. Un DOI
+   se informa como `named_works_absent` solo cuando no hay una coincidencia exacta; nombres de
+   autor y año ambiguos quedan como `named_works_unresolved`.
+2. La salida compacta conserva el contexto de las afirmaciones y la fuente de cada pasaje.
+   `--full` en CLI y `full=true` en MCP exponen los detalles completos. Las afirmaciones solo se
+   deduplican cuando coinciden exactamente el texto y el contexto; no se fusionan por sinonimia
+   ni por contención.
+   El texto cacheado de un PDF se vuelve a usar solo después de cotejar el hash registrado.
+   Un marcador válido identifica un registro, no acredita localización del pasaje; la entrega
+   directa, la verificación automática de una afirmación y el juicio humano son estados distintos.
+3. `search_advice` es orientación, no una orden para ampliar el alcance: avisa del núcleo común
+   y aclara que puede ser el alcance acordado (una especie, un binomio). `--exclude-rest` también protege los
+   candidatos que coinciden con el único término significativo de una búsqueda.
+4. La migración de carpeta copia y verifica antes de cambiar configuración, conserva el origen
+   y, ante colisión o fallo, deja intacta la configuración anterior. Al recuperar una creación
+   interrumpida, EZ registra como compartido el único notebook cuyo título corresponde a la
+   corrida; la siguiente corrida puede reutilizarlo. El login solo informa `ready` ante una lista
+   de notebooks con formato válido.
+
+Validación offline del 2026-10-12: 3 pruebas del buscador y 263 de EZ aprobadas, pyflakes y
+diff sin avisos; rueda instalada fuera del checkout con nueve comprobaciones aprobadas.
+La evidencia y los límites están en el informe enlazado. Corresponde una prueba en vivo
+controlada cuando se autorice; no se validaron login real, calidad científica ni instalación limpia.
+
+### Revisión de la corrección (2026-10-12, segunda capa)
+
+Una revisión del diff anterior encontró cinco regresiones, reproducidas con tests que fallaban
+antes del arreglo (`tests/test_audit_followup.py`):
+
+1. `named_works` tomaba «en 2019», «durante 2020» o «after 2015» como trabajos, y ese aviso
+   reemplazaba la guía de `ez recall`. Las palabras de tiempo ya no cuentan, y el aviso se suma.
+2. La comprobación de integridad leía y hasheaba cada PDF una vez por pasaje (unas 650 lecturas
+   de 15 PDFs por llamada) y, con la carpeta de corridas movida, descartaba todas las
+   afirmaciones y bloqueaba `ez draft`, porque las fuentes guardan rutas absolutas. Ahora cada PDF
+   se hashea una vez por proceso y, si la ruta no existe, se busca por su hash bajo la raíz.
+3. `evidence: partial` afirmaba un juicio que EZ no hace; ahora es `needs_judgment` o `none`.
+4. `search_advice` ignoraba toda búsqueda con `AND` o paréntesis y había dejado de proponer cómo
+   ampliar un núcleo común, que fue la causa confirmada de las pérdidas del 2026-10-11. Solo se
+   excluyen `OR` y `NOT`; dos búsquedas con los mismos términos también se avisan.
+5. La corrección de autores (H8) dejaba entero todo nombre sin estructura, y OpenAlex y
+   Semantic Scholar solo envían nombres como «Ana M. Lopez»: esas obras se citaban por el nombre
+   completo. Vuelve a citarse por el apellido, con sus partículas («de la Fontaine»); los autores
+   corporativos se conservan enteros.

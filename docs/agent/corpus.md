@@ -25,20 +25,19 @@ la estimación. Con el visto bueno de la persona, impórtalo con el comando que 
 
 1. **Preguntas QA** (`--qa`, una por subpregunta, entre 3 y 5; cada una tarda alrededor de un
    minuto en NotebookLM y van en serie):
-   1. Concretas y con el objeto explícito: «¿Qué cambios en la sensibilidad a la insulina se
-      midieron en adultos tras al menos ocho semanas de ayuno intermitente, y con qué
-      método?», no «¿Qué efectos tiene el ayuno?».
+   1. Concretas y con el objeto explícito: «¿Qué cambios se midieron en la población definida
+      durante el período acordado, y con qué método?», no «¿Qué efectos tiene?».
    2. Una sola cosa por pregunta; si pide dos, divídela.
    3. En la subpregunta de lagunas, termina con «¿qué no responden estas fuentes?».
    4. Sin presuponer la respuesta ni nombrar resultados que la persona espera.
 2. **Búsquedas** (`--query`; proveedores `pubmed`, `europepmc`, `openalex`, `semantic`,
-   `crossref`): al menos dos formulaciones por subpregunta, en el idioma de los artículos:
-   sinónimos, el grupo taxonómico o la población más amplia, el nombre del mecanismo o del
-   método. Sumar palabras a una búsqueda la estrecha y no es otra formulación: si todas comparten
-   el organismo o la población y la intervención, agrega una que saque uno de ellos (el grupo
-   cercano con la misma intervención, el blanco o el mecanismo sin el organismo). Cada búsqueda
-   trae 25 resultados por proveedor (`--max-results`, hasta 100; no lo bajes). `search_advice`
-   avisa si el plan se queda corto. `--no-citations` omite la ampliación por citas;
+   `crossref`): al menos dos formulaciones pertinentes por subpregunta, normalmente en el idioma
+   de los artículos: sinónimos, el grupo taxonómico o la población relevante, el mecanismo o el
+   método. Sumar palabras a una búsqueda suele estrecharla y no crea por sí solo otra formulación.
+   `search_advice` orienta sobre formulaciones y resultados, pero no obliga a ampliar el alcance
+   acordado; un núcleo de dos términos compartidos no es por sí solo una restricción que haya que
+   corregir. Cada búsqueda trae 25 resultados por proveedor (`--max-results`, hasta 100; no lo
+   bajes). `--no-citations` omite la ampliación por citas;
    `--reuse-only`, sin búsquedas, responde solo con la biblioteca del proyecto.
 3. **Entrega**: directa, siempre (ver `docs/agent/entrega.md`). No uses `--delivery verified`
    salvo que la persona lo pida.
@@ -55,10 +54,11 @@ EZ deja `screening-request.json` con los candidatos (título, año, identificado
 para el alcance, `exclude` si no, `uncertain` si hace falta el criterio de la persona. Marca
 `key` en los pocos incluidos que una persona del área citaría sí o sí.
 
-1. Lee el título y el resumen de cada candidato que nombre el organismo, la población o la
-   intervención de la pregunta, y decídelo con su propia razón. `--exclude-rest` es solo para
-   lo claramente fuera de tema: EZ lo rechaza si alcanzaría a un candidato con todos los
-   términos de una búsqueda del plan.
+1. Lee el título y el resumen de cada candidato que pueda corresponder al alcance y decídelo con
+   su propia razón. `--exclude-rest` es solo para lo claramente fuera de tema: no lo uses si
+   excluiría candidatos protegidos por coincidencia con los términos de las búsquedas, incluso
+   cuando una formulación tenga una sola palabra significativa. El aviso no obliga a sumar un
+   tema o grupo fuera del alcance; decide cada candidato con el alcance ya acordado.
 2. No decidas por `open_access`: se incluye por relevancia; un artículo clave sin acceso abierto
    se le pide a la persona antes de descargar.
 3. `in_project: true` significa que ya está verificado en otra investigación del proyecto:
@@ -106,3 +106,7 @@ siguen sin procesar, sigue sin ellos: quedan en `corpus_exclusions` como `proces
 se vuelven a comprobar en el próximo `ez continue`. Con `quota_exhausted`, NotebookLM llegó al
 límite de la cuenta: avisa y continúa más tarde, sin repetir el trabajo. No agregues ni borres
 fuentes de un notebook de EZ a mano.
+
+La identidad confirmada del PDF no equivale a verificar una afirmación. Un marcador válido solo
+identifica un registro; el pasaje debe haberse localizado y la afirmación debe pasar el cotejo
+automático antes de llamarla verificada.

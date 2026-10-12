@@ -33,9 +33,14 @@ y aceptar la instalación. Las investigaciones se guardan en `~/.ezresearch/runs
 ## Cómo trabaja
 
 Cada herramienta ejecuta el mismo comando `ez` que usaría un agente en la terminal,
-así que las reglas de cribado, verificación e integridad son idénticas. Como Claude
+así que las reglas de cribado, verificación e integridad son idénticas. Un marcador
+válido identifica un registro; no prueba que el pasaje se haya localizado ni que la
+afirmación se haya verificado. La entrega directa, la localización literal del pasaje,
+la verificación automática de respaldo y la revisión humana son estados distintos. Como Claude
 Desktop no lee archivos locales, `ez_read` muestra los archivos de trabajo de una
 investigación y `ez_submit` guarda los documentos que prepara el agente.
+
+Para una recuperación completa, el agente puede usar `ez_recall` con `full=true`.
 
 `ez_continue` y `ez_submit` (salvo con `check`) corren en segundo plano: vuelven al
 instante y el agente sigue el avance con `ez_status`, que incluye el estado de la

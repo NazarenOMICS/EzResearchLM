@@ -36,14 +36,23 @@ entorno instalado; no hace falta modificar el PATH del sistema.
 
 Si falta NotebookLM, `ez setup --install-notebooklm` instala la versión compatible en un
 entorno propio. Para iniciar sesión, `ez setup --login` abre una ventana de Google donde
-entras tú; el agente no lee ni copia cookies. Una comprobación de acceso no acredita una
-corrida completa.
+entras tú; el agente no lee ni copia cookies. EZ informa acceso listo solo cuando la salida de
+`notebooklm list --json` tiene el formato esperado. Esa señal no acredita una corrida completa,
+una respuesta con pasajes ni una afirmación verificada.
+
+En una investigación, un marcador válido solo identifica un registro. Un pasaje localizado
+aparece literalmente en el texto cotejado; una entrega directa conserva lo que respondió NotebookLM junto
+con su pasaje citado, aunque la localización quede pendiente; una afirmación verificada pasó un cotejo automático aparte. La revisión humana
+se registra por separado.
 
 ## Carpetas
 
 Tus proyectos (bandeja de PDFs, informes e índice) quedan en una carpeta visible que eliges
 con `ez setup --projects-dir "<carpeta>"`; el agente propone
-`Documents\EZresearchLM\projects`. La organización está en [docs/carpetas.md](docs/carpetas.md).
+`Documents\EZresearchLM\projects`. EZ copia los proyectos existentes, verifica la copia y
+después cambia la configuración; conserva la carpeta de origen. Si hay una colisión o falla
+la copia, conserva el origen y la ruta configurada. La organización está en
+[docs/carpetas.md](docs/carpetas.md).
 
 Las corridas se guardan en `~/.ezresearch/runs`. Se puede elegir otra carpeta con
 `--root "D:\Mis investigaciones\runs"` en cada comando o mediante `EZRESEARCH_RUNS_ROOT`.

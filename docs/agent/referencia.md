@@ -12,10 +12,16 @@ no un veredicto único sobre la investigación. Informa la que dé EZ y su `next
 esquives.
 
 Contratos, fuentes, manifiestos QA y respuestas se vinculan por hash y por transacciones en
-`events.jsonl`. Un archivo alterado requiere diagnóstico (`ez doctor <corrida> --json`); no
+`events.jsonl`. Antes de reutilizar el texto cacheado de un PDF, EZ verifica sus bytes contra el
+hash registrado; un PDF ausente o cambiado no aporta evidencia y aparece en los problemas de
+integridad. Un archivo alterado requiere diagnóstico (`ez doctor <corrida> --json`); no
 regeneres hashes para aceptar cambios desconocidos. Un diagnóstico local correcto comprueba
 archivos; no certifica una conclusión científica. Las corridas de versiones anteriores se
 inspeccionan con `ez doctor <ruta> --migration-preview --json`, sin modificarlas.
+
+Un marcador válido identifica un registro; `found_in_fulltext` indica localización literal en el texto indexado; una
+entrega directa conserva la respuesta y el pasaje; una afirmación verificada pasó el cotejo
+automático. La revisión humana se registra con `ez verify` y es distinta de esos estados.
 
 ## Notebook por proyecto
 
@@ -25,8 +31,10 @@ fuentes; si no cabe o ya no existe, EZ crea otro. Los PDFs se reconocen por su h
 ya procesado no se sube otra vez. Cada consulta pasa `--source` con las fuentes de la corrida y
 empieza una conversación nueva (`--new`): las fuentes de otras corridas y los turnos anteriores
 no influyen. `--new` borra la conversación anterior de ese notebook en NotebookLM; EZ ya guardó
-cada respuesta. Si una creación de notebook quedó interrumpida, EZ la retoma solo. No agregues
-ni borres fuentes de un notebook de EZ a mano. `EZ_NOTEBOOK_REUSE=0` vuelve a un notebook por
+cada respuesta. Si una creación de notebook quedó interrumpida, EZ adopta el único notebook con
+el título de esa corrida y lo registra como compartido; la siguiente corrida puede reutilizarlo
+sin volver a subir los PDFs. Si hay varios con ese título, EZ pide resolver la ambigüedad. No
+agregues ni borres fuentes de un notebook de EZ a mano. `EZ_NOTEBOOK_REUSE=0` vuelve a un notebook por
 corrida.
 
 ## Autoridad y consentimiento

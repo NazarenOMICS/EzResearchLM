@@ -28,6 +28,12 @@ salida JSON de `ez` las repite en `operator_reminder`.
    escribir scripts que los generen.
 6. No leer `docs/history/`: describe versiones anteriores y confunde el formato vigente.
 
+No confundas estados de evidencia: un marcador válido identifica un registro; `found_in_fulltext`
+indica que el texto citado se localizó literalmente en el texto indexado cotejado; una entrega directa conserva la
+respuesta de NotebookLM y el pasaje citado; una afirmación verificada pasó el cotejo automático
+de respaldo. La revisión humana (`ez verify`) es otro juicio, y ninguno de esos estados convierte
+la recuperación léxica de `ez recall` en una evaluación de suficiencia.
+
 ## Primera conversación
 
 La persona puede no saber nada de agentes, terminales ni NotebookLM. Llévala tú, un paso por
@@ -59,7 +65,8 @@ vez de repetir el onboarding.
    3. El login lo hace la persona: corre `ez setup --login`, que vuelve enseguida y deja abierta
       una ventana de Google hasta 10 minutos (si ya hay acceso, no abre nada). Pídele que entre
       y te avise; comprueba con `ez setup --check`. `login_status` dice qué pasó (`ready`,
-      `browser_closed`, `timeout`, `saved_session_invalid`); con `browser_closed` o `timeout`,
+      `browser_closed`, `timeout`, `saved_session_invalid`); `ready` exige una lista válida de
+      `notebooklm list --json`, no basta un código de salida cero. Con `browser_closed` o `timeout`,
       ofrece abrirla otra vez. No uses `notebooklm login` directamente (toma la portada pública
       de NotebookLM por una sesión) ni el navegador integrado del agente. No leas, copies ni
       imprimas cookies.
@@ -71,8 +78,7 @@ vez de repetir el onboarding.
       relacionado: «Esto parece parte de tu proyecto <nombre>, que ya tiene <N> artículos
       verificados. ¿Lo sumo ahí o abro uno nuevo?». Si lo suma: «¿Respondo primero solo con lo
       que ya tiene el proyecto (unos pocos minutos) o busco también artículos nuevos?». Si
-      ninguno se relaciona, propón un nombre corto («Creo el proyecto ayuno-insulina, ¿te
-      parece?»).
+      ninguno se relaciona, propón un nombre breve ligado a su pregunta.
    3. «¿Tienes PDFs propios sobre el tema?»: la bandeja del proyecto (`workspace.inbox_link` de
       `ez context`) u otra carpeta que nombre (`ez rescue --import-folder <carpeta>`). Solo
       lees una carpeta fuera de EZ cuando la persona la nombra.
@@ -85,7 +91,7 @@ vez de repetir el onboarding.
    actuar. Cuando pidas PDFs, da siempre el enlace clicable a la bandeja: EZ toma solo lo que
    la persona deje ahí al continuar.
 6. **Entrega.** Resume en 5 líneas lo central, cada afirmación con su `citation` antes del
-   marcador: «… (García et al., 2021) [EZ:qa1-2]». Da el enlace al informe en la carpeta del
+   marcador: «… (Autor et al., 2021) [EZ:qa1-2]». Da el enlace al informe en la carpeta del
    proyecto (`workspace.report_link` de `ez status --answer`, en `reports/`, no el de `runs/`)
    y al índice del proyecto (`README.md`), y ofrece como opciones numeradas: (1) verificar
    afirmaciones para redactar (`--verify`), (2) exportar la bibliografía a Zotero
@@ -105,25 +111,33 @@ Nunca respondas con tu memoria como si fuera evidencia:
 
 1. Si las afirmaciones entregadas ya responden, contesta solo con ellas, con su cita y su
    marcador, y dilo.
-2. Si no, corre `ez recall "<pregunta>" --project <proyecto>`: en segundos y sin NotebookLM,
-   busca entre las afirmaciones ya entregadas del proyecto y en el texto completo de sus PDFs.
-   Escribe la consulta también con los términos del idioma de los artículos (casi siempre
-   inglés): «duración del ayuno fasting duration insulin sensitivity».
+2. Si no, la forma preferida es `ez recall "<pregunta>" --project <proyecto>`: en segundos y
+   sin NotebookLM, recupera afirmaciones entregadas y pasajes del texto completo de los PDFs.
+   `--full` trae el resultado completo; el MCP acepta `full=true`. Si la carpeta de corridas se
+   movió, EZ encuentra cada PDF por su hash. También acepta una corrida
+   existente explícita antes de la pregunta cuando es compatible con el proyecto. Si hay un solo
+   proyecto, lo elige; si hay varios, indica `--project`. No uses el nombre del proyecto como
+   argumento posicional. Puedes sumar términos del idioma de los artículos para mejorar la
+   recuperación, sin cambiar por eso el alcance acordado.
    1. `hits` son afirmaciones de otras investigaciones del proyecto, con marcador
-      `[EZ:<corrida>/<id>]`, la pregunta en que se obtuvieron y un pasaje recortado (`--full`
-      trae todos). Con `evidence: sufficient`, responde con ellas; con `partial`, responde lo
-      cubierto y sigue al paso 3.
+      `[EZ:<corrida>/<id>]`, su pregunta y su contexto. La salida compacta conserva el contexto y
+      la fuente de cada pasaje; `--full` trae textos y listas completos. `evidence` es
+      `needs_judgment` si recuperó algo y `none` si no: EZ no juzga si los resultados contestan
+      la pregunta (`answer_assessed` es `false`). Júzgalo tú: si una afirmación o un pasaje
+      responde literalmente, con el alcance y el contexto pedidos, contesta con ellos y su marcador
+      sin consultar NotebookLM; si falta una respuesta explícita, pasa a `ez ask`.
    2. `pdf_passages` son pasajes literales con página, cita y marcador `[EZ:pdf-<hash>-p<página>]`:
-      úsalos solo para lo que dicen textualmente. Uno con `in_references: true` es una cita a
-      otro trabajo, no un resultado: sirve para saber si un artículo («Smith 2019») está
-      citado, nunca para decir qué encontró. Para métodos, condiciones, dosis o referencias,
-      suelen alcanzar.
-   3. `named_works_absent` lista los trabajos que la pregunta nombra («Smith 2019», un DOI) y
-      que no están entre las fuentes del proyecto: no digas qué encontraron; ofrece sumarlos con
-      una investigación nueva.
-   4. Con `query_language_mismatch: true`, la consulta casi no coincide con el texto de los
-      PDFs: repítela sumando los términos en el idioma de los artículos antes de decidir.
-   5. Si responder exige afirmar algo que ningún pasaje dice literalmente, sigue al paso 3.
+      úsalos solo para lo que dicen textualmente. Un `in_references: true` solo muestra que el
+      artículo aparece citado en una bibliografía. Antes de reutilizar texto cacheado, EZ coteja
+      el hash del PDF; un PDF ausente o cambiado queda señalado en `integrity_issues`.
+   3. `named_works_absent` se limita a un DOI que no coincide exactamente con ninguna fuente del
+      proyecto. Un nombre de autor y año que no se resuelve de forma inequívoca aparece en
+      `named_works_unresolved` («en 2019» o «hasta 2018» no cuentan como trabajos): no lo presentes
+      como ausente; ofrece aclarar el trabajo o buscarlo.
+   4. `query_language_mismatch` es `null`: EZ no infiere el idioma de la consulta. Si aparece
+      `low_lexical_overlap`, trátalo como señal de poca coincidencia léxica, no como diagnóstico
+      de idioma; puedes reformular con términos del artículo sin ampliar el alcance.
+   5. Si ningún pasaje sostiene la afirmación que pide la persona, sigue al paso 3.
 3. Si `ez recall` no alcanza, corre `ez ask "<pregunta>" --project <proyecto>`: NotebookLM
    responde con los PDFs del proyecto, sin buscar ni descargar, en uno o dos minutos. Si se
    corta, repite exactamente la misma pregunta: EZ la retoma. `evidence` dice si alcanzó:

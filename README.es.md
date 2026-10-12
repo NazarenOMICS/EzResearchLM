@@ -4,7 +4,7 @@
 
 **EZ busca artículos científicos sobre tu pregunta, los carga en tu NotebookLM y te entrega
 lo que dicen, con el pasaje y la página de cada cita.** No responde de memoria: cada
-afirmación sale de un PDF que puedes abrir.
+afirmación entregada apunta a evidencia en un PDF que puedes abrir.
 
 > **Versión preliminar.** Funciona de punta a punta, pero falta la validación externa
 > (comparación con otras herramientas e instalación en equipos limpios). Revisa cada
@@ -52,7 +52,7 @@ Si no usas agentes en la terminal, hay una
    título y el enlace al DOI para que lo consigas por tu biblioteca o pidiéndolo a los
    autores. Lo dejas en la bandeja del proyecto y EZ lo toma solo.
 5. **Respuesta.** EZ carga los PDFs en tu NotebookLM, le hace las preguntas y te entrega un
-   informe: lo central primero, cada afirmación con su pasaje y su página, lo que no se pudo
+   informe: lo central primero, cada afirmación directa con su pasaje citado y su página cuando se localiza, lo que no se pudo
    responder y por qué.
 6. **Después.** Puedes pedir que verifique las afirmaciones una por una antes de redactar,
    exportar la bibliografía a Zotero o hacer otra pregunta en el mismo proyecto, que
@@ -70,10 +70,16 @@ Si no usas agentes en la terminal, hay una
 
 Más detalle en [dónde queda cada cosa](docs/carpetas.md).
 
+Un marcador `[EZ:…]` válido identifica una afirmación o un pasaje guardado. Por sí solo no
+demuestra que el pasaje citado se haya localizado ni que la afirmación se haya evaluado. Una
+afirmación de entrega directa es una respuesta de NotebookLM con su pasaje citado; su localización
+literal es otro cotejo. No necesariamente pasó una verificación por afirmación. Una afirmación con
+verificación automática pasó el cotejo de respaldo en las fuentes; la revisión humana se
+registra por separado.
+
 ## Qué se midió
 
-Corridas reales de octubre de 2026 sobre la pregunta de prueba del proyecto (efecto del
-etambutol en *Corynebacterium glutamicum*):
+Corridas reales de octubre de 2026 sobre la pregunta de prueba del proyecto:
 
 | Medida | Resultado |
 |---|---|
@@ -82,8 +88,8 @@ etambutol en *Corynebacterium glutamicum*):
 | Afirmaciones respaldadas por su pasaje, en 20 revisadas a mano | 18 respaldadas, 2 parciales, 0 sin respaldo |
 
 Cada pregunta a NotebookLM tarda alrededor de un minuto, igual que en su web. La muestra de
-20 es chica: la precisión real está, con 95 % de confianza, entre 70 % y 97 %. El detalle
-está en `gold_set_benchmark/` y el plan pendiente en la [hoja de ruta](docs/roadmap.md).
+20 es chica: la precisión real está, con 95 % de confianza, entre 70 % y 97 %. La [hoja de ruta](docs/roadmap.md)
+conserva las mediciones históricas y sus límites.
 
 ## Límites
 
@@ -94,9 +100,9 @@ está en `gold_set_benchmark/` y el plan pendiente en la [hoja de ruta](docs/roa
    puede dejar de funcionar hasta que se actualice.
 4. **Solo acceso abierto o PDFs tuyos.** EZ no usa Anna's Archive ni Sci-Hub ni evade
    controles de acceso.
-5. **La comprobación es automática.** Las afirmaciones son oraciones de NotebookLM con los
-   pasajes que él mismo citó; la verificación opcional también la hace NotebookLM. Ninguna
-   de las dos es una revisión humana.
+5. **Las comprobaciones son automáticas.** Una afirmación directa conserva la oración de
+   NotebookLM y el pasaje citado; la verificación opcional coteja el respaldo de cada
+   afirmación con las fuentes. Ninguno de esos pasos es una revisión humana.
 
 ## Instalación (para el agente)
 

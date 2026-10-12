@@ -6,23 +6,31 @@ persona quiere redactar.
 ## La entrega directa
 
 Al terminar las preguntas a NotebookLM, EZ entrega sin revisión del agente ni otra consulta:
-cada oración de NotebookLM con al menos una cita con pasaje es una afirmación (`qa1-1`,
+cada oración de NotebookLM con una cita que incluye un pasaje es una afirmación (`qa1-1`,
 `qa1-2`, …); las oraciones sin cita quedan aparte en `uncited_statements` y no son evidencia.
-Las oraciones casi idénticas entre respuestas se unen con todos sus pasajes, y con más de 8
-afirmaciones el informe empieza por «Lo central»: las respaldadas por más fuentes.
+La deduplicación es conservadora: solo une texto y `context` idénticos, conservando cada fuente
+y pasaje asociado. No unas sinónimos ni frases por contención. Con más de 8 afirmaciones el
+informe empieza por «Lo central»: las respaldadas por más fuentes.
 
 Una afirmación que sale de una lista trae `context`: los títulos y rótulos bajo los que estaba
-(«Estudio en adultos (García et al., 2021) › Resultado observado»). Muéstralo con ella, porque
-sin él «Dosis: 16 h de ayuno» no dice de qué estudio ni de qué condición es.
+(«Estudio A (Autor A, 2021) › Resultado observado»). Muéstralo con ella, porque sin ese contexto
+un valor aislado puede no indicar a qué estudio o condición corresponde.
 
-Lee `ez status <corrida> --answer --json` (resumido; `--full` trae los pasajes). Entrega solo
+Lee `ez status <corrida> --answer --json` (resumido; `--full` trae la salida completa). La salida
+compacta conserva el `context` de cada afirmación y la fuente de cada pasaje. Entrega solo
 lo habilitado, con su `citation` y su marcador, y di también qué falta y por qué (`gaps`), las
 afirmaciones retenidas (`withheld_claims`), las preguntas no consultadas
 (`skipped_questions`) y lo que quedó fuera del corpus (`corpus_exclusions_summary`). El informe
 de evidencia (`report.md`, copiado al `reports/` del proyecto) reúne respuesta, pasajes con
-página, fuentes numeradas, lagunas y exclusiones. Cita títulos, autores e identificadores desde
+página cuando se localiza, fuentes numeradas, lagunas y exclusiones. Cita títulos, autores e identificadores desde
 `source` o el informe, nunca desde memoria. Si una afirmación trae el aviso
 `numbers_not_in_passages`, señálalo: un número suyo no aparece en sus pasajes.
+
+Un marcador válido identifica un registro, pero no prueba que el pasaje esté localizado.
+`found_in_fulltext` indica que el texto citado aparece literalmente en el texto indexado cotejado; eso no evalúa
+por sí solo la afirmación. La entrega directa conserva la respuesta de NotebookLM y el pasaje
+citado, aunque la localización quede pendiente. Una afirmación verificada pasó el cotejo automático de respaldo. `ez verify` registra
+por separado el juicio que una persona hizo al leer el PDF.
 
 ## Verificar antes de redactar
 
@@ -36,7 +44,10 @@ equivale a una revisión científica humana.
 ## Redactar
 
 Con `ez draft <corrida>` obtienes las afirmaciones con su `citation` y su marcador; si traen
-`unverified`, verifícalas antes. Escribe solo con ellas (también puedes usar las de `ez recall`:
+`unverified`, verifícalas antes. `ez recall "<pregunta>" --project <proyecto> --full` recupera
+el resultado completo; en MCP usa `full=true`. Su `evidence` (`needs_judgment` o `none`) dice si
+recuperó algo, no si basta: `answer_assessed` queda en `false` y el juicio es tuyo. Escribe solo con las
+afirmaciones entregadas que puedas atribuir (también puedes usar marcadores de `ez recall`:
 `[EZ:<corrida>/<id>]` y `[EZ:pdf-…]`), cita cada una con autor y año más su marcador, y comprueba
 con `ez draft <corrida> --check <archivo>`: rechaza marcadores inexistentes o retenidos y lista
 las oraciones sin marcador. Una oración sin marcador que afirme algo de la literatura se

@@ -4,7 +4,7 @@
 
 **EZ finds scientific articles on your question, loads them into your NotebookLM and hands
 you what they say, with the passage and page behind every citation.** It does not answer
-from memory: every claim comes from a PDF you can open.
+from memory: every delivered claim points to evidence in a PDF you can open.
 
 > **Preview release.** It works end to end, but external validation is still pending
 > (comparison with other tools, installs on clean machines). Check each passage in its PDF
@@ -52,7 +52,7 @@ If you do not use agents in a terminal, there is an
    paywalled. It gives you the title and a DOI link so you can get it through your library
    or by asking the authors. You drop it in the project inbox and EZ picks it up.
 5. **Answer.** EZ loads the PDFs into your NotebookLM, asks its questions and delivers a
-   report: the key findings first, every claim with its passage and page, and what could not
+   report: the key findings first, every direct claim with its cited passage and page when located, and what could not
    be answered and why.
 6. **Then.** You can have each claim verified one by one before writing, export the
    bibliography to Zotero, or ask another question in the same project, which reuses the
@@ -71,10 +71,15 @@ If you do not use agents in a terminal, there is an
 More in [where everything goes](docs/carpetas.md)
 (Spanish).
 
+A valid `[EZ:…]` marker identifies a saved claim or PDF passage. It does not by itself show
+that the quoted passage was found or that the claim was assessed. A direct claim is a
+NotebookLM answer with its cited passage; literal location is a separate check. It has not necessarily passed
+claim-by-claim verification. An automatically verified claim passed EZ's source-support
+check, while a human review is recorded separately.
+
 ## What was measured
 
-Live runs in October 2026 on the project's test question (the effect of ethambutol on
-*Corynebacterium glutamicum*):
+Live runs in October 2026 on the project's test question:
 
 | Measure | Result |
 |---|---|
@@ -83,8 +88,8 @@ Live runs in October 2026 on the project's test question (the effect of ethambut
 | Claims backed by their passage, 20 checked by hand | 18 supported, 2 partial, 0 unsupported |
 
 Each NotebookLM question takes about a minute, the same as in its web app. A sample of 20 is
-small: the true precision lies, with 95 % confidence, between 70 % and 97 %. Details are in
-`gold_set_benchmark/` and the pending plan in the [roadmap](docs/roadmap.md) (Spanish).
+small: the true precision lies, with 95 % confidence, between 70 % and 97 %. The [roadmap](docs/roadmap.md)
+(Spanish) keeps the historical measurements and their limits.
 
 ## Limits
 
@@ -95,8 +100,9 @@ small: the true precision lies, with 95 % confidence, between 70 % and 97 %. Det
    may stop working until it is updated.
 4. **Open access or your own PDFs only.** EZ does not use Anna's Archive or Sci-Hub and does
    not bypass access controls.
-5. **Checking is automatic.** Claims are NotebookLM's sentences with the passages it cited
-   itself; the optional verification is done by NotebookLM too. Neither is a human review.
+5. **Evidence checks are automatic.** A direct claim keeps NotebookLM's sentence and its
+   cited passage; optional claim-by-claim verification checks support against the sources.
+   Neither step is a human review.
 
 ## Installation (for the agent)
 

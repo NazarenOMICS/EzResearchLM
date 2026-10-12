@@ -35,12 +35,12 @@ El recorrido es:
 4. **Investigar.** EZ resume qué va a buscar, conserva el contexto y consulta la
    evidencia en NotebookLM. Te avisa si necesita un documento o una decisión.
 5. **Revisar el resultado.** Recibes un informe de evidencia (`report.md`) apenas
-   NotebookLM responde: cada afirmación es una oración de NotebookLM con el pasaje que
-   citó, las fuentes van numeradas con su archivo y se indica lo que quedó pendiente y
+   NotebookLM responde: cada afirmación directa conserva su contexto y el pasaje citado que
+   NotebookLM proporcionó; se añade la página cuando se localiza. Las fuentes van numeradas con su archivo y se indica lo que quedó pendiente y
    por qué. Lo que NotebookLM dijo sin citar aparece aparte y no cuenta como evidencia.
-   Si vas a redactar, pide la verificación por afirmación: EZ consulta de nuevo cada
-   una, redacta solo con las que pasan y comprueba que cada una conserve su marca. Una
-   búsqueda sin suficiente evidencia no se convierte en una respuesta inventada.
+   Si vas a redactar, pide la verificación por afirmación: EZ consulta de nuevo cada una,
+   redacta solo con las que pasan y comprueba que cada una conserve su marca. Una búsqueda sin
+   suficiente evidencia no se convierte en una respuesta inventada.
 
 **Dónde queda todo.** Cada proyecto tiene su carpeta en `~/.ezresearch/projects/` con un
 índice (`README.md`), una bandeja para tus PDFs y los informes con su bibliografía. El
@@ -69,7 +69,7 @@ NotebookLM ni modificar investigaciones. `ez --help` enumera las acciones.
 | «Continuemos» | Retoma la investigación identificada en la conversación |
 | «Tengo este PDF; incorpóralo» | Conserva su origen, comprueba el documento y continúa el alcance afectado |
 | «Esto es para mi proyecto de tesis» | Suma la investigación a ese proyecto y reutiliza sus artículos y su notebook |
-| «Y ¿qué concentraciones se usaron?» (seguimiento) | Responde con las citas ya entregadas; si no alcanzan, busca en segundos entre todo lo ya verificado del proyecto, y solo si eso tampoco alcanza le pregunta a NotebookLM sobre tus PDFs. Lo que sea razonamiento propio del agente aparece separado y marcado |
+| «Y ¿qué valor se midió?» (seguimiento) | Responde con las afirmaciones ya entregadas; si no alcanzan, busca en segundos coincidencias en las afirmaciones y los PDFs del proyecto, y consulta a NotebookLM si todavía falta una respuesta explícita. El razonamiento propio del agente aparece separado y marcado |
 | «Responde solo con lo que ya tengo» | Contesta con los PDFs ya verificados del proyecto, sin buscar ni descargar |
 | «¿Qué proyectos tengo?» | Lista tus proyectos con sus investigaciones y su última actividad |
 | «¿Qué artículos clave me faltan?» | Antes de descargar, lista los centrales que son pagos, con título y enlace al DOI para que los consigas por tu biblioteca o los autores |
@@ -138,8 +138,12 @@ Ejemplo ilustrativo de una respuesta parcial, no un resultado académico real:
   Otras partes pueden responderse si tienen respaldo independiente.
 - **Revisión pendiente:** falta confirmar identidad, cobertura o una decisión
   concreta sobre las fuentes. No se considera una respuesta verificada todavía.
-- **Respuesta parcial:** recibes únicamente conclusiones respaldadas, junto con
-  sus citas y lo que falta. Una fuente ausente no equivale a evidencia negativa.
+- **Respuesta directa:** muestra lo que NotebookLM dijo con su pasaje citado; eso
+  no significa que la afirmación haya pasado el cotejo automático ni una revisión humana.
+- **Respuesta verificada:** la afirmación pasó el cotejo automático de respaldo. Una revisión
+  humana solo se registra cuando tú lees el PDF y emites un juicio.
+- **Respuesta parcial:** recibes únicamente las afirmaciones que el flujo permite entregar,
+  junto con sus citas y lo que falta. Una fuente ausente no equivale a evidencia negativa.
 - **Problema de integridad:** se retiene la respuesta afectada porque cambió un
   archivo, una cita no se puede verificar o el corpus no corresponde al registro.
 
@@ -162,6 +166,14 @@ vuelven a subir ni a procesar.
 
 Si ya trabajabas con los wrappers de versiones anteriores, EZ puede leer y migrar esas
 corridas: la migración se previsualiza y crea una copia lateral. Los originales no se borran.
+
+Para recuperar evidencia de un proyecto, EZ usa primero las afirmaciones ya entregadas y luego
+`ez recall "<pregunta>" --project <proyecto>`. Si hay un solo proyecto puede elegirlo; con varios,
+hay que indicar cuál. La forma recomendada escribe la pregunta antes de `--project`; no pongas el
+nombre del proyecto como argumento posicional. `recall` encuentra coincidencias por palabras, pero
+no evalúa si contestan la pregunta. Un marcador válido identifica un registro; la localización
+literal del pasaje y la verificación de respaldo son pasos distintos. Puedes pedir el resultado
+completo con `--full` (en la extensión, `full=true`).
 
 ## Qué puedes esperar de una respuesta
 
