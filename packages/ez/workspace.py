@@ -35,10 +35,21 @@ def home(runs_root):
     return runs_root.parent if runs_root.name == 'runs' else runs_root
 
 
+def config_path(runs_root):
+    """ez-config.json in the EZ folder; for a runs root not named runs, also the one beside it that earlier versions wrote.
+
+    Until 2026-10-12 the config always sat in the parent of the runs root, whatever its name: reading only the new place
+    lost the projects folder and the Unpaywall email of those installations.
+    """
+    config = home(runs_root) / 'ez-config.json'
+    legacy = Path(runs_root).resolve().parent / 'ez-config.json'
+    return legacy if not config.is_file() and legacy.is_file() else config
+
+
 def projects_home(runs_root):
     """Where the person's projects live: the folder chosen with ez setup --projects-dir, or <EZ folder>/projects."""
     import json
-    config = home(runs_root) / 'ez-config.json'
+    config = config_path(runs_root)
     try:
         chosen = json.loads(config.read_text(encoding='utf-8-sig')).get('projects_dir') if config.is_file() else None
     except (OSError, ValueError):
@@ -84,6 +95,22 @@ def relocate_projects(previous, chosen):
                 except FileNotFoundError:
                     pass
         raise
+
+
+MOVED_NOTE = ('# Moved\n\nEZ now keeps these projects in {chosen}. This folder is a copy kept for safety: EZ no '
+              'longer reads it, so drop new PDFs in the inbox over there. You can delete this folder once you have '
+              'checked the new one.\n')
+
+
+def leave_moved_notes(previous, chosen):
+    """A note in the old folder and in each of its inboxes: the copy stays, and PDFs dropped there would be ignored."""
+    previous = Path(previous)
+    if not previous.is_dir():
+        return False
+    note = MOVED_NOTE.format(chosen=Path(chosen).resolve())
+    for folder in [previous, *(p for p in previous.glob('*/inbox') if p.is_dir())]:
+        (folder / 'MOVED.md').write_text(note, encoding='utf-8')
+    return True
 
 
 def project_dir(runs_root, project):

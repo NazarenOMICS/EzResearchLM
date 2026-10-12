@@ -53,13 +53,13 @@ def check_claim_pdfs(claim, runs_root=None):
             verify_pdf(source, runs_root)
 
 
-def records(runs_root, project, integrity_issues=None):
+def records(runs_root, project, integrity_issues=None, runs=None):
     """Every delivered claim of the project, newest research first."""
     from .context import history
     from .presenter import claim_citation
     from .contracts import ContractError
     found = []
-    for row in history(Path(runs_root), project, limit=500):
+    for row in history(Path(runs_root), project, limit=500) if runs is None else runs:
         folder = Path(row['path'])
         answer, state = valid_answer(folder)
         if not answer:
@@ -208,8 +208,10 @@ def recall(runs_root, project, question, limit=8, pdf_limit=6):
     """BM25 over each claim with its passages and source titles; coverage says how much of the question they touch."""
     from .library import project_sources
     from .workspace import topic_words
+    from .context import history
     integrity_issues = []
-    rows = records(runs_root, project, integrity_issues)
+    runs = history(Path(runs_root), project, limit=500)  # once: records and the PDF list read the same runs
+    rows = records(runs_root, project, integrity_issues, runs)
     documents = [words(' '.join([r['text'], r['context'] or ''] + [p['text'] + ' ' + (p['source'].get('title') or '') for p in r['passages']]))
                  for r in rows]
     query = set(words(question))
@@ -229,7 +231,7 @@ def recall(runs_root, project, question, limit=8, pdf_limit=6):
     for hit in hits[:COVERAGE_HITS]:
         touched |= topic_words(' '.join([hit['text'], hit['context'] or ''] + [p['text'] for p in hit['passages']]))
     coverage = round(len(asked & touched) / len(asked), 2) if asked else 0.0
-    sources = project_sources(runs_root, project)
+    sources = project_sources(runs_root, project, runs=runs)
     # A named work counts as the other words did, so «Smith 2019» looked answered by claims from other works (2026-10-11).
     known = sources + [p['source'] for r in rows for p in r['passages']]
     absent_works = [label for label, is_work in named_works(question) if label.startswith('10.') and not any(is_work(s) for s in known)]

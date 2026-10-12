@@ -482,3 +482,24 @@ antes del arreglo (`tests/test_audit_followup.py`):
    Semantic Scholar solo envían nombres como «Ana M. Lopez»: esas obras se citaban por el nombre
    completo. Vuelve a citarse por el apellido, con sus partículas («de la Fontaine»); los autores
    corporativos se conservan enteros.
+
+### Preparación de la prueba en vivo (2026-10-12)
+
+Una auditoría previa a la prueba (`tests/test_readiness.py`) encontró y corrigió:
+
+1. La salida compacta de `ez recall` había crecido de 6 a 14–18 KB porque cada pasaje llevaba la
+   ficha completa de su fuente. Ahora lleva `source_id` y cita, y omite banderas vacías: 9–13 KB
+   sobre la copia de la prueba anterior, con los pasajes de PDF que antes no se buscaban.
+2. `ez plan --help` usaba como ejemplo un tema del gold set. El test de contaminación ahora
+   cubre también los README, SETUP, la extensión, `docs/carpetas.md` y el texto de la CLI y del MCP.
+3. Una raíz de corridas que no se llama `runs` vuelve a leer la configuración que versiones
+   anteriores guardaron junto a ella (carpeta de proyectos y correo de Unpaywall).
+4. Al mudar los proyectos, la carpeta anterior y cada bandeja reciben una nota `MOVED.md`, y
+   `ez setup` lo informa, para que no queden PDFs en una bandeja que EZ ya no lee.
+5. `ez recall` verifica cada journal una vez por proceso mientras no cambie, y lista las
+   corridas del proyecto una sola vez: unos 10 s con caché sobre la copia de la prueba anterior
+   (igual que antes, pero buscando también en los 13 PDFs, que el código anterior no encontraba
+   con la carpeta movida).
+6. Los 324 MB de D6 corresponden a `du` de toda la carpeta `runs/`, no solo a los PDFs.
+
+Pendiente de la prueba en vivo: comprobar que la sesión de NotebookLM sigue activa.

@@ -7,7 +7,8 @@ EZ necesita para poder verificar cada resultado.
 Tus proyectos (`projects/`) pueden estar en otra carpeta, a la vista: durante la primera
 conversación EZ te propone `Documentos\EZresearchLM\projects`, junto a la instalación, y la
 guarda con `ez setup --projects-dir`. EZ copia los proyectos existentes, verifica los archivos
-y recién entonces actualiza la configuración. La carpeta de origen se conserva para recuperación;
+y recién entonces actualiza la configuración. La carpeta de origen se conserva para recuperación,
+con una nota `MOVED.md` en ella y en cada bandeja que indica la nueva ubicación (EZ ya no la lee);
 ante una colisión o un fallo, el origen y la ruta configurada quedan intactos. El registro de
 trabajo (`runs/`) queda por defecto en `.ezresearch`; `--root` o `EZRESEARCH_RUNS_ROOT` pueden
 elegir otra raíz. `install.json` le dice a tu agente dónde está instalado EZ cuando vuelves en un

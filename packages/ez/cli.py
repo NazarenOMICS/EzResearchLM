@@ -35,6 +35,7 @@ DETAIL_KEYS = ('fulltext_receipts', 'verification_receipts', 'inbox_import', 'sn
 def compact(value):
     """The answer without bulky detail: exclusions by reason, claims without their passages (the report has them)."""
     from collections import Counter
+    from .presenter import short_citation
     value = {k: v for k, v in value.items() if k not in DETAIL_KEYS}
     exclusions = value.get('corpus_exclusions')
     if isinstance(exclusions, list) and exclusions:
@@ -47,28 +48,34 @@ def compact(value):
         value['claims'] = [dict({k: c[k] for k in ('id', 'marker', 'citation', 'context', 'text', 'scope_ids', 'warnings', 'verification', 'human_check') if k in c},
                                 passages=len(c.get('references', [])),
                                 omitted_passages=len(c.get('references', [])),
-                                passage_sources=[{'source_id': r.get('source_id'), 'page': r.get('page'),
-                                                  'source': r.get('source', {})} for r in c.get('references', [])],
+                                passage_sources=[{'source_id': r.get('source_id') or (r.get('source') or {}).get('source_id'),
+                                                  'page': r.get('page'), 'citation': short_citation(r.get('source') or {})}
+                                                 for r in c.get('references', [])],
                                 pages=sorted({r['page'] for r in c.get('references', []) if r.get('page')}))
                            for c in claims]
         value['detail'] = 'Pasajes y fuentes completos: report_path, o este mismo comando con --full.'
     if value.get('kind') == 'recall':
-        # Each passage carried its whole source record: a recall weighed 31 to 39 KB, more than any other answer.
+        # Each passage carried its whole source record: a recall weighed 31 to 39 KB, more than any other answer, and again
+        # 14 to 18 KB after the audit fixes (2026-10-12). A passage names its work by id and citation; --full has the rest.
         clip = lambda text, size: text if len(text) <= size else text[:size].rsplit(' ', 1)[0] + ' …'
         value['hits'] = [dict({k: h[k] for k in ('marker', 'citation', 'context', 'text') if h.get(k)},
                               question=clip(h.get('question') or '', 120), passages=len(h.get('passages', [])),
-                              question_truncated=len(h.get('question') or '') > 120,
-                              delivery=h.get('delivery'), verification=h.get('verification'),
-                              omitted_passages=max(0, len(h.get('passages', [])) - 1),
+                              delivery=h.get('delivery'),
+                              # Flags only when they say something: verification repeated delivery in every hit.
+                              **({'question_truncated': True} if len(h.get('question') or '') > 120 else {}),
+                              **({'human_check': h['verification']['human_check']}
+                                 if (h.get('verification') or {}).get('human_check') else {}),
+                              **({'omitted_passages': len(h['passages']) - 1} if len(h.get('passages', [])) > 1 else {}),
                               passage=next(({'page': p.get('page'), 'text': clip(p['text'], 250),
-                                             'source': p.get('source', {}), 'truncated': len(p['text']) > 250,
+                                             'source': {'source_id': (p.get('source') or {}).get('source_id'),
+                                                        'citation': short_citation(p.get('source') or {})},
+                                             'truncated': len(p['text']) > 250,
                                              'omitted_characters': max(0, len(p['text']) - len(clip(p['text'], 250).removesuffix(' …')))}
                                             for p in h.get('passages', [])), None))
                          for h in value.get('hits', [])]
         value['omitted_pdf_passages'] = max(0, len(value.get('pdf_passages', [])) - 4)
         value['pdf_passages'] = [dict({k: p[k] for k in ('marker', 'page', 'in_references', 'text')},
                                       source_id=p['source'].get('source_id'),
-                                      title_truncated=len(p['source'].get('title') or '') > 90,
                                       citation=p['source'].get('citation'), title=clip(p['source'].get('title') or '', 90))
                                  for p in value.get('pdf_passages', [])[:4]]
         value['detail'] = ('Recortes cuantificados en omitted_passages, omitted_characters y omitted_pdf_passages. '
@@ -732,7 +739,7 @@ def main(argv=None):
                    'sin IDS, las 10 respaldadas por más fuentes; o IDs separados por comas.')
     p = sub.add_parser('plan', help='Armar el plan de una corrida con preguntas QA y búsquedas, sin escribir JSON.'); p.add_argument('run')
     p.add_argument('--qa', action='append', metavar='PREGUNTA', help='Pregunta para NotebookLM, una por subpregunta (repetible).')
-    p.add_argument('--query', action='append', metavar='PROVEEDOR:TEXTO', help='Búsqueda, p. ej. pubmed:"ethambutol glutamicum" (repetible).')
+    p.add_argument('--query', action='append', metavar='PROVEEDOR:TEXTO', help='Búsqueda, p. ej. pubmed:"seed germination temperature" (repetible).')
     p.add_argument('--delivery', choices=['direct', 'verified']); p.add_argument('--stop-rule')
     p.add_argument('--reuse-only', action='store_true', help='Responder solo con los PDFs ya verificados, sin buscar.')
     p.add_argument('--max-results', type=int, default=25, choices=range(1, 101), metavar='1-100',

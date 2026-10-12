@@ -71,6 +71,9 @@ def lock(directory):
                 fcntl.flock(handle, fcntl.LOCK_UN)
 
 
+_VERIFIED_JOURNALS = set()
+
+
 class Store:
     def __init__(self, root):
         self.root = Path(root)
@@ -80,7 +83,12 @@ class Store:
         if not self.journal.exists():
             return []
         result = []
+        modified = self.journal.stat().st_mtime_ns
         raw = self.journal.read_bytes()
+        # Re-verifying every hash chain dominated ez recall (each run's journal, several times per call; 2026-10-12).
+        # A journal is trusted again only with the same path, bytes length and modification time.
+        key = (str(self.journal.resolve()), len(raw), modified)
+        verified = key in _VERIFIED_JOURNALS
         lines = raw.splitlines(keepends=True)
         for i, line in enumerate(lines):
             if not line.endswith(b'\n'):
@@ -90,11 +98,14 @@ class Store:
             event = json.loads(line)
             if not isinstance(event, dict) or event.get('schema_version') != '2.0':
                 raise ContractError('La versión del journal no es compatible; no se modifica.')
-            event_hash = event.get('event_hash')
-            body = {k: v for k, v in event.items() if k != 'event_hash'}
-            if event_hash != digest(body) or event.get('seq') != len(result) + 1 or event.get('previous_hash') != (result[-1]['event_hash'] if result else None):
-                raise ContractError('La integridad del journal no se puede verificar.')
+            if not verified:
+                event_hash = event.get('event_hash')
+                body = {k: v for k, v in event.items() if k != 'event_hash'}
+                if event_hash != digest(body) or event.get('seq') != len(result) + 1 or event.get('previous_hash') != (result[-1]['event_hash'] if result else None):
+                    raise ContractError('La integridad del journal no se puede verificar.')
             result.append(event)
+        if self.journal.stat().st_mtime_ns == modified:
+            _VERIFIED_JOURNALS.add(key)
         return result
 
     def append(self, kind, payload):

@@ -172,8 +172,9 @@ def prepare(root, check=False, install_notebooklm=False, unpaywall_email=None, p
             atomic_json(runtime / 'ez-install-receipt.json', receipt)
             if installed.returncode:
                 raise OSError('No se pudo instalar NotebookLM; el recibo conserva el diagnóstico y permite reintentar.')
-    from .workspace import home, projects_home, relocate_projects
-    config = home(root) / 'ez-config.json'
+    from .workspace import config_path, home, leave_moved_notes, projects_home, relocate_projects
+    config = config_path(root)
+    moved_from = None
     if not check:
         with lock(root.parent):
             root.mkdir(parents=True, exist_ok=True)
@@ -187,6 +188,8 @@ def prepare(root, check=False, install_notebooklm=False, unpaywall_email=None, p
                 chosen = Path(projects_dir).expanduser().resolve()
                 relocate_projects(previous_projects, chosen)
                 atomic_json(config, dict(read_json(config), projects_dir=str(chosen)))
+                if previous_projects.resolve() != chosen and leave_moved_notes(previous_projects, chosen):
+                    moved_from = str(previous_projects.resolve())
             write_install_pointer(root)
             if unpaywall_email:
                 if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', unpaywall_email):
@@ -242,6 +245,11 @@ def prepare(root, check=False, install_notebooklm=False, unpaywall_email=None, p
         # Unpaywall is the widest open-access index; without a contact email EZ skips it and more PDFs fail.
         checks['next_action'] += (' Para encontrar más PDFs de acceso abierto, guarda un correo de contacto para Unpaywall con '
                                   'ez setup --unpaywall-email <correo>; solo se envía a Unpaywall.')
+    if moved_from:
+        checks['projects_moved_from'] = moved_from
+        checks['next_action'] += (f' Los proyectos se copiaron a {checks["projects_dir"]}; la carpeta anterior ({moved_from}) '
+                                  'queda como respaldo con una nota MOVED.md. Dile a la persona que deje los PDFs nuevos en '
+                                  'la bandeja nueva y que puede borrar la anterior cuando revise la copia.')
     return checks
 
 

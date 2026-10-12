@@ -65,11 +65,11 @@ def verify_pdf(source, runs_root=None):
         raise ContractError('pdf_integrity_error: PDF ausente o cambiado; no se sirve evidencia ni caché.')
 
 
-def project_sources(runs_root, project, exclude_run=None):
-    """Verified PDFs of the project's other runs, one per content hash, newest run first."""
+def project_sources(runs_root, project, exclude_run=None, runs=None):
+    """Verified PDFs of the project's other runs, one per content hash, newest run first (runs: history already read)."""
     from .context import history
     found = {}
-    for row in history(Path(runs_root), project, limit=500):
+    for row in history(Path(runs_root), project, limit=500) if runs is None else runs:
         if row['run_id'] == exclude_run:
             continue
         path = Path(row['path']) / 'sources.json'

@@ -50,7 +50,8 @@ se registra por separado.
 Tus proyectos (bandeja de PDFs, informes e índice) quedan en una carpeta visible que eliges
 con `ez setup --projects-dir "<carpeta>"`; el agente propone
 `Documents\EZresearchLM\projects`. EZ copia los proyectos existentes, verifica la copia y
-después cambia la configuración; conserva la carpeta de origen. Si hay una colisión o falla
+después cambia la configuración; conserva la carpeta de origen, con una nota `MOVED.md` que
+indica la nueva (deja los PDFs nuevos en la bandeja nueva). Si hay una colisión o falla
 la copia, conserva el origen y la ruta configurada. La organización está en
 [docs/carpetas.md](docs/carpetas.md).
 
