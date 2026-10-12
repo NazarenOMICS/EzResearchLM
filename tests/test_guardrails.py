@@ -129,6 +129,11 @@ class FirstContactTests(unittest.TestCase):
         # An agent that only clones never opens the repository; the pasted message itself must send it to AGENTS.md.
         self.assertIn('leé su AGENTS.md', (root / 'README.es.md').read_text(encoding='utf-8'))
         self.assertIn('read its AGENTS.md', (root / 'README.md').read_text(encoding='utf-8'))
+        # The agent reads the README before it has AGENTS.md: its install steps must ask for the folder too.
+        self.assertIn('Ask the person where to install it', (root / 'README.md').read_text(encoding='utf-8'))
+        self.assertIn('Pregúntale dónde instalarlo', (root / 'README.es.md').read_text(encoding='utf-8'))
+        self.assertIn('--projects-dir', (root / 'SETUP.md').read_text(encoding='utf-8'))
+        self.assertNotIn('docs/history', (root / 'SETUP.md').read_text(encoding='utf-8'))
 
     def test_agent_facing_text_gives_no_hint_about_the_gold_set(self):
         from ez.setup import INTRODUCTION

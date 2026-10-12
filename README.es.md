@@ -106,9 +106,10 @@ probablemente no sabe de terminales. Hazlo tú, sin pedirle comandos:
 1. Comprueba que estén Git y Python 3.10 o más nuevo (`git --version`, `python --version`).
    Si falta alguno, explícale cómo instalarlo en una frase (en Windows:
    `winget install Git.Git Python.Python.3.12`) y espera.
-2. Clona el repositorio en su carpeta de documentos. Si el enlace apunta a una rama
+2. Pregúntale dónde instalarlo, proponiendo `Documents\EZresearchLM`, y clona el repositorio
+   ahí; nunca en la carpeta temporal de tu chat. Si el enlace apunta a una rama
    (`.../tree/<rama>`), clona esa rama.
-3. Instala EZ en un entorno aislado dentro del repositorio:
+3. Instala EZ en un entorno aislado dentro del repositorio (aquí, la carpeta propuesta):
 
    ```powershell
    cd $env:USERPROFILE\Documents\EZresearchLM

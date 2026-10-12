@@ -106,9 +106,10 @@ probably does not know terminals. Do it yourself, without asking them for comman
 1. Check that Git and Python 3.10 or newer are present (`git --version`, `python --version`).
    If one is missing, explain in one sentence how to install it (on Windows:
    `winget install Git.Git Python.Python.3.12`) and wait.
-2. Clone the repository into their documents folder. If the link points to a branch
+2. Ask the person where to install it, suggesting `Documents\EZresearchLM`, and clone the
+   repository there; never into your chat's temporary folder. If the link points to a branch
    (`.../tree/<branch>`), clone that branch.
-3. Install EZ in an isolated environment inside the repository:
+3. Install EZ in an isolated environment inside the repository (here, the suggested folder):
 
    ```powershell
    cd $env:USERPROFILE\Documents\EZresearchLM

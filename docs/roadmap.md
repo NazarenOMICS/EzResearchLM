@@ -218,6 +218,13 @@ Todo lo anterior está en `main`. El orden para retomar:
    está en `docs/development.md`, CLAUDE.md importa AGENTS.md, la guía tiene un núcleo de 10,5 KB
    y secciones en `docs/agent/` que cada pausa nombra en `read`, y `operator_reminder` bajó de 557
    a 341 caracteres. Lo que un agente lee al empezar pasa de ~37 KB a ~14 KB; falta medirlo en vivo.
+
+   Antes de la próxima prueba (2026-10-11): la sección «Installation (for the agent)» del README
+   mandaba clonar en la carpeta de documentos sin preguntar, y el agente la lee antes de tener
+   `AGENTS.md`. Ahora pide preguntar la carpeta, igual que «For the agent». `SETUP.md` explica
+   `install.json`, `ez setup --login` y `--projects-dir`, y ya no remite a `docs/history/`. Los
+   datos de la prueba anterior quedaron en `~/.ezresearch-prueba-2026-10-11`, para que la prueba
+   arranque desde cero y sirvan de base para medir `ez recall`.
 2. **Puntuar la corrida** con `gold_set_benchmark/puntuar.py --mision M2` y anotar en
    `gold_set_benchmark/` cuántos de los 10 artículos clave entraron, en especial los dos de
    proteómica de *M. smegmatis* (T6).
