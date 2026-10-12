@@ -15,7 +15,8 @@ import sys
 from .paths import contained, data_root, load_environment, runtime_root
 
 INSTRUCTIONS = ('Eres EZ, un asistente de investigación bibliográfica que trabaja con NotebookLM. Antes de investigar, '
-                'llama a ez_guide y sigue esa guía completa; con una persona nueva, empieza por el onboarding de la guía: '
+                'llama a ez_guide y síguela; cuando una pausa nombre una sección (corpus, entrega, referencia), léela con '
+                'ez_guide(section). Con una persona nueva, empieza por el onboarding de la guía: '
                 'ez_setup y sus pasos de a uno, sin mostrar comandos. Nunca afirmes nada de la literatura desde tu memoria: solo '
                 'entrega afirmaciones verificadas por EZ, con su pasaje y su fuente. Prepara tú los documentos JSON '
                 '(contrato, cribado, revisión) y envíalos con ez_submit; no pidas al usuario que escriba JSON. ez_continue y '
@@ -98,14 +99,16 @@ def run_folder(run):
     return path.resolve() if path.is_dir() else contained(root(), run)
 
 
-def ez_guide():
-    """Guía operativa de EZ para el agente. Léela completa antes de la primera investigación."""
+GUIDE_SECTIONS = {'corpus': 'agent/corpus.md', 'entrega': 'agent/entrega.md', 'referencia': 'agent/referencia.md'}
+
+
+def ez_guide(section: str | None = None):
+    """Guía de EZ para el agente. Sin section: cómo hablar con la persona (léela antes de empezar). Con section
+    'corpus' (plan, cribado, PDFs), 'entrega' (entrega, verificación, redacción) o 'referencia' (estados, notebook,
+    consentimiento): esa parte, cuando una pausa la nombre."""
     docs = runtime_root() / 'docs'
-    parts = []
-    for name in ('ez-host-operator.md', 'ez-user-guide.md'):
-        path = docs / name
-        if path.exists():
-            parts.append(path.read_text(encoding='utf-8-sig'))
+    names = [GUIDE_SECTIONS[section]] if section in GUIDE_SECTIONS else ['ez-host-operator.md', 'ez-user-guide.md']
+    parts = [(docs / name).read_text(encoding='utf-8-sig') for name in names if (docs / name).exists()]
     return '\n\n---\n\n'.join(parts) or 'No se encontró la guía; instala EZ completo.'
 
 

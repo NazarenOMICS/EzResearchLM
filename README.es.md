@@ -30,8 +30,8 @@ instalarlo:
 1. Si existe `~/.ezresearch/install.json`, EZ ya está instalado: usa el `ez` que indica y no
    vuelvas a clonar. Si no, pregunta dónde instalarlo (propón `Documents\EZresearchLM`; nunca
    la carpeta temporal de tu chat), clónalo ahí e instálalo como indica [SETUP.md](SETUP.md).
-2. Lee completos [AGENTS.md](AGENTS.md) y [docs/ez-host-operator.md](docs/ez-host-operator.md).
-   Tu sesión empezó antes del clon y no los cargó.
+2. Lee [AGENTS.md](AGENTS.md) completo: tu sesión empezó antes del clon y no lo cargó. Te dice
+   qué más leer y cuándo.
 3. Empieza ya la primera conversación de esa guía: preséntate como EZ, di qué te puede pedir
    y guía la preparación un paso por vez. No te detengas en «quedó descargado».
 
@@ -118,7 +118,7 @@ probablemente no sabe de terminales. Hazlo tú, sin pedirle comandos:
    ```
 
    En macOS o Linux, `.venv/bin/python` y `.venv/bin/ez`. Usa siempre el `ez` del entorno.
-4. Lee `AGENTS.md` y `docs/ez-host-operator.md` y empieza el onboarding de esa guía: un
+4. Lee `AGENTS.md` y empieza el onboarding de `docs/ez-host-operator.md`: un
    paso y una pregunta por vez, sin mostrarle comandos ni JSON. `ez setup --check` dice qué
    falta (instalar NotebookLM con `ez setup --install-notebooklm`, iniciar sesión, correo
    para Unpaywall).
@@ -126,7 +126,8 @@ probablemente no sabe de terminales. Hazlo tú, sin pedirle comandos:
 ## Documentación
 
 1. [Guía de primer uso](docs/ez-user-guide.md): qué puedes pedirle a EZ.
-2. [Guía del agente](docs/ez-host-operator.md): el recorrido completo que sigue el agente.
+2. [Guía del agente](docs/ez-host-operator.md): cómo habla el agente con la persona; el resto
+   del recorrido está en [docs/agent/](docs/agent/).
 3. [Contratos y estados](docs/ez-contracts.md) y [configuración](docs/configuration.md):
    detalles técnicos.
 4. [Hoja de ruta](docs/roadmap.md): qué está hecho, qué falta y en qué orden.

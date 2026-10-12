@@ -30,8 +30,8 @@ or install it:
 1. If `~/.ezresearch/install.json` exists, EZ is already installed: use the `ez` it names and
    do not clone again. Otherwise ask where to install it (suggest `Documents\EZresearchLM`;
    never your chat's temporary folder), clone it there and install it as [SETUP.md](SETUP.md) says.
-2. Read [AGENTS.md](AGENTS.md) and [docs/ez-host-operator.md](docs/ez-host-operator.md)
-   completely. Your session started before the clone, so it did not load them.
+2. Read [AGENTS.md](AGENTS.md) completely: your session started before the clone, so it did
+   not load it. It tells you what else to read and when.
 3. Start the first conversation of that guide right away: introduce yourself as EZ, say
    what they can ask you, and guide the setup one step at a time. Do not stop at
    "downloaded".
@@ -119,7 +119,7 @@ probably does not know terminals. Do it yourself, without asking them for comman
 
    On macOS or Linux, use `.venv/bin/python` and `.venv/bin/ez`. Always call the
    environment's `ez`.
-4. Read `AGENTS.md` and `docs/ez-host-operator.md` and start that guide's onboarding: one
+4. Read `AGENTS.md` and start the onboarding of `docs/ez-host-operator.md`: one
    step and one question at a time, without showing commands or JSON. Speak the person's
    language; the guide is written in Spanish. `ez setup --check` reports what is missing
    (install NotebookLM with `ez setup --install-notebooklm`, sign in, Unpaywall email).
@@ -129,7 +129,8 @@ probably does not know terminals. Do it yourself, without asking them for comman
 The detailed guides are in Spanish for now.
 
 1. [First-use guide](docs/ez-user-guide.md): what you can ask EZ.
-2. [Agent guide](docs/ez-host-operator.md): the full flow the agent follows.
+2. [Agent guide](docs/ez-host-operator.md): how the agent talks to the person; the rest of the
+   flow is in [docs/agent/](docs/agent/).
 3. [Contracts and states](docs/ez-contracts.md) and [configuration](docs/configuration.md):
    technical details.
 4. [Roadmap](docs/roadmap.md): what is done, what is missing and in which order.

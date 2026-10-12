@@ -30,6 +30,8 @@ def main():
         json.loads(resources.files('ez').joinpath('schemas', schema + '.json').read_text(encoding='utf-8'))
     guide = runtime_root() / 'docs/ez-host-operator.md'
     assert guide.is_file(), 'Installed host guide is missing'
+    for section in ('corpus', 'entrega', 'referencia'):
+        assert (runtime_root() / 'docs/agent' / (section + '.md')).is_file(), 'Installed guide section is missing: ' + section
     assert (runtime_root() / 'docs/ez-user-guide.md').is_file(), 'Installed user guide is missing'
     assert (runtime_root() / 'SETUP.md').is_file(), 'Installed setup reference is missing'
 

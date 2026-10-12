@@ -75,6 +75,8 @@ class McpServerTests(unittest.TestCase):
 
     def test_guide_is_available_to_the_agent(self):
         self.assertIn('Primera conversación', mcp_server.ez_guide())
+        self.assertIn('## Cribado', mcp_server.ez_guide('corpus'))
+        self.assertNotIn('## Cribado', mcp_server.ez_guide())
 
     @unittest.skipUnless(importlib.util.find_spec('mcp'), 'mcp extra not installed')
     def test_server_registers_every_tool(self):

@@ -134,7 +134,8 @@ class FirstContactTests(unittest.TestCase):
         from ez.setup import INTRODUCTION
         root = Path(__file__).resolve().parents[1]
         texts = {name: (root / name).read_text(encoding='utf-8') for name in
-                 ('AGENTS.md', 'CLAUDE.md', 'docs/ez-host-operator.md', 'docs/ez-user-guide.md')}
+                 ('AGENTS.md', 'CLAUDE.md', 'docs/ez-host-operator.md', 'docs/ez-user-guide.md',
+                  'docs/agent/corpus.md', 'docs/agent/entrega.md', 'docs/agent/referencia.md')}
         texts['introduction'] = json.dumps(INTRODUCTION, ensure_ascii=False)
         for name, text in texts.items():
             for topic in ('etambutol', 'ethambutol', 'glutamicum', 'smegmatis', 'radmacher', 'alderwick'):

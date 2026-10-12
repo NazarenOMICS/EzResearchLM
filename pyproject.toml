@@ -35,4 +35,5 @@ ez = ["schemas/*.json"]
 
 [tool.setuptools.data-files]
 "share/ezresearchlm/docs" = ["docs/ez-host-operator.md", "docs/ez-contracts.md", "docs/ez-user-guide.md"]
+"share/ezresearchlm/docs/agent" = ["docs/agent/corpus.md", "docs/agent/entrega.md", "docs/agent/referencia.md"]
 "share/ezresearchlm" = ["SETUP.md", "requirements.lock"]
