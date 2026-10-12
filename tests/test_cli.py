@@ -117,14 +117,14 @@ class CliTests(unittest.TestCase):
     def test_setup_check_is_read_only(self):
         from ez.process import Result
         with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder) / 'runs'
+            root = Path(folder) / 'researches'
             with patch('ez.setup.executable', side_effect=lambda name: name if name == 'notebooklm' else None), patch('ez.setup.run', return_value=Result(0, '{"notebooks": []}', '')):
                 checks = prepare(root, check=True)
                 self.assertTrue(checks['can_notebook_qa'])
                 self.assertNotIn('can_recall', checks)
                 self.assertEqual(list(Path(folder).iterdir()), [])
                 prepare(root)
-                config = root.parent / 'ez-config.json'
+                config = root / 'ez-config.json'
                 before = config.read_bytes()
                 prepare(root)
                 self.assertEqual(config.read_bytes(), before)
@@ -163,7 +163,7 @@ class CliTests(unittest.TestCase):
             with patch('ez.setup.executable', return_value=str(command)), patch('ez.setup.run', side_effect=installed_run):
                 checks = prepare(Path(folder) / 'runs', check=True)
             self.assertFalse(checks['login_browser_missing'])
-            self.assertEqual(checks['next_step']['id'], 'notebooklm_login')
+            self.assertEqual(checks['next_step']['id'], 'projects_dir')
 
     def test_ez_prefers_its_isolated_notebooklm_over_another_on_path(self):
         from ez.paths import executable
@@ -200,7 +200,7 @@ class CliTests(unittest.TestCase):
         from ez import setup
         def done(stdout='', code=0):
             return SimpleNamespace(stdout=stdout, stderr='', returncode=code)
-        cases = {'ready': [done('{"outcome": "signed_in"}'), done(), done()],
+        cases = {'ready': [done('{"outcome": "signed_in"}'), done(), done('{"notebooks": []}')],
                  'browser_closed': [done('{"outcome": "browser_closed"}', 1)],
                  'saved_session_invalid': [done('{"outcome": "signed_in"}'), done(), done(code=2)]}
         for expected, calls in cases.items():
@@ -229,7 +229,8 @@ class ProjectsDirTests(unittest.TestCase):
             checks = prepare(root, projects_dir=str(visible))
             self.assertEqual(Path(checks['projects_dir']), visible.resolve())
             self.assertTrue((visible / 'tesis' / 'inbox' / 'mio.pdf').exists())
-            self.assertFalse((root.parent / 'projects' / 'tesis').exists())
+            self.assertTrue((root.parent / 'projects' / 'tesis' / 'inbox' / 'mio.pdf').exists())
+            self.assertEqual((visible / 'tesis' / 'inbox' / 'mio.pdf').read_bytes(), b'%PDF-1.4')
             self.assertEqual(Path(ensure(root, 'otro')['project']).parent, visible.resolve())
             pointer = read_json(root.parent / 'install.json')
             self.assertEqual(pointer['runs_root'], str(root))

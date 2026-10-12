@@ -62,6 +62,13 @@ LOGIN_SECONDS = 600
 LOGIN_STATUS = Path.home() / '.ezresearch/login-status.json'
 
 
+def valid_notebook_list(result):
+    try:
+        return result.returncode == 0 and valid_listing(json.loads(result.stdout), 'notebooks')
+    except (ValueError, TypeError):
+        return False
+
+
 def notebooklm_python(command):
     """Python of the environment that holds notebooklm (and Playwright), or None for unknown layouts."""
     python = Path(command).parent / ('python.exe' if os.name == 'nt' else 'python')
@@ -78,7 +85,7 @@ def start_login():
     command = executable('notebooklm')
     if not command or not notebooklm_python(command):
         raise ValueError('Falta la instalación de NotebookLM de EZ; corre ez setup --install-notebooklm.')
-    if run([command, 'list', '--json'], timeout=60).returncode == 0:
+    if valid_notebook_list(run([command, 'list', '--json'], timeout=60)):
         # Already signed in: opening the window again would only confuse the person.
         return {'login_started': False, 'login_status': 'ready',
                 'next_action': 'NotebookLM ya tiene acceso; no hace falta volver a entrar.'}
@@ -119,7 +126,7 @@ def run_login():
             # The profile now holds a real Google session: notebooklm finds it and saves NotebookLM's cookies.
             saved = subprocess.run([command, 'login'], capture_output=True, text=True, timeout=180, **hidden)
             listed = subprocess.run([command, 'list', '--json'], capture_output=True, text=True, timeout=60, **hidden)
-            state = 'ready' if saved.returncode == 0 and listed.returncode == 0 else 'saved_session_invalid'
+            state = 'ready' if saved.returncode == 0 and valid_notebook_list(listed) else 'saved_session_invalid'
     except subprocess.TimeoutExpired:
         state = 'timeout'
     atomic_json(LOGIN_STATUS, {'state': state, 'finished_at': now()})
@@ -165,31 +172,30 @@ def prepare(root, check=False, install_notebooklm=False, unpaywall_email=None, p
             atomic_json(runtime / 'ez-install-receipt.json', receipt)
             if installed.returncode:
                 raise OSError('No se pudo instalar NotebookLM; el recibo conserva el diagnóstico y permite reintentar.')
-    config = root.parent / 'ez-config.json'
+    from .workspace import home, projects_home, relocate_projects
+    config = home(root) / 'ez-config.json'
     if not check:
         with lock(root.parent):
             root.mkdir(parents=True, exist_ok=True)
+            # Resolve the configured source before writing or changing config. In particular,
+            # a second --projects-dir A -> B must copy from A, not the default folder.
+            previous_projects = projects_home(root)
             if not config.exists():
                 atomic_json(config, {'schema_version': '2.0', 'operator': 'EZ', 'backend': 'host_agent',
                                      'runs_root': str(root), 'telemetry': False, 'anna_enabled': False, 'created_at': now()})
             if projects_dir:
                 chosen = Path(projects_dir).expanduser().resolve()
-                chosen.mkdir(parents=True, exist_ok=True)
+                relocate_projects(previous_projects, chosen)
                 atomic_json(config, dict(read_json(config), projects_dir=str(chosen)))
-                from .workspace import project_dir
-                for old in (root.parent / 'projects').glob('*') if (root.parent / 'projects').is_dir() else []:
-                    if old.is_dir() and old.resolve() != chosen / old.name:
-                        project_dir(root, old.name)  # moves it to the chosen folder, never overwriting
             write_install_pointer(root)
             if unpaywall_email:
                 if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', unpaywall_email):
                     raise ValueError('El correo para Unpaywall no parece válido.')
                 atomic_json(config, dict(read_json(config), unpaywall_email=unpaywall_email))
                 os.environ['PAPER_SEARCH_MCP_UNPAYWALL_EMAIL'] = unpaywall_email
-    from .workspace import projects_home
     checks = {'python': sys.version.split()[0], 'operator': 'host_agent', 'can_plan': True, 'can_discover': True,
               'projects_dir': str(projects_home(root)),
-              'projects_dir_chosen': projects_home(root) != root.parent / 'projects',
+              'projects_dir_chosen': projects_home(root) != home(root) / 'projects',
               'can_notebook_qa': False, 'configuration_exists': config.exists(),
               'runs_root': str(root), 'installation': receipt,
               'unpaywall_configured': bool(os.environ.get('PAPER_SEARCH_MCP_UNPAYWALL_EMAIL') or os.environ.get('UNPAYWALL_EMAIL'))}

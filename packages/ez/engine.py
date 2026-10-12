@@ -701,7 +701,8 @@ class Engine:
             notebooks = self.notebook(['list']).get('notebooks', [])
             matches = [n for n in notebooks if n.get('title') == title]
             if len(matches) == 1:
-                self.checkpoint(notebook_id=matches[0]['id'], pending_operation=None)
+                self.checkpoint(notebook_id=matches[0]['id'], pending_operation=None,
+                                notebook_shared=notebook_reuse_enabled())
                 return
             if matches:
                 raise Pause('remote_reconciliation', f'Hay {len(matches)} notebooks llamados «{title}» en NotebookLM. Deja uno '

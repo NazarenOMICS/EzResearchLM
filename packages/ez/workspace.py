@@ -46,6 +46,46 @@ def projects_home(runs_root):
     return Path(chosen) if chosen else home(runs_root) / 'projects'
 
 
+def relocate_projects(previous, chosen):
+    """Copy and verify before switching configuration, across volumes too. Preserve originals for recovery."""
+    from hashlib import sha256
+    previous, chosen = Path(previous).resolve(), Path(chosen).resolve()
+    if previous == chosen:
+        return
+    if chosen.is_relative_to(previous) or previous.is_relative_to(chosen):
+        raise ValueError('Las carpetas de proyectos no pueden estar anidadas.')
+    entries = list(previous.iterdir()) if previous.is_dir() else []
+    if any((chosen / entry.name).exists() for entry in entries):
+        raise ValueError('Colisión en destino: no se sobrescriben proyectos ni se cambia la configuración.')
+    chosen.mkdir(parents=True, exist_ok=True)
+    copied = []
+    try:
+        for entry in entries:
+            target = chosen / entry.name
+            copied.append(target)
+            if entry.is_dir():
+                shutil.copytree(entry, target)
+            else:
+                shutil.copy2(entry, target)
+            for original in entry.rglob('*') if entry.is_dir() else [entry]:
+                if original.is_file():
+                    destination = chosen / original.relative_to(previous)
+                    if sha256(original.read_bytes()).digest() != sha256(destination.read_bytes()).digest():
+                        raise OSError('La copia no coincide; se conserva la configuración anterior y el origen.')
+    except Exception:
+        # The config still points at `previous`; remove only paths this operation created so
+        # a retry can start cleanly. The original folder is never moved or deleted.
+        for target in reversed(copied):
+            if target.is_dir():
+                shutil.rmtree(target, ignore_errors=True)
+            else:
+                try:
+                    target.unlink()
+                except FileNotFoundError:
+                    pass
+        raise
+
+
 def project_dir(runs_root, project):
     folder = projects_home(runs_root) / slug(project)
     migrate(folder, home(runs_root) / 'proyectos' / slug(project))

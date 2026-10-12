@@ -40,7 +40,8 @@ def load_environment():
 def load_user_config(runs_root=None):
     """Settings saved by ez setup (for now, the contact email Unpaywall requires)."""
     import json
-    path = Path(runs_root or data_root()).parent / 'ez-config.json'
+    from .workspace import home
+    path = home(runs_root or data_root()) / 'ez-config.json'
     try:
         email = json.loads(path.read_text(encoding='utf-8-sig')).get('unpaywall_email') if path.is_file() else None
     except (OSError, ValueError):
