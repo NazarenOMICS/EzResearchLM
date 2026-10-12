@@ -135,9 +135,10 @@ def ez_projects(question: str | None = None):
     return ez('projects', *(['--suggest', question] if question else []), seconds=120)
 
 
-def ez_recall(question: str, project: str = 'general'):
-    """Busca en lo ya verificado del proyecto (afirmaciones y pasajes citados), sin consultar NotebookLM; segundos."""
-    return ez('recall', question, '--project', project, seconds=120)
+def ez_recall(question: str, project: str | None = None):
+    """Busca en lo ya verificado del proyecto (afirmaciones y pasajes citados), sin consultar NotebookLM; segundos.
+    Sin project, usa el único proyecto que haya; con varios, pide elegir."""
+    return ez('recall', question, *(['--project', project] if project else []), seconds=120)
 
 
 def ez_ask(question: str, project: str = 'general'):

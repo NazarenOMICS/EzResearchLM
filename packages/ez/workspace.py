@@ -147,10 +147,8 @@ def write_index(runs_root, project):
     (folder / 'README.md').write_text('\n'.join(lines), encoding='utf-8')
 
 
-def projects(runs_root, question=None):
-    """Every project with its researches, library and folders; with a question, ranked by how related it is."""
-    from .context import history
-    from .library import project_sources
+def project_names(runs_root):
+    """Names of the projects that have runs or a saved context."""
     from .state import read_json
     runs_root = Path(runs_root)
     names = set()
@@ -159,7 +157,16 @@ def projects(runs_root, question=None):
             names.add(read_json(path).get('context', {}).get('project') or 'general')
         except (OSError, ValueError):
             continue
-    names |= {p.stem for p in (runs_root.parent / 'contexts').glob('*.json')}
+    return names | {p.stem for p in (runs_root.parent / 'contexts').glob('*.json')}
+
+
+def projects(runs_root, question=None):
+    """Every project with its researches, library and folders; with a question, ranked by how related it is."""
+    from .context import history
+    from .library import project_sources
+    from .state import read_json
+    runs_root = Path(runs_root)
+    names = project_names(runs_root)
     words = topic_words(question) if question else set()
     result = []
     for name in sorted(names):

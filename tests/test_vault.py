@@ -40,12 +40,12 @@ class VaultTests(unittest.TestCase):
 
     def test_recall_answers_from_delivered_claims_without_notebooklm(self):
         calls = len(self.case.service.calls)
-        code, value = self.cli('recall', '¿Qué resultado experimental describe la fuente?')
+        code, value = self.cli('recall', '¿Qué resultado experimental describe la fuente?', '--project', 'general')
         self.assertEqual((code, value['evidence']), (0, 'sufficient'))
         self.assertEqual(value['hits'][0]['marker'], f'[EZ:{self.run_id}/qa1-1]')
         self.assertTrue(value['hits'][0]['passages'])
         self.assertEqual(len(self.case.service.calls), calls)
-        code, value = self.cli('recall', 'estructura cristalográfica del transportador')
+        code, value = self.cli('recall', 'estructura cristalográfica del transportador', '--project', 'general')
         self.assertEqual((value['evidence'], value['hits']), ('insufficient', []))
         self.assertIn('ez ask', value['next_action'])
 

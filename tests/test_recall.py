@@ -175,11 +175,38 @@ class FullTextRecallTests(unittest.TestCase):
                   'query_language_mismatch': True}
         output = StringIO()
         with tempfile.TemporaryDirectory() as temp, patch('ez.vault.recall', return_value=result), \
-                patch('ez.cli.load_environment'), redirect_stdout(output):
+                patch('ez.workspace.project_names', return_value={'p'}), patch('ez.cli.load_environment'), \
+                redirect_stdout(output):
             main(['recall', 'Smith 2019', '--project', 'p', '--root', temp, '--json'])
         hint = json.loads(output.getvalue())['next_action']
         self.assertIn('Smith 2019 no está entre las fuentes', hint)
         self.assertIn('idioma de los artículos', hint)
+
+    def test_recall_finds_its_project_in_the_forms_agents_write(self):
+        # A live agent wrote «ez recall <run> "<q>"» and «ez recall <project> "<q>"», and a missing --project searched an
+        # empty «general» project (2026-10-11).
+        import tempfile
+        from pathlib import Path
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from ez.cli import recall_project
+        from ez.contracts import ContractError
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / 'runs'
+            (root / 'ez-0123456789abcdef').mkdir(parents=True)
+            (root / 'ez-0123456789abcdef' / 'research-contract.json').write_text(
+                '{"context": {"project": "ayuno"}}', encoding='utf-8')
+            form = lambda *words, project=None: recall_project(root, SimpleNamespace(question=list(words), project=project))
+            with patch('ez.workspace.project_names', return_value={'ayuno', 'sueno'}):
+                self.assertEqual(form('ayuno', 'insulin fasting'), ('ayuno', 'insulin fasting'))
+                self.assertEqual(form('ez-0123456789abcdef', 'insulin fasting'), ('ayuno', 'insulin fasting'))
+                self.assertEqual(form('ayuno intermitente', project='ayuno'), ('ayuno', 'ayuno intermitente'))
+                with self.assertRaisesRegex(ContractError, 'Proyectos: ayuno, sueno'):
+                    form('insulin fasting')
+                with self.assertRaisesRegex(ContractError, 'No hay un proyecto «otro»'):
+                    form('insulin', project='otro')
+            with patch('ez.workspace.project_names', return_value={'ayuno'}):
+                self.assertEqual(form('insulin fasting'), ('ayuno', 'insulin fasting'))
 
     def test_recall_answers_are_summarized_unless_full_is_asked(self):
         # Every passage carried its whole source record: a recall weighed 31 to 39 KB in a live project (2026-10-11).

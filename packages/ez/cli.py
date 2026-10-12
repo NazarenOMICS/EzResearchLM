@@ -484,9 +484,34 @@ def verify_command(folder, args):
     return 0
 
 
+def recall_project(root, args):
+    """The project and question of a recall, also from the forms agents wrote in a live run (2026-10-11): the project or a
+    run id before the question, or no --project at all, which searched an empty «general» and sent them to ez ask."""
+    from .workspace import project_names
+    names = project_names(root)
+    words, project = list(args.question), args.project
+    if len(words) > 1 and project is None:
+        first = words[0]
+        run = Path(root) / Path(first).name / 'research-contract.json'
+        if first in names:
+            project, words = first, words[1:]
+        elif Path(first).name.startswith('ez-') and run.is_file():
+            project, words = read_json(run).get('context', {}).get('project') or 'general', words[1:]
+    if project is None and len(names) == 1:
+        project = next(iter(names))
+    form = 'ez recall "<pregunta>" --project <proyecto>'
+    if project is None:
+        raise ContractError(f'Indica el proyecto: {form}. Proyectos: {", ".join(sorted(names)) or "ninguno todavía"}.')
+    if project not in names:
+        raise ContractError(f'No hay un proyecto «{project}». Proyectos: {", ".join(sorted(names)) or "ninguno todavía"}. '
+                            f'Forma: {form}.')
+    return project, ' '.join(words)
+
+
 def recall_command(root, args):
     """Search the project's delivered claims and their passages; no NotebookLM query, no new text."""
     from .vault import MIN_COVERAGE, recall
+    args.project, args.question = recall_project(root, args)
     result = recall(root, args.project, args.question, args.limit)
     pdf_hint = (' Los pdf_passages son pasajes literales de los PDFs del proyecto, con página: cita cada uno con su marcador '
                 '[EZ:pdf-…] y su autor y año, solo para lo que dicen textualmente. Uno con in_references es una cita a otro '
@@ -692,9 +717,9 @@ def main(argv=None):
     p.add_argument('--project', default='general'); p.add_argument('--seconds', type=int, default=25)
     p = sub.add_parser('draft', help='Ver las afirmaciones verificadas para redactar o comprobar un borrador.'); p.add_argument('run'); p.add_argument('--check', type=Path, metavar='BORRADOR')
     p = sub.add_parser('ask', help='Pregunta de seguimiento respondida solo con los PDFs ya verificados del proyecto.')
-    p.add_argument('question'); p.add_argument('--project', default='general')
+    p.add_argument('question', nargs='+'); p.add_argument('--project')
     p = sub.add_parser('recall', help='Buscar en lo ya verificado del proyecto, sin consultar NotebookLM.')
-    p.add_argument('question'); p.add_argument('--project', default='general')
+    p.add_argument('question', nargs='+'); p.add_argument('--project')
     p.add_argument('--limit', type=int, default=8, help='Afirmaciones a devolver (8 por defecto).')
     p = sub.add_parser('projects', help='Ver los proyectos y cuál se relaciona con una pregunta.')
     p.add_argument('--suggest', metavar='PREGUNTA', help='Ordenar los proyectos según su relación con esta pregunta.')
