@@ -27,6 +27,12 @@ salida JSON de `ez` las repite en `operator_reminder`.
    archivos de una corrida (`research-contract.json`, `sources.json`, `state.json`, …) ni
    escribir scripts que los generen.
 6. No leer `docs/history/`: describe versiones anteriores y confunde el formato vigente.
+7. NotebookLM se usa solo a través de `ez`, nunca por la web de NotebookLM ni por otro navegador:
+   EZ no ve esa sesión y lo que se pregunte ahí no es evidencia. Si EZ está ocupado o trabado,
+   espera o recupéralo con `ez`; no lo rodees.
+8. No cierres tu turno mientras una corrida o un `ez ask` esté trabajando: sigue esperando
+   (sección «Esperas») hasta que EZ se pause o termine, y entonces avísale a la persona. Ella
+   no ve EZ, y tú no puedes escribirle después de cerrar el turno.
 
 No confundas estados de evidencia: un marcador válido identifica un registro; `found_in_fulltext`
 indica que el texto citado se localizó literalmente en el texto indexado cotejado; una entrega directa conserva la
@@ -62,14 +68,17 @@ vez de repetir el onboarding.
       sola: reinstala antes.
    2. `projects_dir`: propón `Documents\EZresearchLM\projects` y guárdalo con
       `ez setup --projects-dir "<carpeta>"`.
-   3. El login lo hace la persona: corre `ez setup --login`, que vuelve enseguida y deja abierta
-      una ventana de Google hasta 10 minutos (si ya hay acceso, no abre nada). Pídele que entre
-      y te avise; comprueba con `ez setup --check`. `login_status` dice qué pasó (`ready`,
-      `browser_closed`, `timeout`, `saved_session_invalid`); `ready` exige una lista válida de
-      `notebooklm list --json`, no basta un código de salida cero. Con `browser_closed` o `timeout`,
-      ofrece abrirla otra vez. No uses `notebooklm login` directamente (toma la portada pública
-      de NotebookLM por una sesión) ni el navegador integrado del agente. No leas, copies ni
-      imprimas cookies.
+   3. El login lo hace la persona: corre `ez setup --login`, que abre una ventana de Google
+      hasta 10 minutos y espera unos segundos. Si responde `login_status: ready`, el acceso se
+      renovó solo (la ventana se cierra sola porque la sesión de Google seguía activa): no
+      pidas nada y sigue. Si no, pídele que entre y te avise; comprueba con `ez setup --check`.
+      `login_status` dice qué pasó (`ready`, `expired`, `browser_closed`, `timeout`,
+      `saved_session_invalid`); `ready` exige una lista válida de `notebooklm list --json`.
+      Con `browser_closed` o `timeout`, ofrece abrirla otra vez. NotebookLM vence en horas:
+      durante una corrida, EZ intenta renovarlo solo antes de pausar con `auth_required`. No
+      uses `notebooklm login` directamente (toma la portada pública de NotebookLM por una
+      sesión) ni el navegador integrado del agente u otro navegador: EZ no usa esa sesión. No
+      leas, copies ni imprimas cookies.
    4. El correo para Unpaywall es opcional pero recomendado: guárdalo con
       `ez setup --unpaywall-email`.
 3. **Entrevista breve**, de a una pregunta:
@@ -103,7 +112,10 @@ Si tu interfaz permite ofrecer opciones (en Claude Code, la herramienta de pregu
 preséntalas así; si no, numéralas. Haz lo mismo con tus propias preguntas cerradas.
 
 **Listas de artículos.** Cuando EZ pide PDFs (`key-pdfs.md`, `pdf-request.md`, `missing_pdfs`),
-muestra la lista tal cual: título completo sin traducir ni resumir y el DOI como enlace.
+muestra la lista tal cual: título completo sin traducir ni resumir y el DOI como enlace. EZ solo
+se detiene por los artículos clave que no pudo descargar; los demás quedan en `pdf-request.md`
+y en el informe sin frenar la investigación. Menciónalos una vez en la entrega, sin pedirle a
+la persona que los consiga.
 
 ## Preguntas de seguimiento
 
@@ -163,12 +175,19 @@ retoma sin repetir la entrevista. Si pregunta dónde quedan sus cosas, la organi
 modelo vuelve a leer toda la conversación; en una prueba real (2026-10-11), esas consultas
 fueron el 41 % de los tokens.
 
-1. Lanza el comando una sola vez. Si tu herramienta te devuelve el control antes de que
-   termine, no lo relances ni consultes procesos (`Get-Process`, `Start-Sleep`, `ez status`).
-2. Espera con la espera más larga que permita tu herramienta: en Codex, `write_stdin` con
-   `chars: ""` y `yield_time_ms: 300000` sobre la misma sesión; en Claude Code, `timeout:
-   600000`. Si perdiste la sesión: `ez wait <corrida> --seconds 290` (o `ez wait --project
-   <proyecto>` tras un `ez ask`).
-3. No le escribas a la persona en cada espera: una línea cuando EZ cambia de etapa.
-4. Las salidas JSON vienen resumidas; lee `report.md` o agrega `--full` solo si necesitas los
+1. Lanza el comando una sola vez. `ez continue`, `ez screen` y `ez ask` corren en un proceso
+   propio que no depende de tu terminal: si terminan rápido devuelven su resultado; si no,
+   responden `running: true`. No los relances ni consultes procesos (`Get-Process`,
+   `Start-Sleep`, `ez status` en bucle).
+2. Espera con `ez wait <corrida> --seconds 290` (tras un `ez ask`, `ez wait --project
+   <proyecto> --seconds 290`) y dale a esa llamada la espera más larga de tu herramienta, nunca
+   menos de 300 s: en Codex, `yield_time_ms: 300000` (en `exec_command` o en `write_stdin`); en
+   Claude Code, `timeout: 600000`. Con esperas de 30 s, `ez wait` nunca llega a contestar. Repite
+   la misma espera hasta que EZ se pause o termine, **sin cerrar tu turno**.
+3. «Otra ejecución de EZ está trabajando» es un proceso vivo, no un bloqueo roto: espera. Si
+   `ez wait` o `ez status` responden `stopped: true`, el proceso murió sin terminar: relanza una
+   sola vez `ez continue <corrida>` y avísale a la persona. `ez status --answer` y `ez draft`
+   informan el avance mientras EZ trabaja; no escribas la respuesta ni el borrador por otra vía.
+4. No le escribas a la persona en cada espera: una línea cuando EZ cambia de etapa.
+5. Las salidas JSON vienen resumidas; lee `report.md` o agrega `--full` solo si necesitas los
    pasajes o todas las exclusiones.

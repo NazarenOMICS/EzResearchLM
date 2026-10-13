@@ -503,3 +503,37 @@ Una auditoría previa a la prueba (`tests/test_readiness.py`) encontró y corrig
 6. Los 324 MB de D6 corresponden a `du` de toda la carpeta `runs/`, no solo a los PDFs.
 
 Pendiente de la prueba en vivo: comprobar que la sesión de NotebookLM sigue activa.
+
+### Correcciones tras la prueba en vivo (2026-10-13)
+
+La prueba del 2026-10-12 está auditada en `docs/evaluation/prueba-en-vivo-2026-10-12.md`. Cada
+corrección tiene un test que falló antes (`tests/test_live_fixes.py`):
+
+1. El validador acepta PDFs legibles con defectos menores (`/MediaBox` repetido, xref no
+   numerado desde cero) cuando pypdf no estricto y PDFium coinciden en las páginas: un artículo
+   de Frontiers se descargó tres veces y se descartó como `corrupt_pdf`.
+2. Un host que responde 429 (CORE) queda en un circuito compartido por todas las fuentes de la
+   corrida durante 15 minutos.
+3. Solo los artículos clave que no se pudieron descargar detienen la corrida; el resto queda en
+   `pdf-request.md` y en el informe. Las rutas de PMC y Europe PMC que devolvieron 403 se
+   probaron de nuevo: exigen una verificación anti-bots y EZ no la automatiza.
+4. `ez continue`, `ez screen` y `ez ask` corren en un proceso propio, fuera de la terminal y del
+   job del agente; si terminan en 25 s devuelven su resultado, si no, `running: true`.
+5. `ez wait` y `ez status` detectan una corrida cuyo proceso murió (`stopped: true`) y piden
+   relanzarla una vez.
+6. `ez status --answer` y `ez draft` informan el avance mientras EZ trabaja, en vez de fallar por
+   el bloqueo; el mensaje del bloqueo dice que es un proceso vivo y que hay que esperar.
+7. `ez wait <id>` busca la corrida bajo la raíz de corridas y el sondeo del bloqueo ya no crea
+   carpetas vacías.
+8. Ante un error de autenticación, EZ renueva la sesión de NotebookLM con su perfil de Google y
+   reintenta una vez; `ez setup --login` reconoce el acceso renovado solo y `ez setup --check`
+   informa `expired` en vez de un `ready` viejo.
+9. `ez setup --check` señala un `notebooklm` de otro programa (`notebooklm_foreign`) y el
+   onboarding pide instalar el propio.
+10. La guía y el recordatorio de cada respuesta JSON agregan dos reglas: NotebookLM solo con
+    `ez`, nunca por su web; y no cerrar el turno mientras EZ trabaja. Las esperas se describen
+    con `ez wait` y la espera larga de cada herramienta.
+11. Reanudar ya no reescribe las fuentes sin cambios y el journal se verifica de forma
+    incremental (solo los eventos nuevos).
+12. Cargas iónicas y subíndices de LaTeX se convierten (`Fe³⁺`, `FeCl₃`); las preguntas a
+    NotebookLM esperan hasta 5 minutos; la estimación cuenta descargas y carga de PDFs.

@@ -20,6 +20,12 @@ repeats them in `operator_reminder`.
 5. Plans with `ez plan`, screening with `ez screen`. Never write or edit run files, or
    scripts that do.
 6. Do not read `docs/history/`.
+7. NotebookLM only through `ez`, never through its web page or another browser: EZ does not
+   see that session, and nothing asked there is evidence. If EZ is busy or blocked, wait or
+   recover it with `ez`; do not work around it.
+8. While a run or `ez ask` is working, do not end your turn: keep waiting (below) until EZ
+   pauses or finishes, then tell the person. They cannot see EZ, and you cannot write to
+   them once your turn ends.
 
 ## First contact
 
@@ -43,12 +49,16 @@ offer to resume them.
 
 ## Waiting
 
-`ez continue`, `ez ask` and `--verify` take minutes, and every check re-sends your whole
-context. Launch once and wait with your longest single wait: Codex, an empty `write_stdin`
-with `yield_time_ms: 300000`; Claude Code, `timeout: 600000`; otherwise
-`ez wait <run> --seconds 290`. Never poll processes or `ez status` in a loop. Tell the person
-one line per stage, not per check. JSON answers are summarized; use `--full` or the report
-only when you need the passages.
+`ez continue`, `ez screen`, `ez ask` and `--verify` take minutes, and every check re-sends your
+whole context. They run in a process of their own that outlives your terminal: when they
+answer `running: true`, wait with `ez wait <run> --seconds 290` (after `ez ask`,
+`ez wait --project <project> --seconds 290`), giving that call your tool's longest wait, never
+less than 300 s: in Codex `yield_time_ms: 300000` (on `exec_command` or `write_stdin`), in
+Claude Code `timeout: 600000`. Repeat that same wait until EZ pauses or finishes. Never relaunch
+the command, poll processes or loop on `ez status`. «Otra ejecución de EZ está trabajando» means
+a live process, not a broken lock: wait. `stopped: true` means the process died: relaunch
+`ez continue` once. Tell the person one line per stage, not per check. JSON answers are
+summarized; use `--full` or the report only when you need the passages.
 
 ## What to read, and when
 

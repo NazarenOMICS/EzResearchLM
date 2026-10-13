@@ -80,8 +80,11 @@ defecto; NotebookLM gratuito admite 50). Las exclusiones quedan con su razón en
    revista, año y enlace al DOI) con las vías honestas para conseguirlos (acceso institucional,
    préstamo interbibliotecario, pedido a los autores) y el enlace a la bandeja. Espera su
    respuesta: si los deja en la bandeja, continúa; si no, `ez continue --skip-missing`.
-2. **`NEEDS_USER_PDFS`**, después de descargar: muestra `pdf-request.md` como lista (título, año
-   y enlace) y pregúntale si tiene alguno; si no, `--skip-missing`.
+2. **`NEEDS_USER_PDFS`**, después de descargar, solo aparece si falta algún artículo clave
+   (`[clave]` en `pdf-request.md`): muestra esos como lista (título, año y enlace) y pregúntale
+   si tiene alguno; si no, `--skip-missing`. Los que no son clave quedan listados en
+   `pdf-request.md` y en el informe sin detener la investigación: no se los pidas uno por uno;
+   menciónalos en la entrega y ofrece sumarlos después con `ez research --update` si los consigue.
 3. Cada descarga fallida informa en `corpus_exclusions[].routes` qué rutas se probaron. Si
    aparece `unpaywall (missing_email)`, pide un correo de contacto y guárdalo con
    `ez setup --unpaywall-email`.
