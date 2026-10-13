@@ -369,7 +369,8 @@ class EstimateTests(unittest.TestCase):
         contract = {'plan': {'notebook_questions': [{}] * 4}}
         fresh, reused = estimate(contract), estimate(contract, reused=True)
         self.assertEqual(fresh['notebooklm_questions'], 4)
-        self.assertEqual(fresh['minutes'], [6, 11])
+        # Downloads and upload count since the live run of 2026-10-12 (they took 12 of its 30 minutes of work).
+        self.assertEqual(fresh['minutes'], [11, 27])
         self.assertLess(reused['minutes'][1], fresh['minutes'][1])
         self.assertIn('alrededor de un minuto', fresh['text'])
 

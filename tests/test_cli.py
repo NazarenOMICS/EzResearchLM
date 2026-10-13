@@ -152,7 +152,8 @@ class CliTests(unittest.TestCase):
 
             def fake_run(argv, timeout=60, **_):
                 return Result(1, '', 'No module named playwright') if argv[1:] == ['-c', 'import playwright'] else Result(1, '', 'auth')
-            with patch('ez.setup.executable', return_value=str(command)), patch('ez.setup.run', side_effect=fake_run):
+            with patch('ez.setup.executable', return_value=str(command)), patch('ez.setup.isolated_notebooklm', return_value=str(command)), \
+                    patch('ez.setup.run', side_effect=fake_run):
                 checks = prepare(Path(folder) / 'runs', check=True)
             self.assertTrue(checks['login_browser_missing'])
             self.assertIn('--install-notebooklm', checks['next_action'])
@@ -160,7 +161,8 @@ class CliTests(unittest.TestCase):
 
             def installed_run(argv, timeout=60, **_):
                 return Result(0, '', '') if argv[1:] == ['-c', 'import playwright'] else Result(1, '', 'auth')
-            with patch('ez.setup.executable', return_value=str(command)), patch('ez.setup.run', side_effect=installed_run):
+            with patch('ez.setup.executable', return_value=str(command)), patch('ez.setup.isolated_notebooklm', return_value=str(command)), \
+                    patch('ez.setup.run', side_effect=installed_run):
                 checks = prepare(Path(folder) / 'runs', check=True)
             self.assertFalse(checks['login_browser_missing'])
             self.assertEqual(checks['next_step']['id'], 'projects_dir')

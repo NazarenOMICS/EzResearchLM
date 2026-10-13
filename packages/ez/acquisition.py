@@ -55,6 +55,40 @@ def failure(response, prefix=b''):
     return None
 
 
+SHARED_CIRCUIT_SECONDS = 900
+
+
+def shared_circuit(folder):
+    """Hosts that rate-limited another source of this run in the last minutes.
+
+    Each source downloads in its own process, so a host's 429 was asked again by every source: CORE answered 429
+    fourteen times in one live run (2026-10-12).
+    """
+    if folder is None:
+        return set()
+    path = Path(folder) / 'circuit.json'
+    try:
+        hosts = json.loads(path.read_text(encoding='utf-8')) if path.is_file() else {}
+    except (OSError, ValueError):
+        return set()
+    return {host for host, until in hosts.items() if isinstance(until, (int, float)) and until > time.time()}
+
+
+def trip_shared_circuit(folder, host):
+    if folder is None:
+        return
+    path = Path(folder) / 'circuit.json'
+    try:
+        hosts = json.loads(path.read_text(encoding='utf-8')) if path.is_file() else {}
+    except (OSError, ValueError):
+        hosts = {}
+    hosts[host] = time.time() + SHARED_CIRCUIT_SECONDS
+    try:
+        atomic_json(path, hosts)
+    except OSError:
+        pass  # Parallel sources may write at once; losing one entry only costs one more request.
+
+
 class Retriever:
     def __init__(self, root, source_id, seconds=600, attempts=3, *, session=None, check_url=public_url):
         self.root = Path(root)
@@ -66,7 +100,9 @@ class Retriever:
         self.session.headers.update({'User-Agent': 'EZresearchLM/0.2 (academic acquisition; no access bypass)'})
         self.check_url = check_url
         self.history = []
-        self.circuit = set()
+        # Shared only among the sources of one run (<run>/acquisition/<source>); anywhere else it would leak across uses.
+        self.shared = self.root.parent if self.root.parent.name == 'acquisition' else None
+        self.circuit = set(shared_circuit(self.shared))
         self.location_metadata = {}
         self.consulted = {}
 
@@ -157,10 +193,12 @@ class Retriever:
                 except ValueError:
                     # Unknown/date-shaped limits must not be ignored by immediately retrying.
                     self.circuit.add(host)
+                    trip_shared_circuit(self.shared, host)
                     break
             if time.monotonic() + delay >= self.deadline or attempt == self.attempts:
                 if code == 'rate_limited':
                     self.circuit.add(host)
+                    trip_shared_circuit(self.shared, host)
                 break
             time.sleep(delay)
         return None, None

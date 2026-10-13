@@ -36,11 +36,42 @@ def validate_pdf(path):
         pages = len(reader.pages)
         for page in reader.pages:
             _ = page.mediabox
+        validator = 'pypdf-structural-v1'
     except Exception:
-        return {'status': 'invalid', 'reason': 'corrupt_pdf'}
+        # Strict parsing rejected readable publisher PDFs (a repeated /MediaBox, an xref not numbered from zero):
+        # the same Frontiers article was downloaded three times and discarded each time (2026-10-12). A PDF that a
+        # lenient parser and PDFium both open, with the same pages, is a readable PDF.
+        pages = lenient_pages(path)
+        if pages is None:
+            return {'status': 'invalid', 'reason': 'corrupt_pdf'}
+        if pages == 'encrypted':
+            return {'status': 'invalid', 'reason': 'encrypted_pdf'}
+        validator = 'pypdf-lenient-pdfium-v1'
     return {'status': 'valid', 'pages': pages, 'sha256': sha256(path.read_bytes()).hexdigest(),
-            'bytes': path.stat().st_size, 'validator': 'pypdf-structural-v1'}
+            'bytes': path.stat().st_size, 'validator': validator}
 
+
+def lenient_pages(path):
+    """Page count when both a lenient pypdf and PDFium read the file and agree; None otherwise."""
+    import logging
+    from pypdf import PdfReader
+    logging.getLogger('pypdf').setLevel(logging.ERROR)
+    try:
+        reader = PdfReader(str(path), strict=False)
+        if reader.is_encrypted:
+            return 'encrypted'
+        count = len(reader.pages)
+        for page in reader.pages:
+            _ = page.mediabox
+        import pypdfium2
+        document = pypdfium2.PdfDocument(str(path))
+        try:
+            same = len(document) == count
+        finally:
+            document.close()
+    except Exception:
+        return None
+    return count if count and same else None
 
 if __name__ == '__main__':
     import json

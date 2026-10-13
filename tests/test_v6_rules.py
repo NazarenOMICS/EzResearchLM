@@ -374,7 +374,8 @@ class SentenceTests(unittest.TestCase):
         from ez.audit import plain
         self.assertEqual(plain('A \\\\(30\\text{ }^\\circ\\text{C}\\\\), \\\\(\\text{OD}_{600} \\approx 10\\\\) y '
                                '\\\\(10^{6}\\\\) células con \\\\(\\Sigma\\text{FIC} \\leq 0.5\\\\) [1].'),
-                         'A 30 °C, OD600 ≈ 10 y 10^6 células con ΣFIC ≤ 0.5.')
+                         # Numeric sub- and superscripts keep their typography (charges such as Fe³⁺ need it).
+                         'A 30 °C, OD₆₀₀ ≈ 10 y 10⁶ células con ΣFIC ≤ 0.5.')
 
     def test_the_same_bullet_under_two_studies_stays_two_claims(self):
         from ez.audit import merge_repeated

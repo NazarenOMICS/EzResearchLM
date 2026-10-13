@@ -6,7 +6,7 @@ from pathlib import Path
 import sys
 
 from .contracts import now
-from .paths import executable
+from .paths import executable, isolated_notebooklm
 from .process import run
 from .notebook_format import valid_listing
 from .state import atomic_json, lock, read_json
@@ -36,7 +36,8 @@ INTRODUCTION = {
 def onboarding(checks):
     """First-use steps in order: who acts, whether it is done, and what the agent says to the user."""
     return [
-        {'id': 'notebooklm_installed', 'done': checks.get('notebooklm_installed', False) and not checks.get('login_browser_missing'),
+        {'id': 'notebooklm_installed', 'done': checks.get('notebooklm_installed', False) and not checks.get('login_browser_missing')
+                                     and not checks.get('notebooklm_foreign'),
          'who': 'EZ',
          'say': 'Voy a instalar la herramienta que conecta con NotebookLM; tarda uno o dos minutos y no toca tu configuración.',
          'command': 'ez setup --install-notebooklm'},
@@ -75,11 +76,39 @@ def notebooklm_python(command):
     return python if python.is_file() else None
 
 
-def start_login():
-    """Open the Google sign-in for NotebookLM in a process detached from the agent and return at once.
+def login_outcome(wait_seconds):
+    """The sign-in's state once it leaves «running», or «running» after wait_seconds."""
+    import time
+    deadline = time.monotonic() + wait_seconds
+    while True:
+        state = read_json(LOGIN_STATUS).get('state') if LOGIN_STATUS.is_file() else None
+        if state != 'running' or time.monotonic() >= deadline:
+            return state or 'running'
+        time.sleep(0.5)
+
+
+def renew_session(wait_seconds=90):
+    """Renew NotebookLM's saved session without the person, when the sign-in profile still holds a Google session.
+
+    NotebookLM's session expired overnight; EZ's own sign-in then finished in four seconds with no one at the window,
+    but nothing ran it, and the agent spent the morning trying other windows (2026-10-13).
+    """
+    if os.environ.get('EZRESEARCH_NO_SESSION_RENEWAL'):
+        return False  # Offline tests: never reach the real NotebookLM or open a window.
+    try:
+        started = start_login(wait_seconds=wait_seconds)
+    except ValueError:
+        return False
+    return started['login_status'] == 'ready'
+
+
+def start_login(wait_seconds=None):
+    """Open the Google sign-in for NotebookLM in a process detached from the agent; wait a moment for it to finish alone.
 
     An agent's shell tool may end the processes it started when the call returns; the sign-in can
     take minutes, so it runs on its own and leaves its outcome in LOGIN_STATUS for ez setup --check.
+    When the browser profile still holds a Google session the window closes by itself in seconds: that is success,
+    and the person and the agent read it as a failure (2026-10-13).
     """
     import subprocess
     command = executable('notebooklm')
@@ -104,6 +133,15 @@ def start_login():
     else:
         subprocess.Popen(argv, start_new_session=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                          stderr=subprocess.DEVNULL, close_fds=True)
+    outcome = login_outcome(float(os.environ.get('EZRESEARCH_LOGIN_WAIT_SECONDS', 12)) if wait_seconds is None else wait_seconds)
+    if outcome == 'ready':
+        return {'login_started': True, 'login_status': 'ready',
+                'next_action': 'NotebookLM renovó el acceso sin que la persona tuviera que entrar: la ventana se cerró sola '
+                               'porque la sesión de Google seguía activa. Sigue con lo que estabas haciendo.'}
+    if outcome != 'running':
+        return {'login_started': True, 'login_status': outcome,
+                'next_action': 'El inicio de sesión terminó sin acceso (' + outcome + '). Vuelve a correr ez setup --login y '
+                               'pide a la persona que complete el ingreso en la ventana de Google.'}
     return {'login_started': True, 'login_status': 'running', 'window_minutes': LOGIN_SECONDS // 60,
             'next_action': 'Se abrió una ventana de Google. Pide a la persona que entre con su cuenta y te avise; '
                            'después comprueba el acceso con ez setup --check.'}
@@ -204,6 +242,10 @@ def prepare(root, check=False, install_notebooklm=False, unpaywall_email=None, p
               'unpaywall_configured': bool(os.environ.get('PAPER_SEARCH_MCP_UNPAYWALL_EMAIL') or os.environ.get('UNPAYWALL_EMAIL'))}
     command = executable('notebooklm')
     checks['notebooklm_installed'] = bool(command)
+    if command and command != isolated_notebooklm():
+        # Another program's notebooklm on PATH served the live test of 2026-10-12: EZ never installed its own
+        # (pinned version, login browser) and the onboarding marked the step done.
+        checks['notebooklm_foreign'] = command
     if command:
         result = run([command, 'list', '--json'], timeout=30)
         recognized = True
@@ -224,6 +266,9 @@ def prepare(root, check=False, install_notebooklm=False, unpaywall_email=None, p
         checks['login_command'] = [sys.executable, '-m', 'ez', 'setup', '--login']
         if LOGIN_STATUS.is_file():
             checks['login_status'] = read_json(LOGIN_STATUS).get('state')
+            if checks['login_status'] == 'ready' and not checks['can_notebook_qa']:
+                # The record of an old sign-in said «ready» the next day while NotebookLM refused every call (2026-10-13).
+                checks['login_status'] = 'expired'
         if not checks['can_notebook_qa']:
             checks['login_browser_missing'] = login_browser_missing(command)
     if checks['can_notebook_qa']:

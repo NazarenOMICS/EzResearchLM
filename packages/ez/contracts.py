@@ -88,12 +88,19 @@ def estimate(contract, reused=False):
     minutes from scratch and under one when the project's PDFs were already loaded.
     """
     questions = len(contract['plan']['notebook_questions'])
-    preparation = (0.5, 1.5) if reused or contract['plan'].get('discovery_mode') == 'reuse_only' else (2, 4)
-    low, high = preparation[0] + questions * 0.9, preparation[1] + questions * 1.4
+    loaded = reused or contract['plan'].get('discovery_mode') == 'reuse_only'
+    preparation = (0.5, 1.5) if loaded else (2, 4)
+    # Downloading and loading PDFs into NotebookLM took most of the live run of 2026-10-12: about 9 s per download and
+    # 23 s per upload, 12 minutes for 18 PDFs, while the estimate (6 to 12 minutes in all) left them out.
+    pdfs = (0, 0) if loaded else (10, min(30, contract.get('budgets', {}).get('max_sources', DEFAULT_MAX_SOURCES)))
+    low = preparation[0] + pdfs[0] * 0.5 + questions * 0.9
+    high = preparation[1] + pdfs[1] * 0.55 + questions * 1.4
     return {'notebooklm_questions': questions, 'minutes': [round(low), round(high) + 1],
             'verification': 'Verificar afirmaciones para redactar suma 1 consulta cada 6 y unos 3 minutos cada 10.',
-            'text': f'Unas {questions} consultas a NotebookLM y entre {round(low)} y {round(high) + 1} minutos. Cada '
-                    'pregunta tarda alrededor de un minuto, igual que en la web de NotebookLM.'
+            'text': f'Unas {questions} consultas a NotebookLM y entre {round(low)} y {round(high) + 1} minutos. '
+                    + ('' if loaded else 'Descargar los PDFs y cargarlos en NotebookLM lleva la mayor parte: alrededor de '
+                                         'medio minuto por PDF. ')
+                    + 'Cada pregunta tarda alrededor de un minuto, igual que en la web de NotebookLM.'
                     + (' Además habrá una segunda ronda de cribado con los artículos que citan a los incluidos o que ellos '
                        'citan; ese tiempo todavía no está medido.' if contract['plan'].get('citation_expansion')
                        and contract['plan'].get('discovery_mode') != 'reuse_only' else '')}

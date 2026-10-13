@@ -245,12 +245,20 @@ LATEX_SYMBOLS = {**{name: chr(0x3B1 + i + (i > 16)) for i, name in enumerate(GRE
                  'prod': 'Π', 'infty': '∞', 'neq': '≠', 'ne': '≠', 'propto': '∝', 'log': 'log', 'ln': 'ln'}
 
 
+SUPERSCRIPT = str.maketrans('0123456789+-', '⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻')
+SUBSCRIPT = str.maketrans('0123456789', '₀₁₂₃₄₅₆₇₈₉')
+
+
 def delatex(math):
     """Inline LaTeX of a NotebookLM answer as plain text: «\\(10\\text{ }\\mu\\text{g/ml}\\)» becomes «10 µg/ml»."""
     text = re.sub(r'\\([A-Za-z]+)', lambda m: LATEX_SYMBOLS.get(m[1], m[0]), math)
     text = re.sub(r'\\(?:text|mathrm|mathit|mathbf|textit|textbf|operatorname)\{([^{}]*)\}', r'\1', text)
     text = text.replace('\\%', '%').replace('\\,', ' ').replace('\\;', ' ').replace('\\ ', ' ')
     text = re.sub(r'\^\{?°\}?', '°', text)
+    # Ion charges and formula subscripts («Fe^{3+}», «FeCl_3») stayed as raw LaTeX in 10 of 113 claims (2026-10-12).
+    text = re.sub(r'\^(?:\{(\d*[+-]?)\}|(\d))', lambda m: (m[1] if m[1] is not None else m[2]).translate(SUPERSCRIPT)
+                  if (m[1] or m[2]) else m[0], text)
+    text = re.sub(r'_(?:\{(\d+)\}|(\d))', lambda m: (m[1] or m[2]).translate(SUBSCRIPT), text)
     text = re.sub(r'_\{([A-Za-z0-9]+)\}', r'\1', text)
     text = re.sub(r'\^\{([+-]?\d+)\}', r'^\1', text)
     return re.sub(r'\s+', ' ', text).strip()

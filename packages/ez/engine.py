@@ -31,6 +31,8 @@ NOTEBOOK_SOURCE_LIMIT = 50
 PARALLEL_WORKERS = 4
 # How long EZ waits inside one call for NotebookLM to finish processing new PDFs.
 READINESS_WAIT_SECONDS = 240
+# The first question after an upload took more than 3 minutes with 18 PDFs and timed out (2026-10-12).
+QUESTION_SECONDS = 300
 READINESS_POLL_SECONDS = 10
 
 
@@ -145,8 +147,19 @@ class Engine:
                             'continúa más tarde con ez continue.', 3)
             auth = not result.reason and bool(re.search(r'authentication|not authenticated|unauthorized|accounts\.google|login required|session expired',
                                                        output))
-            raise Pause('auth_required' if auth else (result.reason or 'notebooklm_failed'),
-                        'Renueva el acceso con notebooklm login.' if auth else 'NotebookLM no completó la operación; la corrida conserva su checkpoint.', 2 if auth else 3)
+            if auth and not getattr(self, 'session_renewed', False):
+                # NotebookLM's session expires within a day; EZ's sign-in renews it alone while the Google profile is valid.
+                self.session_renewed = True
+                from .setup import renew_session
+                if renew_session():
+                    self.store.append('decision', {'kind': 'notebooklm_session_renewed', 'actor': 'ez'})
+                    return self.notebook(args, seconds)
+            if auth:
+                raise Pause('auth_required', 'NotebookLM pide volver a entrar y EZ no pudo renovar el acceso solo. Corre ez setup '
+                            '--login: si se abre la ventana de Google, la persona entra con su cuenta; si se cierra sola, el '
+                            'acceso ya se renovó. Comprueba con ez setup --check y continúa con ez continue. No abras '
+                            'NotebookLM en otro navegador: EZ no usa esa sesión.', 2)
+            raise Pause(result.reason or 'notebooklm_failed', 'NotebookLM no completó la operación; la corrida conserva su checkpoint.', 3)
         try:
             value = json.loads(result.stdout)
         except ValueError as exc:
@@ -549,7 +562,11 @@ class Engine:
                     'no los consigue, continúa con ez continue --skip-missing.', 2, PDF_CHOICES)
 
     def request_pdfs(self):
-        """Ask once, before anything is uploaded, for the included works EZ could not download."""
+        """Ask, before anything is uploaded, only for the key works EZ could not download; list the rest without stopping.
+
+        Stopping for every missing PDF made the person the downloader: 21 requests in a live run (2026-10-12). Ordinary
+        works go to pdf-request.md and the report; the person can add them later with ez research --update.
+        """
         if self.state.get('missing_pdfs_acknowledged'):
             return
         paths = self.import_inbox()
@@ -557,23 +574,31 @@ class Engine:
                    and s.get('validation_status') != 'valid']
         if not missing:
             return
+        required = {p['source_id'] for p in self.contract['source_policies'] if (p.get('effective_policy') or p['policy']) == 'hard_block'}
+        key = [s for s in missing if s.get('key') or s['source_id'] in required]
         rows = [{k: v for k, v in (('source_id', s['source_id']), ('title', s.get('title')), ('year', s.get('year')),
-                                   ('doi', s.get('doi')), ('reason', s.get('failure_code'))) if v} for s in missing]
+                                   ('doi', s.get('doi')), ('reason', s.get('failure_code')), ('key', bool(s in key) or None)) if v}
+                for s in key + [s for s in missing if s not in key]]
         lines = ['# PDFs que EZ no pudo descargar', '',
                  'Estos artículos entraron en la investigación pero no tienen una copia de acceso abierto que EZ pueda '
                  'bajar. Si tienes alguno (de tu biblioteca, tu institución o pedido a los autores), guárdalo en la bandeja '
-                 f'de tu proyecto: [{paths["inbox"]}]({paths["inbox_link"]}) y dile a EZ que siga. Si no, EZ sigue sin '
-                 'ellos y lo dice en el informe.', '']
+                 f'de tu proyecto: [{paths["inbox"]}]({paths["inbox_link"]}).'
+                 + (' Los marcados como clave son centrales para la pregunta: EZ espera tu decisión sobre ellos.' if key else
+                    ' Ninguno es clave: EZ siguió sin ellos y lo dice en el informe; puedes sumarlos después con ez research '
+                    '--update.'), '']
         for row in rows:
-            lines.append(f'- **{row.get("title") or row["source_id"]}**' + (f' ({row["year"]})' if row.get('year') else '')
-                         + f' — DOI {doi_link(row.get("doi"))}')
+            lines.append(f'- {"**[clave]** " if row.get("key") else ""}**{row.get("title") or row["source_id"]}**'
+                         + (f' ({row["year"]})' if row.get('year') else '') + f' — DOI {doi_link(row.get("doi"))}')
         atomic_json(self.folder / 'pdf-request.json', {'schema_version': '1.0', 'missing': rows})
         (self.folder / 'pdf-request.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
         self.checkpoint(missing_pdfs=[dict(r, doi_url=f'https://doi.org/{r["doi"]}' if r.get('doi') else None) for r in rows])
-        raise Pause('NEEDS_USER_PDFS', f'{len(missing)} artículos incluidos no tienen PDF de acceso abierto. Muéstrale al usuario la '
-                    'lista de pdf-request.md tal cual: título completo sin traducir ni resumir y el DOI de cada uno como enlace. '
-                    f'Agrega el enlace a su bandeja ({paths["inbox_link"]}). Si los consigue y los deja ahí, continúa: EZ los toma '
-                    'solo. Si no, continúa con ez continue --skip-missing.', 2, PDF_CHOICES)
+        if not key:
+            return
+        raise Pause('NEEDS_USER_PDFS', f'{len(key)} artículos clave no se pudieron descargar (y {len(missing) - len(key)} '
+                    'no clave, que no frenan la investigación). Muéstrale al usuario solo los clave de pdf-request.md: título '
+                    'completo sin traducir ni resumir y el DOI de cada uno como enlace. Agrega el enlace a su bandeja '
+                    f'({paths["inbox_link"]}). Si los consigue y los deja ahí, continúa: EZ los toma solo. Si no, continúa con '
+                    'ez continue --skip-missing.', 2, PDF_CHOICES)
 
     def confirm_identities(self):
         """Downloaded PDFs whose identity EZ could not confirm on its own go to a check, never silently out of the corpus.
@@ -629,6 +654,7 @@ class Engine:
             if not path.is_file() or sha256(path.read_bytes()).hexdigest() != source['content_sha256']:
                 raise Pause('NEEDS_TRACEABILITY_REPAIR', 'Un PDF cambió después de validarlo.', 4)
             title = upload_title(source)
+            before = (source.get('notebook_source_id'), source.get('upload_pending'))
             if shared:
                 matches = sorted((s for s in remote if s.get('id') == source.get('notebook_source_id') or same_content(s, source)),
                                  key=lambda s: (str(s.get('status', '')).lower() not in ('ready', 'completed', 'available'), s['id']))[:1]
@@ -663,7 +689,10 @@ class Engine:
                     raise Pause('remote_reconciliation', 'NotebookLM no devolvió un ID de fuente verificable.')
                 source['notebook_source_id'] = source_id
             source['upload_pending'] = False
-            self.save_sources()
+            # Each save writes the whole manifest into the journal: resuming re-saved 18 unchanged sources, 2 to 3 minutes
+            # each time, and the journal reached 95 MB (2026-10-12).
+            if (source.get('notebook_source_id'), source.get('upload_pending')) != before:
+                self.save_sources()
         self.register_notebook(verified)
         self.checkpoint('readiness')
         expected = {s['notebook_source_id'] for s in verified}
@@ -858,7 +887,7 @@ class Engine:
             for source_id in remote_ids:
                 args += ['--source', source_id]
             args += [question['text'] + '\nCita las fuentes que respaldan cada afirmación y declara explícitamente lo que el corpus no permite responder.']
-            response = self.notebook(args, 180)
+            response = self.notebook(args, QUESTION_SECONDS)
             path = qa_dir / (self.state['corpus_hash'][:12] + '-' + qhash[:12] + '.json')
             atomic_json(path, response)
             manifest['answers'].append({'question_id': question['id'], 'question_hash': qhash, 'scope_ids': question['scope_ids'],
@@ -926,7 +955,7 @@ class Engine:
             for source_id in sorted({r['source_id'] for c in batch for r in c['references']}):
                 args += ['--source', source_id]
             try:
-                response = self.notebook([*args, verification_prompt(batch)], 180)
+                response = self.notebook([*args, verification_prompt(batch)], QUESTION_SECONDS)
             except Pause as exc:
                 if exc.reason != 'question_too_long':
                     raise

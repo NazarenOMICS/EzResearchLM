@@ -1,5 +1,8 @@
 """Atomic projections, OS locks and a hash-chained authoritative event journal."""
+from collections import OrderedDict
 from contextlib import contextmanager
+from copy import deepcopy
+from hashlib import sha256
 import json
 import os
 from pathlib import Path
@@ -42,6 +45,10 @@ def atomic_json(path, value):
             os.unlink(temporary)
 
 
+BUSY_MESSAGE = ('Otra ejecución de EZ está trabajando en esta corrida ahora mismo; no es un bloqueo roto, se libera sola '
+                'cuando termina. Espera con ez wait <corrida> --seconds 290 y no la relances.')
+
+
 @contextmanager
 def lock(directory):
     directory = Path(directory)
@@ -60,7 +67,9 @@ def lock(directory):
                 import fcntl
                 fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError as exc:
-            raise ContractError('Esta corrida ya tiene un escritor activo.') from exc
+            # «ya tiene un escritor activo» read as a broken lock to an agent, which then worked around EZ (2026-10-12).
+            # The lock belongs to a live process: the system releases it the moment that process ends.
+            raise ContractError(BUSY_MESSAGE) from exc
         try:
             yield
         finally:
@@ -71,7 +80,9 @@ def lock(directory):
                 fcntl.flock(handle, fcntl.LOCK_UN)
 
 
-_VERIFIED_JOURNALS = set()
+# Verified journals of this process: path -> (bytes verified, their sha256, events). A few, as one can weigh 95 MB.
+_JOURNALS = OrderedDict()
+JOURNALS_KEPT = 4
 
 
 class Store:
@@ -80,16 +91,22 @@ class Store:
         self.journal = self.root / 'events.jsonl'
 
     def events(self):
+        """Every committed event, its hash chain verified.
+
+        Each commit read and re-verified the whole journal, which grew to 95 MB in one live run (2026-10-12): the cost of a
+        run grew with the square of its length. Verified events are kept per process together with the hash of the bytes
+        they came from; when the journal only grew, just the new lines are parsed and verified.
+        """
         if not self.journal.exists():
             return []
-        result = []
-        modified = self.journal.stat().st_mtime_ns
         raw = self.journal.read_bytes()
-        # Re-verifying every hash chain dominated ez recall (each run's journal, several times per call; 2026-10-12).
-        # A journal is trusted again only with the same path, bytes length and modification time.
-        key = (str(self.journal.resolve()), len(raw), modified)
-        verified = key in _VERIFIED_JOURNALS
-        lines = raw.splitlines(keepends=True)
+        key = str(self.journal.resolve())
+        cached = _JOURNALS.get(key)
+        result, start = [], 0
+        if cached and len(raw) >= cached[0] and sha256(raw[:cached[0]]).digest() == cached[1]:
+            result, start = list(cached[2]), cached[0]
+        end = start
+        lines = raw[start:].splitlines(keepends=True)
         for i, line in enumerate(lines):
             if not line.endswith(b'\n'):
                 if i == len(lines) - 1:
@@ -98,15 +115,17 @@ class Store:
             event = json.loads(line)
             if not isinstance(event, dict) or event.get('schema_version') != '2.0':
                 raise ContractError('La versión del journal no es compatible; no se modifica.')
-            if not verified:
-                event_hash = event.get('event_hash')
-                body = {k: v for k, v in event.items() if k != 'event_hash'}
-                if event_hash != digest(body) or event.get('seq') != len(result) + 1 or event.get('previous_hash') != (result[-1]['event_hash'] if result else None):
-                    raise ContractError('La integridad del journal no se puede verificar.')
+            event_hash = event.get('event_hash')
+            body = {k: v for k, v in event.items() if k != 'event_hash'}
+            if event_hash != digest(body) or event.get('seq') != len(result) + 1 or event.get('previous_hash') != (result[-1]['event_hash'] if result else None):
+                raise ContractError('La integridad del journal no se puede verificar.')
             result.append(event)
-        if self.journal.stat().st_mtime_ns == modified:
-            _VERIFIED_JOURNALS.add(key)
-        return result
+            end += len(line)
+        _JOURNALS[key] = (end, sha256(raw[:end]).digest(), result)
+        _JOURNALS.move_to_end(key)
+        while len(_JOURNALS) > JOURNALS_KEPT:
+            _JOURNALS.popitem(last=False)
+        return list(result)
 
     def append(self, kind, payload):
         """Caller must hold lock(root) for the entire operation."""
@@ -121,7 +140,6 @@ class Store:
                 offset = data.rfind(b'\n') + 1
                 # Preserve the incomplete tail for diagnosis before repairing it.
                 tail = data[offset:]
-                from hashlib import sha256
                 tail_path = self.root / ('interrupted-' + sha256(tail).hexdigest() + '.bin')
                 if not tail_path.exists():
                     tail_path.write_bytes(tail)
@@ -134,11 +152,12 @@ class Store:
         return event
 
     def state(self):
+        # A copy: callers update the state they get, and the verified events are kept for the next read.
         for event in reversed(self.events()):
             if event['kind'] == 'transaction':
-                return event['payload']['state']
+                return deepcopy(event['payload']['state'])
             if event['kind'] == 'state':
-                return event['payload']
+                return deepcopy(event['payload'])
         return None
 
     def recover(self, repair=False):

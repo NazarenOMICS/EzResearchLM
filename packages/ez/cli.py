@@ -23,7 +23,8 @@ from . import __version__
 OPERATOR_REMINDER = ('Reglas EZ: 1) literatura solo de EZ, con citation y [EZ:…]. 2) Seguimiento: lo entregado, luego ez recall, luego '
                      'ez ask; artículos nuevos solo con ez research. 3) Ni web ni memoria; dato externo pedido: «fuente externa, '
                      'no del corpus». 4) Borradores: ez draft y --check. 5) ez plan / ez screen; no editar la corrida. '
-                     '6) No leer docs/history.')
+                     '6) No leer docs/history. 7) NotebookLM solo con ez, nunca por su web. 8) Con EZ trabajando, no '
+                     'cierres el turno: espera con ez wait.')
 
 
 FULL = False  # --full: every detail in JSON answers; set by main() for each call
@@ -130,11 +131,43 @@ def emit(value, machine=False, reminder=True):
 
 def run_busy(folder):
     """True while another ez process holds the run (continue, ask, verify). The probe takes the lock for an instant."""
+    if not Path(folder).is_dir():
+        return False  # The probe must not create the folder: ez wait <id> left empty run folders in the agent's directory.
     try:
         with lock(folder):
             return False
     except ContractError:
         return True
+
+
+def run_folder(root, run):
+    """A run given by id lives under the runs root; only a path names a folder elsewhere.
+
+    ez wait <id> resolved the id against the agent's current directory (2026-10-12).
+    """
+    path = Path(run)
+    if path.is_absolute() or len(path.parts) > 1:
+        return path.resolve()
+    return contained(root, run)
+
+
+def progress(folder, state):
+    """«fase qa, preguntas 2 de 5»: where a run is, in words."""
+    contract = read_json(folder / 'research-contract.json') if (folder / 'research-contract.json').exists() else {}
+    total = len(contract.get('plan', {}).get('notebook_questions', []))
+    answered = len([p for p in (folder / 'qa').glob('*.json') if p.name != 'manifest.json']) if (folder / 'qa').is_dir() else 0
+    phase = f'fase {state.get("phase") or "inicial"}'
+    return phase + (f', preguntas a NotebookLM {min(answered, total)} de {total}' if total and state.get('phase') == 'qa' else '')
+
+
+def stopped(folder, state):
+    """A run whose state says running while no process holds it: the process died (the live test's ended at 02:50)."""
+    return (state.get('execution') or {}).get('status') == 'running' and not run_busy(folder)
+
+
+def stopped_action(folder, state):
+    return (f'El proceso de EZ se detuvo sin terminar ({progress(folder, state)}); lo ya hecho quedó guardado. Relanza una sola '
+            f'vez ez continue {folder.name} y espera con ez wait {folder.name} --seconds 290. Avísale a la persona.')
 
 
 def latest_run(root, project):
@@ -152,7 +185,9 @@ def wait_command(root, args):
     adds a few hundred characters to their context instead of a full status.
     """
     import time
-    folder = Path(args.run).resolve() if args.run else latest_run(root, args.project)
+    folder = run_folder(root, args.run) if args.run else latest_run(root, args.project)
+    if not (folder / 'research-contract.json').exists():
+        raise ContractError(f'No se encontró la corrida {args.run} en {root}. Usa su identificador o su ruta completa.')
     deadline = time.monotonic() + max(1, args.seconds)
     busy = run_busy(folder)
     while busy and time.monotonic() < deadline:
@@ -169,6 +204,8 @@ def wait_command(root, args):
     if busy:
         value['next_action'] = ('EZ sigue trabajando. Vuelve a correr este mismo ez wait; no relances la corrida ni '
                                 'consultes procesos, y no le escribas a la persona en cada espera.')
+    elif stopped(folder, state):
+        value.update(stopped=True, next_action=stopped_action(folder, state))
     else:
         value['next_action'] = state.get('next_action') or 'Lee ez status <corrida> --json.'
     emit(value, args.json, reminder=not busy)
@@ -665,6 +702,10 @@ def draft_command(folder, args):
     from .presenter import claim_citation
     state = Store(folder).state()
     if not state or state.get('answer', {}).get('status') not in ('complete', 'partial'):
+        if run_busy(folder):
+            # In the live test the agent wrote the paragraph anyway, from NotebookLM's web page, while EZ was still answering.
+            raise ContractError(f'La investigación sigue en curso ({progress(folder, state or {})}). Espera con ez wait '
+                                f'{folder.name} --seconds 290 y redacta cuando termine; no escribas el borrador por otra vía.')
         raise ContractError('Todavía no hay afirmaciones verificadas para redactar.')
     answer = read_json(folder / 'answer.json')
     if answer.get('contract_hash') != state['contract_hash'] or answer.get('corpus_hash') != state.get('corpus_hash') \
@@ -710,6 +751,56 @@ def draft_command(folder, args):
              if answer.get('delivery') == 'direct' else {}),
           'next_action': 'Redacta solo con estas afirmaciones; cita cada una con su autor y año (citation) seguido de su '
                          'marcador, y comprueba el borrador con ez draft <corrida> --check <archivo>.'}, args.json)
+    return 0
+
+
+# Commands that can run for minutes. They run in a worker detached from the agent's terminal: in the live test of
+# 2026-10-12 the agent's tool ended ez continue with its turn, after the first of five questions, and the run sat
+# eleven hours as «running».
+BACKGROUND_COMMANDS = ('continue', 'screen', 'ask')
+FOREGROUND_SECONDS = 25
+
+
+def spawn_worker(root, argv):
+    """Start `ez <argv>` as its own process, outside the caller's console and job, with its output in a log file."""
+    import os
+    import subprocess
+    import time
+    logs = root.parent / 'workers'
+    logs.mkdir(parents=True, exist_ok=True)
+    log = logs / f'{time.strftime("%Y%m%dT%H%M%S")}-{os.getpid()}-{uuid4().hex[:6]}.log'
+    env = dict(os.environ, EZRESEARCH_WORKER='1', PYTHONIOENCODING='utf-8')
+    command = [sys.executable, '-m', 'ez.cli', *argv, '--root', str(root)]
+    with log.open('wb') as output:
+        options = dict(stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT, env=env, close_fds=True)
+        if os.name == 'nt':
+            flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+            try:
+                # Leaving the agent's job object, when it allows it, is what keeps the worker alive after the agent's call.
+                process = subprocess.Popen(command, creationflags=flags | subprocess.CREATE_BREAKAWAY_FROM_JOB, **options)
+            except OSError:
+                process = subprocess.Popen(command, creationflags=flags, **options)
+        else:
+            process = subprocess.Popen(command, start_new_session=True, **options)
+    return process, log
+
+
+def in_background(root, argv, args):
+    """Run a long command in a worker; answer as the command would if it ends soon, else say it keeps running."""
+    import time
+    process, log = spawn_worker(root, argv)
+    deadline = time.monotonic() + FOREGROUND_SECONDS
+    while process.poll() is None and time.monotonic() < deadline:
+        time.sleep(0.2)
+    if process.poll() is not None:
+        print(log.read_text(encoding='utf-8', errors='replace'), end='')
+        return process.returncode
+    target = f'--project {args.project}' if args.command == 'ask' else Path(args.run).name
+    emit({'kind': 'background', 'command': args.command, 'running': True, 'pid': process.pid, 'log': str(log),
+          'next_action': f'EZ sigue trabajando en un proceso propio, que no depende de esta terminal. Espera con ez wait {target} '
+                         '--seconds 290 usando la espera más larga de tu herramienta; no cierres tu turno, no relances el '
+                         'comando y no consultes NotebookLM por otra vía. Avísale a la persona solo cuando cambie de etapa.'},
+         getattr(args, 'json', False), reminder=False)
     return 0
 
 
@@ -779,6 +870,10 @@ def main(argv=None):
     load_environment()
     root = (args.root or data_root()).expanduser().resolve()
     load_user_config(root)
+    import os
+    if args.command in BACKGROUND_COMMANDS and not os.environ.get('EZRESEARCH_WORKER') \
+            and not os.environ.get('EZRESEARCH_FOREGROUND') and not getattr(args, 'check', False):
+        return in_background(root, list(sys.argv[1:] if argv is None else argv), args)
     try:
         guide = runtime_root() / 'docs/ez-user-guide.md'
         if args.guide:
@@ -870,7 +965,7 @@ def main(argv=None):
                 emit(dict(state, path=str(folder)), args.json)
                 return 0 if args.plan_only else 2
         else:
-            folder = Path(args.run).resolve() if Path(args.run).is_dir() else contained(root, args.run)
+            folder = run_folder(root, args.run)
             if not folder.is_dir():
                 raise ContractError('No se encontró la corrida. Usa su identificador o ruta.')
             if not (folder / 'research-contract.json').exists():
@@ -904,7 +999,18 @@ def main(argv=None):
                     if report.get('support_protocol') not in CURRENT_PROTOCOLS:
                         emit(dict(pending_passage_review(state), snapshot_only=True), args.json)
                         return 2
+                if stopped(folder, state):
+                    emit(dict(state, snapshot_only=True, stopped=True, next_action=stopped_action(folder, state)), args.json)
+                    return 0
                 emit(dict(state, snapshot_only=True), args.json)
+                return 0
+            if args.command == 'status' and run_busy(folder):
+                # status --answer took the run's lock and failed with «escritor activo» while EZ was answering (2026-10-12).
+                state = Store(folder).state() or {}
+                emit(dict(state, snapshot_only=True, running=True,
+                          next_action=f'EZ sigue trabajando ({progress(folder, state)}). Espera con ez wait {folder.name} '
+                                      '--seconds 290; la respuesta aparece cuando termine. No consultes NotebookLM por otra vía.'),
+                     args.json)
                 return 0
             with lock(folder):
                 if args.command == 'doctor':

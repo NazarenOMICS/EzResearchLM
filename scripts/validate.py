@@ -22,6 +22,9 @@ def main():
               'authenticated_e2e': False, 'suites': [], 'status': 'running'}
     env = os.environ.copy()
     env['PYTHONPATH'] = os.pathsep.join([str(ROOT / 'packages'), str(ROOT / 'packages/paper_search'), env.get('PYTHONPATH', '')])
+    # The same offline settings as tests/__init__.py, which `discover -s tests` does not import: long commands in the
+    # foreground (a detached worker would not see the tests' service doubles), no real NotebookLM session renewal.
+    env.update(EZRESEARCH_FOREGROUND='1', EZRESEARCH_LOGIN_WAIT_SECONDS='0', EZRESEARCH_NO_SESSION_RENEWAL='1')
     code = 1
     try:
         for folder in ('packages', 'scripts'):

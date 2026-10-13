@@ -23,9 +23,10 @@ class DownloadDiagnosticsTests(unittest.TestCase):
         with lock(self.folder):
             store = Store(self.folder); state = store.state()
             sources = read_json(self.folder / 'sources.json')
+            # A key work: only those stop the research for missing PDFs (test_live_fixes covers ordinary ones).
             sources.append({'source_id': 'paid', 'title': 'Artículo pago', 'doi': '10.1/paid', 'acquisition_status': 'pending',
                             'screening': 'include', 'validation_status': 'unknown', 'identity_status': 'unknown',
-                            'notebook_status': 'pending'})
+                            'notebook_status': 'pending', 'key': True})
             state['sources_hash'] = digest(sources)
             store.commit(state, {'sources.json': sources})
         def run(args, **kwargs):

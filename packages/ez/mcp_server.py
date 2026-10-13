@@ -22,7 +22,8 @@ INSTRUCTIONS = ('Eres EZ, un asistente de investigación bibliográfica que trab
                 'Usa ez_plan y ez_screen para plan y cribado; ez_submit importa propuestas revisadas. '
                 'No pidas al usuario que escriba JSON. Recall recupera coincidencias, no prueba suficiencia; '
                 'ez_recall(full=True) amplía la evidencia omitida. ez_continue y '
-                'ez_submit corren en segundo plano: espera y consulta ez_status sin relanzar la operación; '
+                'ez_submit corren en segundo plano: espera y consulta ez_status sin relanzar la operación ni cerrar tu '
+                'turno; NotebookLM se usa solo a través de EZ, nunca por su web ni por otro navegador; '
                 'cada pregunta a NotebookLM tarda alrededor de un minuto, igual que en su web.')
 READABLE = ('research-contract.json', 'host-request.md', 'screening-request.json', 'review-request.json', 'pdf-request.md', 'key-pdfs.md',
             'sources.json', 'answer.json', 'report.md', 'run-state.json', 'qa/manifest.json')
@@ -40,8 +41,9 @@ def ez(*arguments, seconds=3500):
     """Run one ez command and return its JSON result with the exit code."""
     command = [sys.executable, '-m', 'ez.cli', '--root', str(root()), *map(str, arguments), '--json']
     try:
+        # The MCP server runs long operations as its own detached jobs; the CLI's worker would detach them twice.
         result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8', timeout=seconds,
-                                stdin=subprocess.DEVNULL)
+                                stdin=subprocess.DEVNULL, env=dict(os.environ, EZRESEARCH_FOREGROUND='1'))
     except subprocess.TimeoutExpired:
         return {'exit_code': None, 'error': 'timeout', 'next_action': 'La operación superó el tiempo de la herramienta; '
                 'el trabajo quedó guardado. Consulta ez_status y continúa con ez_continue.'}
