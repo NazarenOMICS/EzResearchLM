@@ -138,6 +138,11 @@ def start_login(wait_seconds=None):
         return {'login_started': True, 'login_status': 'ready',
                 'next_action': 'NotebookLM renovó el acceso sin que la persona tuviera que entrar: la ventana se cerró sola '
                                'porque la sesión de Google seguía activa. Sigue con lo que estabas haciendo.'}
+    if outcome == 'browser_missing':
+        return {'login_started': True, 'login_status': outcome,
+                'next_action': 'Falta el navegador del inicio de sesión (Chromium). Corre ez setup --install-notebooklm, '
+                               'que lo descarga (unos 200 MB, varios minutos; espera con tu espera más larga), y vuelve a '
+                               'abrir el inicio de sesión con ez setup --login. No hace falta revisar el código de EZ.'}
     if outcome != 'running':
         return {'login_started': True, 'login_status': outcome,
                 'next_action': 'El inicio de sesión terminó sin acceso (' + outcome + '). Vuelve a correr ez setup --login y '
@@ -171,12 +176,23 @@ def run_login():
     return state
 
 
+BROWSER_PATH = ('from playwright.sync_api import sync_playwright\n'
+                'with sync_playwright() as p:\n'
+                '    print(p.chromium.executable_path)')
+
+
 def login_browser_missing(command):
-    """True when the NotebookLM environment lacks Playwright; unknown layouts (pipx, uv) are not flagged."""
+    """True when the NotebookLM environment lacks Playwright or the Chromium build that Playwright version needs.
+
+    Importing Playwright was not enough: a clean install had the module and no browser (2026-10-19).
+    Unknown layouts (pipx, uv) are not flagged.
+    """
     python = notebooklm_python(command)
     if not python:
         return False
-    return run([str(python), '-c', 'import playwright'], timeout=30).returncode != 0
+    found = run([str(python), '-c', BROWSER_PATH], timeout=60)
+    lines = found.stdout.strip().splitlines() if found.returncode == 0 else []
+    return not lines or not Path(lines[-1].strip()).is_file()
 
 
 def write_install_pointer(root):
@@ -210,6 +226,14 @@ def prepare(root, check=False, install_notebooklm=False, unpaywall_email=None, p
             atomic_json(runtime / 'ez-install-receipt.json', receipt)
             if installed.returncode:
                 raise OSError('No se pudo instalar NotebookLM; el recibo conserva el diagnóstico y permite reintentar.')
+            # The pinned Playwright needs its own Chromium; without it the sign-in window failed at once with a bare
+            # «failed: Error» on a clean install (2026-10-19), and the agent spent minutes reading EZ's code to find it.
+            browser = run([str(python), '-m', 'playwright', 'install', 'chromium'], timeout=900)
+            receipt.update(browser_exit_code=browser.returncode, browser_reason=browser.reason)
+            atomic_json(runtime / 'ez-install-receipt.json', receipt)
+            if browser.returncode:
+                raise OSError('NotebookLM quedó instalado, pero no se pudo descargar el navegador del inicio de sesión '
+                              '(Chromium, unos 200 MB). Vuelve a correr ez setup --install-notebooklm: retoma lo que falta.')
     from .workspace import config_path, home, leave_moved_notes, projects_home, relocate_projects
     config = config_path(root)
     moved_from = None
@@ -276,7 +300,7 @@ def prepare(root, check=False, install_notebooklm=False, unpaywall_email=None, p
     elif checks.get('notebooklm_failure') == 'invalid_notebooklm_output':
         checks['next_action'] = 'NotebookLM respondió con un formato no reconocido. EZ debe comprobar la versión compatible antes de iniciar una investigación.'
     elif checks.get('login_browser_missing'):
-        checks['next_action'] = ('A la instalación de NotebookLM le falta el navegador del login (Playwright): sin él la ventana '
+        checks['next_action'] = ('A la instalación de NotebookLM le falta el navegador del login (Playwright o su Chromium): sin él la ventana '
                                  'se cierra sola. Repárala con ez setup --install-notebooklm y después abre el login.')
     elif checks['notebooklm_installed']:
         checks['next_action'] = ('Puedes preparar el corpus. Para consultar la evidencia, abre el acceso con ez setup --login: '

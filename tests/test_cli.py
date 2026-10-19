@@ -150,8 +150,10 @@ class CliTests(unittest.TestCase):
             command.write_text('')
             (scripts / ('python.exe' if os.name == 'nt' else 'python')).write_text('')
 
+            from ez.setup import BROWSER_PATH
+
             def fake_run(argv, timeout=60, **_):
-                return Result(1, '', 'No module named playwright') if argv[1:] == ['-c', 'import playwright'] else Result(1, '', 'auth')
+                return Result(1, '', 'No module named playwright') if argv[1:] == ['-c', BROWSER_PATH] else Result(1, '', 'auth')
             with patch('ez.setup.executable', return_value=str(command)), patch('ez.setup.isolated_notebooklm', return_value=str(command)), \
                     patch('ez.setup.run', side_effect=fake_run):
                 checks = prepare(Path(folder) / 'runs', check=True)
@@ -160,7 +162,8 @@ class CliTests(unittest.TestCase):
             self.assertEqual(checks['next_step']['id'], 'notebooklm_installed')
 
             def installed_run(argv, timeout=60, **_):
-                return Result(0, '', '') if argv[1:] == ['-c', 'import playwright'] else Result(1, '', 'auth')
+                # Playwright and the Chromium it needs (any existing file stands for the browser executable).
+                return Result(0, str(command) + '\n', '') if argv[1:] == ['-c', BROWSER_PATH] else Result(1, '', 'auth')
             with patch('ez.setup.executable', return_value=str(command)), patch('ez.setup.isolated_notebooklm', return_value=str(command)), \
                     patch('ez.setup.run', side_effect=installed_run):
                 checks = prepare(Path(folder) / 'runs', check=True)

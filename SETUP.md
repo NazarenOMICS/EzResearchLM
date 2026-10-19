@@ -20,11 +20,19 @@ su `ez`. Si no, el agente te pregunta dónde instalarlo (propone `Documents\EZre
 clona el repositorio ahí y prepara un entorno separado dentro del clon:
 
 ```powershell
+git clone https://github.com/NazarenOMICS/EzResearchLM.git "$env:USERPROFILE\Documents\EZresearchLM"
+Set-Location "$env:USERPROFILE\Documents\EZresearchLM"
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -c requirements.lock .
 .\.venv\Scripts\ez.exe setup --check
 .\.venv\Scripts\ez.exe setup
 ```
+
+Corre cada línea dentro de la carpeta del clon (`Set-Location`): en una prueba (2026-10-19) el
+entorno se creó en la carpeta de arriba porque la terminal no estaba en el clon. `pip install`
+tarda uno a tres minutos y `ez setup --install-notebooklm` varios más, porque descarga también
+el navegador del inicio de sesión (Chromium, unos 200 MB): dale a cada llamada tu espera más
+larga, nunca menos de 300 s.
 
 `ez setup` escribe `~/.ezresearch/install.json`, así un chat nuevo encuentra EZ sin
 preguntarte. La bienvenida aparece con `.\.venv\Scripts\ez.exe`; la guía completa, con

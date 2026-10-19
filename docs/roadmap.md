@@ -537,3 +537,18 @@ corrección tiene un test que falló antes (`tests/test_live_fixes.py`):
     incremental (solo los eventos nuevos).
 12. Cargas iónicas y subíndices de LaTeX se convierten (`Fe³⁺`, `FeCl₃`); las preguntas a
     NotebookLM esperan hasta 5 minutos; la estimación cuenta descargas y carga de PDFs.
+
+### Instalación desde cero (2026-10-19)
+
+En una instalación limpia, la ventana de inicio de sesión falló dos veces con «failed: Error» y el
+agente tardó unos seis minutos, leyendo el código de EZ, en descubrir que faltaba el Chromium que
+exige la versión fijada de Playwright. Corregido, con tests en `tests/test_fresh_install.py`:
+
+1. `ez setup --install-notebooklm` también descarga ese navegador (`playwright install chromium`)
+   y, si la descarga falla, lo dice y se puede reintentar.
+2. `login_browser_missing` comprueba que exista el ejecutable del navegador, no solo que se
+   importe Playwright.
+3. La ventana de inicio de sesión informa `browser_missing`, y `ez setup --login` indica el
+   comando que lo resuelve.
+4. `SETUP.md` entra a la carpeta del clon antes de crear el entorno (el entorno había quedado en
+   `Documents\.venv`) y pide esperas de al menos 300 s para la instalación.

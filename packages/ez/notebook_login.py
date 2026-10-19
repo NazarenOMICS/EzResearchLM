@@ -52,10 +52,20 @@ def main(seconds):
                 pass
 
 
+def outcome_of(exc):
+    """A failure the agent can act on: «failed: Error» hid a missing Chromium on a clean install (2026-10-19)."""
+    text = str(exc).casefold()
+    if "executable doesn't exist" in text or 'playwright install' in text or isinstance(exc, ImportError):
+        return 'browser_missing'
+    if 'closed' in text:
+        return 'browser_closed'
+    return 'failed: ' + type(exc).__name__
+
+
 if __name__ == '__main__':
     try:
         outcome = main(int(sys.argv[1]) if len(sys.argv) > 1 else 600)
-    except Exception as exc:  # the window was closed mid-navigation, Playwright missing, …
-        outcome = 'browser_closed' if 'closed' in str(exc).casefold() else 'failed: ' + type(exc).__name__
+    except Exception as exc:  # the window was closed mid-navigation, Playwright or its browser missing, …
+        outcome = outcome_of(exc)
     print(json.dumps({'outcome': outcome}))
     sys.exit(0 if outcome == 'signed_in' else 1)
