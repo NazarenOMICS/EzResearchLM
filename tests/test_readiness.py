@@ -53,8 +53,11 @@ class LegacyConfigStaysReadable(unittest.TestCase):
                                                              'unpaywall_email': 'a@b.org'}), encoding='utf-8')
             self.assertEqual(projects_home(root), base / 'visible')
             with patch.dict('os.environ', {}, clear=False):
-                load_user_config(root)
                 import os
+                # The person's own config may already have set it earlier in the suite.
+                os.environ.pop('PAPER_SEARCH_MCP_UNPAYWALL_EMAIL', None)
+                os.environ.pop('UNPAYWALL_EMAIL', None)
+                load_user_config(root)
                 self.assertEqual(os.environ.get('PAPER_SEARCH_MCP_UNPAYWALL_EMAIL'), 'a@b.org')
 
 

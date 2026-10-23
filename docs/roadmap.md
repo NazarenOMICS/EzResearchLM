@@ -552,3 +552,16 @@ exige la versión fijada de Playwright. Corregido, con tests en `tests/test_fres
    comando que lo resuelve.
 4. `SETUP.md` entra a la carpeta del clon antes de crear el entorno (el entorno había quedado en
    `Documents\.venv`) y pide esperas de al menos 300 s para la instalación.
+
+### Kit de la comparación A3 (2026-10-23)
+
+1. `gold_set_benchmark/a3_protocolo.md` fija el pedido común, las condiciones de cada sistema
+   (EZ con y sin el PDF importado en M2, ChatGPT con búsqueda en chat temporal, NotebookLM
+   manual con los PDFs del corpus de EZ), el cronometraje y el registro.
+2. `gold_set_benchmark/a3.py` corta las respuestas en afirmaciones, arma la planilla ciega
+   mezclada al azar con su clave aparte, comprueba los DOIs, sortea el repuntaje del 20 % y
+   genera el informe por sistema y misión: referencias inventadas, respaldo completo con su
+   IC 95 %, prohibidas, artículos clave, lagunas y minutos. Tests en `tests/test_a3.py`.
+3. Antes de correr A3 falta validar y congelar el gold set: ninguna casilla de
+   `validacion.md` está marcada. También hay que decidir si se puntúan todas las afirmaciones
+   (regla 3.1) o una muestra fija por respuesta.
